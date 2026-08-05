@@ -1,0 +1,61 @@
+import os
+from functools import lru_cache
+from typing import List, Union
+from pydantic import AnyHttpUrl, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=True,
+    )
+
+    # --- Core Application ---
+    ENVIRONMENT: str = "local"
+    PROJECT_NAME: str = "Chatbot BVBank AI Service"
+    API_V1_STR: str = "/api/v1"
+
+    # API Key để xác thực request nội bộ (rỗng = tắt auth, dùng cho dev mode)
+    REQUIRED_API_KEY: str = ""
+    
+    # CORS Origins (Hỗ trợ string phân cách bằng phẩy hoặc list)
+    BACKEND_CORS_ORIGINS: Union[List[str], str] = ["http://localhost", "http://localhost:5173"]
+
+    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, (list, str)):
+            return v
+        raise ValueError(v)
+
+    # --- Database Config ---
+    SQLSERVER_CONNECTIONSTRING: str = ""
+
+    # --- AI Provider Config ---
+    AI_PROVIDER: str  # Lựa chọn: gemini | vllm | azure_openai
+    FALLBACK_AI_PROVIDER: str | None = None
+    TEST_PROVIDER: str
+
+    # --- Local / vLLM API Config ---
+    LLM_MODEL: str
+    LLM_API_BASE: str = "http://localhost:11434/v1"
+
+    # --- Gemini API Config ---
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_API_BASE: str = "https://generativelanguage.googleapis.com"
+
+    TAVILY_API_KEY: str = ""
+
+
+@lru_cache
+def get_settings() -> Settings:
+    """Trả về Singleton instance của Settings được cache."""
+    return Settings()
+
+# Instance cài đặt sẵn cho việc import tiện lợi
+settings = get_settings()
