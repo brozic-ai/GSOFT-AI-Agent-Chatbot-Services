@@ -25,16 +25,16 @@ async def lifespan(app: FastAPI):
     Shutdown: Giải phóng connections, reset cache.
     """
     # ── Startup ──
-    logger.info("🚀 Starting '%s' [env=%s]...", settings.PROJECT_NAME, settings.ENVIRONMENT)
+    logger.info("[START] Starting '%s' [env=%s]...", settings.PROJECT_NAME, settings.ENVIRONMENT)
     await _startup()
-    logger.info("🚀 Application '%s' started successfully.", settings.PROJECT_NAME)
+    logger.info("[START] Application '%s' started successfully.", settings.PROJECT_NAME)
 
     yield
 
     # ── Shutdown ──
-    logger.info("🛑 Shutting down '%s'...", settings.PROJECT_NAME)
+    logger.info("[STOP] Shutting down '%s'...", settings.PROJECT_NAME)
     await _shutdown()
-    logger.info("🛑 Application shutdown completed.")
+    logger.info("[STOP] Application shutdown completed.")
 
 
 async def _startup() -> None:
@@ -45,20 +45,18 @@ async def _startup() -> None:
         from app.routers.dependencies import get_llm_provider_dep
 
         provider = get_llm_provider_dep()
-        logger.info("✅ LLM Provider ready: %s", type(provider).__name__)
+        logger.info("[OK] LLM Provider ready: %s", type(provider).__name__)
     except Exception as ex:
-        logger.error("❌ Failed to initialize LLM Provider: %s", ex, exc_info=True)
+        logger.error("[FAIL] Failed to initialize LLM Provider: %s", ex, exc_info=True)
         # Không crash app — cho phép health check vẫn hoạt động
 
     # 2. Database
-    # TODO: Uncomment khi implement core/database.py
-    # try:
-    #     from app.core.database import DatabaseManager
-    #     db = DatabaseManager(settings.SQLSERVER_CONNECTIONSTRING)
-    #     db.initialize()
-    #     logger.info("✅ Database schema initialized successfully")
-    # except Exception as ex:
-    #     logger.error("❌ Failed to initialize database: %s", ex, exc_info=True)
+    try:
+        from app.core.database import init_db
+        init_db()
+        logger.info("[OK] Database schema initialized successfully.")
+    except Exception as ex:
+        logger.error("[FAIL] Failed to initialize database: %s", ex, exc_info=True)
 
 
 async def _shutdown() -> None:
@@ -70,8 +68,10 @@ async def _shutdown() -> None:
     _reset_caches()
 
     # 2. Database connections
-    # TODO: Uncomment khi implement core/database.py
-    # from app.core.database import DatabaseManager
-    # DatabaseManager.close_all()
+    try:
+        from app.core.database import close_db
+        close_db()
+    except Exception as ex:
+        logger.error("[FAIL] Failed to close database connection: %s", ex, exc_info=True)
 
-    logger.info("🔄 All resources released.")
+    logger.info("[DONE] All resources released.")

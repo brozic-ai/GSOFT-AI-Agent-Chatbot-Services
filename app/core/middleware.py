@@ -42,7 +42,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         )
 
         logger.info(
-            "▶ %s %s [client=%s]",
+            "--> %s %s [client=%s]",
             request.method,
             request.url.path,
             client_ip,
@@ -52,7 +52,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         duration_ms = (time.perf_counter() - start_time) * 1000
         logger.info(
-            "◀ %s %s → %s (%.1fms)",
+            "<-- %s %s -> %s (%.1fms)",
             request.method,
             request.url.path,
             response.status_code,
@@ -104,7 +104,7 @@ class APIKeyAuthMiddleware(BaseHTTPMiddleware):
         provided_key = request.headers.get("X-Internal-Api-Key", "")
         if provided_key != required_key:
             logger.warning(
-                "⛔ Unauthorized request: %s %s [client=%s]",
+                "[DENIED] Unauthorized request: %s %s [client=%s]",
                 request.method,
                 request.url.path,
                 request.client.host if request.client else "unknown",
@@ -133,7 +133,7 @@ class GlobalExceptionMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         except Exception as exc:
             logger.error(
-                "💥 Unhandled exception on %s %s: %s\n%s",
+                "[ERROR] Unhandled exception on %s %s: %s\n%s",
                 request.method,
                 request.url.path,
                 str(exc),

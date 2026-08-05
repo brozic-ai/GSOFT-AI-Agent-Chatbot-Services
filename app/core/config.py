@@ -33,7 +33,11 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     # --- Database Config ---
-    SQLSERVER_CONNECTIONSTRING: str = ""
+    SQLSERVER_CONNECTIONSTRING: str = (
+        "Server=LAPTOP-BE44K422\\MSSQLSERVER01;Database=gAMSPro_BVB_AI_V1_LIVE_04082026_1;"
+        "Trusted_Connection=yes;"
+        "TrustServerCertificate=yes;"
+    )
 
     # --- AI Provider Config ---
     AI_PROVIDER: str  # Lựa chọn: gemini | vllm
@@ -53,7 +57,6 @@ class Settings(BaseSettings):
     GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com"
 
     TAVILY_API_KEY: str = ""
-
 
 @lru_cache
 def get_settings() -> Settings:

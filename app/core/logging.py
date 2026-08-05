@@ -28,11 +28,45 @@ _ENV_LOG_LEVELS = {
 
 # Format cho từng môi trường
 _DEV_FORMAT = (
-    "%(asctime)s │ %(levelname)-8s │ %(name)s:%(lineno)d │ %(message)s"
+    "%(levelname)-8s │ %(asctime)s │ %(location)s │ %(message)s"
 )
 _PROD_FORMAT = (
-    "%(asctime)s │ %(levelname)-8s │ %(name)s │ %(message)s"
+    "%(levelname)-8s │ %(asctime)s │ %(location)s │ %(message)s"
 )
+
+# ANSI Color Codes
+_COLORS = {
+    "DEBUG":    "\033[36m",   # Cyan
+    "INFO":     "\033[32m",   # Green
+    "WARNING":  "\033[33m",   # Yellow
+    "ERROR":    "\033[31m",   # Red
+    "CRITICAL": "\033[1;31m", # Bold Red
+}
+_RESET = "\033[0m"
+
+
+class ColoredFormatter(logging.Formatter):
+    """Formatter tùy chỉnh thêm màu ANSI và căn chỉnh cột cố định cho terminal."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        # 1. Tô màu cho levelname
+        color = _COLORS.get(record.levelname, "")
+        record.levelname = f"{color}{record.levelname:<8}{_RESET}"
+
+        # 2. Căn lề độ rộng cố định cho tên logger + số dòng (32 ký tự)
+        loc = f"{record.name}:{record.lineno}"
+        record.location = f"{loc:<32}"
+
+        return super().format(record)
+
+
+class PlainFormatter(logging.Formatter):
+    """Formatter căn chỉnh cột cố định (không dùng màu ANSI)."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        loc = f"{record.name}:{record.lineno}"
+        record.location = f"{loc:<32}"
+        return super().format(record)
 
 
 def setup_logging(
@@ -67,7 +101,13 @@ def setup_logging(
     # Console handler — ghi ra stdout
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
-    console_handler.setFormatter(logging.Formatter(log_format, datefmt="%Y-%m-%d %H:%M:%S"))
+
+    # Dùng ColoredFormatter cho local/dev, PlainFormatter cho production
+    if env in ("local", "development"):
+        console_handler.setFormatter(ColoredFormatter(log_format, datefmt="%Y-%m-%d %H:%M:%S"))
+    else:
+        console_handler.setFormatter(PlainFormatter(log_format, datefmt="%Y-%m-%d %H:%M:%S"))
+
     root.addHandler(console_handler)
 
     # Giảm noise từ các thư viện bên thứ ba
@@ -80,7 +120,7 @@ def setup_logging(
 
     # Log thông tin khởi tạo
     root.info(
-        "📋 Logging configured: level=%s, environment=%s",
+        "[INIT] Logging configured: level=%s, environment=%s",
         logging.getLevelName(level),
         env,
     )
@@ -95,3 +135,4 @@ def get_logger(name: str) -> logging.Logger:
         logger.info("Processing request...")
     """
     return logging.getLogger(name)
+

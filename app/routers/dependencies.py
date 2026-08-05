@@ -6,7 +6,7 @@ vào các route handler một cách nhất quán và dễ test.
 
 Kiến trúc DI:
     Config (settings)
-        └── LLM Provider (BaseLLMProvider)
+        └── LLM Provider (BaseChatModel)
         └── Database Connection (pyodbc cursor) ← TODO: implement core/database.py
         └── Services (Chat, Document, ...) ← inject provider + repo
 """
@@ -14,9 +14,9 @@ Kiến trúc DI:
 import logging
 from typing import Generator
 
+from langchain_core.language_models.chat_models import BaseChatModel
 from app.core.config import settings, get_settings, Settings
-from app.llmops.base import BaseLLMProvider
-from app.llmops.factory import get_llm_provider
+from app.llmops.factory import get_chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -35,38 +35,34 @@ def get_settings_dep() -> Settings:
 
 
 # 2. LLM Provider Dependency
-_llm_provider_cache: BaseLLMProvider | None = None
+_llm_provider_cache: BaseChatModel | None = None
 
 
-def get_llm_provider_dep() -> BaseLLMProvider:
+def get_llm_provider_dep() -> BaseChatModel:
     """
     Trả về LLM provider singleton dựa trên AI_PROVIDER trong .env.
     Provider được cache sau lần khởi tạo đầu tiên.
 
     Ví dụ:
         @router.post("/chat")
-        async def chat(llm: BaseLLMProvider = Depends(get_llm_provider_dep)):
-            result = llm.generate(system_prompt="...", user_prompt="...")
+        async def chat(llm: BaseChatModel = Depends(get_llm_provider_dep)):
+            result = llm.invoke(...)
     """
     global _llm_provider_cache
     if _llm_provider_cache is None:
-        _llm_provider_cache = get_llm_provider()
-        logger.info("✅ LLM Provider initialized: %s", type(_llm_provider_cache).__name__)
+        _llm_provider_cache = get_chat_model()
+        logger.info("[OK] LLM Provider initialized: %s", type(_llm_provider_cache).__name__)
     return _llm_provider_cache
 
 
-# 3. Database Connection Dependency (Placeholder)
-# TODO: Implement khi core/database.py sẵn sàng
-#
-# def get_db_connection() -> Generator:
-#     """Yield a database connection, auto-close sau request."""
-#     from app.core.database import DatabaseManager
-#     db = DatabaseManager(settings.SQLSERVER_CONNECTIONSTRING)
-#     conn = db.get_connection()
-#     try:
-#         yield conn
-#     finally:
-#         conn.close()
+# 3. Database Connection Dependency
+def get_db_dep():
+    """
+    FastAPI Dependency trả về SQLAlchemy Session cho từng request (auto-close sau request).
+    """
+    from app.core.database import get_db
+
+    yield from get_db()
 
 
 # 4. Module-specific Service Dependencies
@@ -105,4 +101,4 @@ def _reset_caches() -> None:
     """Reset tất cả singleton cache. Gọi khi shutdown."""
     global _llm_provider_cache
     _llm_provider_cache = None
-    logger.info("🔄 Dependency caches cleared.")
+    logger.info("[DONE] Dependency caches cleared.")

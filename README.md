@@ -36,27 +36,32 @@ Dự án `dev_llm_service` là dịch vụ Backend AI Agent xử lý ngôn ngữ
 
 ```text
 dev_llm_service/
-├── app/                        # Mã nguồn chính của ứng dụng
+├── app/                        # Mã nguồn chính của ứng dụng (Tất cả thư mục đều chứa __init__.py)
 │   ├── ai/                     # Hệ thống AI Agents & RAG
-│   │   ├── agent/              # Định nghĩa các Agent (Supervisor, FAQ, RAG, ...)
-│   │   │   ├── faq/            # FAQ Agent
-│   │   │   ├── rag/            # RAG Agent
-│   │   │   └── supervisor/     # Supervisor Agent điều phối các agent con
-│   │   └── rag/                # Pipeline RAG (Retrieval, Embeddings, Processing)
-│   ├── core/                   # Cấu hình cốt lõi (Config, Database, Session, Security, Logging)
-│   ├── eval/                   # Module đánh giá chất lượng mô hình / câu trả lời
+│   │   ├── agent/              # Định nghĩa các Agent hệ thống
+│   │   │   ├── agentic_rag/    # Agentic RAG (Evaluation, Graph, Memory, Prompts, Tools)
+│   │   │   ├── faq/            # FAQ Agent (Evaluation, Graph, Memory, Prompts, Tools)
+│   │   │   └── supervisor/     # Supervisor Agent điều phối các agent con (Evaluation, Graph, Memory, Prompts, Tools)
+│   │   └── rag/                # Pipeline RAG (Citation, Embedding, Generator, Ingestion, Reranker, Retrieval)
+│   ├── core/                   # Cấu hình cốt lõi (Config, Database, Exception, Logging, Middleware, Security, Session)
+│   ├── eval/                   # Module đánh giá chất lượng mô hình (Run Eval, Scorer)
 │   ├── llmops/                 # Quản lý & Trích xuất LLM Provider
 │   │   ├── base.py             # Interface chung (BaseLLMProvider)
 │   │   ├── factory.py          # Factory khởi tạo Provider theo biến môi trường
 │   │   └── providers/          # Các Provider cụ thể (Gemini, vLLM, Azure OpenAI, ...)
-│   ├── modules/                # Đóng gói logic theo nghiệp vụ (auth, chat, document, health)
+│   ├── modules/                # Đóng gói logic theo nghiệp vụ
+│   │   ├── auth/               # Module Xác thực & Phân quyền
+│   │   ├── chat/               # Module Chatbot & Lịch sử hội thoại (API v1, Repo, Service)
+│   │   ├── document/           # Module Xử lý & Quản lý tài liệu
+│   │   └── health/             # Module kiểm tra trạng thái dịch vụ (Health Check)
 │   ├── routers/                # API Routers & Middlewares / Dependencies
-│   ├── security/               # Xử lý bảo mật & phân quyền
-│   ├── shared/                 # Utilities & hàm dùng chung
+│   ├── security/               # Xử lý bảo mật & Mã hóa
+│   ├── shared/                 # DTO, Enums, Events, Types, Utils dùng chung
+│   ├── lifespan.py             # Quản lý vòng đời ứng dụng FastAPI (Startup / Shutdown)
 │   └── main.py                 # File khởi tạo ứng dụng FastAPI
 ├── infra/                      # Cấu hình hạ tầng
 │   ├── docker/                 # docker-compose.yml & SQL init script
-│   └── k8s/                    # Cấu hình Kubernetes deployment
+│   └── k8s/                    # Cấu hình Kubernetes deployment (.gitkeep)
 ├── notebooks/                  # Jupyter notebooks cho thử nghiệm OCR, RAG, Prompt
 ├── scripts/                    # Shell scripts hỗ trợ Dev (lint, format, test)
 ├── .env                        # File biến môi trường (Local config)
@@ -142,7 +147,13 @@ Hoặc kích hoạt virtual environment trước:
   uvicorn app.main:app --reload --port 8000
   ```
 
-### 2. Kiểm tra Swagger UI / API Docs
+### 2. Chạy dịch vụ Hạ Tầng (Docker Compose)
+Để khởi chạy các dịch vụ bổ trợ (như SQL Server CSDL local):
+```bash
+docker compose -f infra/docker/docker-compose.yml up -d
+```
+
+### 3. Kiểm tra Swagger UI / API Docs
 Truy cập trình duyệt tại:
 - **Swagger UI:** `http://localhost:8000/docs`
 - **ReDoc:** `http://localhost:8000/redoc`

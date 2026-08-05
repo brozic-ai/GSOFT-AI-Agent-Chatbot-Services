@@ -31,6 +31,7 @@ def _build_openai_compat(**overrides) -> BaseChatModel:
 _BUILDER = {
     "gemini": _build_gemini,
     "openai_compat": _build_openai_compat,
+    "vllm": _build_openai_compat,  # vLLM / Ollama dùng OpenAI-compatible API
 }
 
 @lru_cache(maxsize=8)
