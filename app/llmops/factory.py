@@ -1,15 +1,41 @@
-# llm/factory.py
-import os
-from .base import BaseLLMProvider
-from .providers.gemini import GeminiProvider
+from functools import lru_cache
+from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 
-def get_llm_provider() -> BaseLLMProvider:
-    provider_name = os.getenv("AI_PROVIDER", "gemini")
+from app.core.config import settings
 
-    if provider_name == "gemini":
-        return GeminiProvider(api_key=os.getenv("GEMINI_API_KEY"))
-    elif provider_name == "azure_open_ai":
-        # TODO: from llm.providers.azure_openai import AzureOpenAIProvider
-        ...
-    else:
-        raise ValueError(f"Không hỗ trợ provider: {provider_name}")
+def _build_gemini(**overrides) -> BaseChatModel:
+    """
+    """
+    return ChatGoogleGenerativeAI(
+        model=overrides.pop("model", settings.GEMINI_MODEL),
+        google_api_key=settings.GEMINI_API_KEY,
+        temperature=overrides.pop("temperature", settings.LLM_TEMPERATURE),
+        max_output_tokens=overrides.pop("max_tokens", settings.LLM_MAX_TOKENS),
+        **overrides,
+    )
+
+def _build_openai_compat(**overrides) -> BaseChatModel:
+    """
+    """
+    return ChatOpenAI(
+        model=overrides.pop("model", settings.LLM_MODEL),
+        base_url=overrides.pop("base_url", settings.LLM_BASE_URL),
+        api_key=overrides.pop("api_key", settings.LLM_API_KEY),
+        temperature=overrides.pop("temperature", settings.LLM_TEMPERATURE),
+        max_tokens=overrides.pop("max_tokens", settings.LLM_MAX_TOKENS),
+        **overrides,
+    )
+
+_BUILDER = {
+    "gemini": _build_gemini,
+    "openai_compat": _build_openai_compat,
+}
+
+@lru_cache(maxsize=8)
+def get_chat_model(provider: str | None = None, **overrides) -> BaseChatModel:
+    name = provider or settings.AI_PROVIDER
+    if name not in _BUILDER:
+        raise ValueError(f"UnKnown provider: {name}. Options: {list(_BUILDER)}")
+    return _BUILDER[name](**overrides)

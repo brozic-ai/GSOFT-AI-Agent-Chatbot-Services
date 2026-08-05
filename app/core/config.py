@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     REQUIRED_API_KEY: str = ""
     
     # CORS Origins (Hỗ trợ string phân cách bằng phẩy hoặc list)
-    BACKEND_CORS_ORIGINS: Union[List[str], str] = ["http://localhost", "http://localhost:5173"]
+    BACKEND_CORS_ORIGINS: Union[List[str], str] = ["http://localhost", "http://localhost:4200"]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
@@ -36,18 +36,21 @@ class Settings(BaseSettings):
     SQLSERVER_CONNECTIONSTRING: str = ""
 
     # --- AI Provider Config ---
-    AI_PROVIDER: str  # Lựa chọn: gemini | vllm | azure_openai
+    AI_PROVIDER: str  # Lựa chọn: gemini | vllm
     FALLBACK_AI_PROVIDER: str | None = None
     TEST_PROVIDER: str
 
     # --- Local / vLLM API Config ---
-    LLM_MODEL: str
-    LLM_API_BASE: str = "http://localhost:11434/v1"
+    LLM_MODEL: str = "qwen3.5:0.8b"
+    LLM_BASE_URL: str = "http://localhost:11434/v1"
+    LLM_TEMPERATURE: float = 0.2
+    LLM_MAX_TOKENS: int = 2048
+    LLM_API_KEY: str
 
     # --- Gemini API Config ---
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-3.5-flash-lite"
-    GEMINI_API_BASE: str = "https://generativelanguage.googleapis.com"
+    GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com"
 
     TAVILY_API_KEY: str = ""
 
