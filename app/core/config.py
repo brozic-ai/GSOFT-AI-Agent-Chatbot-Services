@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     SEARCH_RRF_CONSTANT: int = 60
     INGESTION_ENABLE_OCR: bool = True
     INGESTION_TESSDATA_PATH: str = "tessdata"
+    RAG_CHUNK_SIZE: int = 500
+    RAG_CHUNK_OVERLAP: int = 100
 
 
 @lru_cache

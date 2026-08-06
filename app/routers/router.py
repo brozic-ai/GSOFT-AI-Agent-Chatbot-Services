@@ -13,5 +13,5 @@ api_router = APIRouter()
 
 # Register sub-routers theo chuẩn RESTful DDD
 api_router.include_router(health_router, prefix="/health", tags=["Health Check"])
-api_router.include_router(document_router, prefix="/document", tags=["Document Management & RBAC"])
+api_router.include_router(document_router, prefix="", tags=["Document Management & RBAC"])
 api_router.include_router(chat_router, prefix="/chat", tags=["Chat RAG SSE"])

@@ -39,7 +39,27 @@ class UpdateDocumentStatusRequest(BaseModel):
     error: Optional[str] = None
 
 
+class UploadAcceptedResponse(BaseModel):
+    """Phản hồi HTTP 202 Accepted khi nhận file upload xử lý ngầm."""
+    task_id: str
+    status: str = Field(default="PENDING", description="PENDING | PROCESSING | COMPLETED | FAILED")
+
+
+class UploadStatusResponse(BaseModel):
+    """Phản hồi thông tin tiến độ xử lý file khi client poll theo task_id."""
+    task_id: str
+    file_name: Optional[str] = None
+    backend_document_id: Optional[int] = None
+    status: str  # PENDING | PROCESSING | COMPLETED | FAILED
+    progress_percent: int = 0
+    chunk_count: int = 0
+    error_message: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
 class AddDocumentsRequest(BaseModel):
+
     """Yêu cầu nạp thô danh sách Chunks vào CSDL Vector."""
     documents: List[str]
     ids: List[str]
@@ -52,11 +72,12 @@ class AddDocumentsResponse(BaseModel):
 
 
 class SearchRequest(BaseModel):
-    """Yêu cầu tìm kiếm Vector kết hợp phân quyền RBAC."""
+    """Yêu cầu tìm kiếm Vector kết hợp phân quyền RBAC Vai trò + Phòng ban."""
     query: str
     top_k: int = Field(default=5, alias="top_k")
     content_kind: Optional[str] = Field(default=None, alias="content_kind")
     user_roles: Optional[str] = Field(default=None, alias="user_roles", description="Chuỗi chứa các vai trò của user, phân cách bằng phẩy")
+    user_department: Optional[str] = Field(default=None, alias="user_department", description="Tên phòng ban của user")
 
     model_config = {
         "populate_by_name": True
@@ -85,6 +106,7 @@ class DocumentResponse(BaseModel):
     file_path: str
     file_size: int
     category: Optional[str] = None
+    owner_department: Optional[str] = None
     access_scope: str
     ingest_status: str
     chunk_count: int

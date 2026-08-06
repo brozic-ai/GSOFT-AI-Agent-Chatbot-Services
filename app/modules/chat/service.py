@@ -24,11 +24,12 @@ class ChatService:
         self,
         message: str,
         user_roles: Optional[str] = None,
+        user_department: Optional[str] = None,
         top_k: int = 5,
     ) -> AsyncGenerator[str, None]:
         """
         Tạo luồng Server-Sent Events (SSE) phản hồi câu hỏi RAG.
-        Đảm bảo lọc tài liệu theo vai trò (user_roles).
+        Đảm bảo lọc tài liệu theo vai trò (user_roles) và Phòng ban (user_department).
         """
         try:
             # 1. Phát sự kiện khởi đầu chat
@@ -47,11 +48,12 @@ class ChatService:
                 yield "event: chat_ended\ndata: {}\n\n"
                 return
 
-            # 2. Truy vấn ngữ cảnh RAG từ Vector Store với phân quyền RBAC
+            # 2. Truy vấn ngữ cảnh RAG từ Vector Store với phân quyền RBAC Vai trò + Phòng ban
             search_res = await self.retriever.retrieve_context(
                 query=base_query,
                 top_k=top_k,
                 user_roles=user_roles,
+                user_department=user_department,
             )
 
             documents = search_res["documents"][0] if search_res.get("documents") else []
@@ -94,5 +96,6 @@ class ChatService:
 
         except Exception as ex:
             logger.error("[FAIL] Error in RAG Chat Stream: %s", ex, exc_info=True)
-            yield f"event: token\ndata: {json.dumps({'text': '\\n[Lỗi kết nối tới mô hình AI hoặc Database]'})}\n\n"
+            err_json = json.dumps({'text': '\n[Lỗi kết nối tới mô hình AI hoặc Database]'})
+            yield f"event: token\ndata: {err_json}\n\n"
             yield "event: chat_ended\ndata: {}\n\n"

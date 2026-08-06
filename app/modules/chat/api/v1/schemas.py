@@ -16,6 +16,7 @@ class ChatRequest(BaseModel):
     message: str = ""
     images: List[ChatImageInput] = Field(default_factory=list)
     user_roles: Optional[str] = Field(default=None, alias="user_roles", description="Danh sách Vai trò của user, phân cách bằng dấu phẩy")
+    user_department: Optional[str] = Field(default=None, alias="user_department", description="Phòng ban của user")
     conversation_id: Optional[str] = Field(default=None, alias="conversation_id")
 
     model_config = {
