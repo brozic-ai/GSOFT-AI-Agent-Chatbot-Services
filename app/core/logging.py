@@ -26,12 +26,12 @@ _ENV_LOG_LEVELS = {
     "production": logging.WARNING,
 }
 
-# Format cho từng môi trường
+# Format cho từng môi trường (Dùng ASCII | tương thích Windows Terminal CP1252)
 _DEV_FORMAT = (
-    "%(levelname)-8s │ %(asctime)s │ %(location)s │ %(message)s"
+    "%(levelname)-8s | %(asctime)s | %(location)s | %(message)s"
 )
 _PROD_FORMAT = (
-    "%(levelname)-8s │ %(asctime)s │ %(location)s │ %(message)s"
+    "%(levelname)-8s | %(asctime)s | %(location)s | %(message)s"
 )
 
 # ANSI Color Codes
