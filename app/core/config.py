@@ -68,8 +68,8 @@ class Settings(BaseSettings):
     SEARCH_RRF_CONSTANT: int = 60
     INGESTION_ENABLE_OCR: bool = True
     INGESTION_TESSDATA_PATH: str = "tessdata"
-    RAG_CHUNK_SIZE: int = 500
-    RAG_CHUNK_OVERLAP: int = 100
+    RAG_CHUNK_SIZE: int = 600
+    RAG_CHUNK_OVERLAP: int = 120
     CHAT_HISTORY_LIMIT: int = 10
 
 
