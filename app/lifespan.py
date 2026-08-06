@@ -50,13 +50,38 @@ async def _startup() -> None:
         logger.error("[FAIL] Failed to initialize LLM Provider: %s", ex, exc_info=True)
         # Không crash app — cho phép health check vẫn hoạt động
 
-    # 2. Database
+    # 2. Database — tạo bảng ORM (RagDocuments, RagDocumentRoles)
     try:
         from app.core.database import init_db
         init_db()
         logger.info("[OK] Database schema initialized successfully.")
     except Exception as ex:
         logger.error("[FAIL] Failed to initialize database: %s", ex, exc_info=True)
+
+    # 3. Tạo bảng Documents (Vector Chunks) bằng DDL thủ công
+    # Bảng này dùng kiểu VECTOR(1024) không được SQLAlchemy ORM hỗ trợ native trên SQL Server.
+    try:
+        from app.core.database import engine
+        raw_conn = engine.raw_connection()
+        try:
+            with raw_conn.cursor() as cursor:
+                cursor.execute("SELECT 1 FROM sysobjects WHERE name='Documents' AND xtype='U'")
+                if not cursor.fetchone():
+                    cursor.execute("""
+                        CREATE TABLE Documents (
+                            id_int    INT IDENTITY(1,1) CONSTRAINT PK_Documents PRIMARY KEY CLUSTERED,
+                            id        VARCHAR(255) NOT NULL CONSTRAINT UQ_Documents_id UNIQUE,
+                            document  NVARCHAR(MAX),
+                            metadata  NVARCHAR(MAX),
+                            embedding VECTOR(1024)
+                        );
+                    """)
+                    logger.info("[OK] Table 'Documents' (Vector Chunks) created via DDL.")
+            raw_conn.commit()
+        finally:
+            raw_conn.close()
+    except Exception as ex:
+        logger.error("[FAIL] Failed to create Documents table: %s", ex, exc_info=True)
 
 
 async def _shutdown() -> None:
