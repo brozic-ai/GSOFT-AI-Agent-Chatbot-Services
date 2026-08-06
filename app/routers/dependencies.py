@@ -17,6 +17,7 @@ from app.modules.document.service import DocumentService
 from app.ai.rag.embedding.service import TeiEmbeddingService
 from app.ai.rag.retrieval.retriever import VectorRetriever
 from app.modules.chat.service import ChatService
+from app.modules.chat.repository import ChatRepository
 
 logger = logging.getLogger(__name__)
 
@@ -90,19 +91,34 @@ def get_document_service() -> DocumentService:
     return DocumentService(repository=repo, embedding_service=embed_svc)
 
 
-# 8. Chat Business Service Dependency
+# 8. Chat Repository Dependency
+_chat_repository_cache: ChatRepository | None = None
+
+
+def get_chat_repository() -> ChatRepository:
+    """FastAPI Dependency trả về ChatRepository singleton instance."""
+    global _chat_repository_cache
+    if _chat_repository_cache is None:
+        _chat_repository_cache = ChatRepository()
+        logger.info("[OK] ChatRepository initialized with ORM SessionLocal.")
+    return _chat_repository_cache
+
+
+# 9. Chat Business Service Dependency
 def get_chat_service() -> ChatService:
     """FastAPI Dependency trả về ChatService instance."""
     retriever = get_vector_retriever()
     llm = get_llm_provider_dep()
-    return ChatService(retriever=retriever, llm_provider=llm)
+    chat_repo = get_chat_repository()
+    return ChatService(retriever=retriever, llm_provider=llm, chat_repository=chat_repo)
 
 
 # Lifecycle helper — gọi bởi lifespan.py khi shutdown
 def _reset_caches() -> None:
     """Reset tất cả singleton cache khi shutdown."""
-    global _llm_provider_cache, _document_repository_cache, _tei_embedding_cache
+    global _llm_provider_cache, _document_repository_cache, _tei_embedding_cache, _chat_repository_cache
     _llm_provider_cache = None
     _document_repository_cache = None
     _tei_embedding_cache = None
+    _chat_repository_cache = None
     logger.info("[DONE] Dependency caches cleared.")

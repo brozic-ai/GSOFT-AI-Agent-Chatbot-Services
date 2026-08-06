@@ -50,8 +50,11 @@ async def _startup() -> None:
         logger.error("[FAIL] Failed to initialize LLM Provider: %s", ex, exc_info=True)
         # Không crash app — cho phép health check vẫn hoạt động
 
-    # 2. Database — tạo bảng ORM (RagDocuments, RagDocumentRoles)
+    # 2. Database — tạo bảng ORM (RagDocuments, RagDocumentRoles, Conversations, ChatMessages)
     try:
+        # Import các ORM models để SQLAlchemy nhận biết schema trước khi create_all()
+        import app.modules.document.model  # noqa: F401 — RagDocument, RagDocumentRole
+        import app.modules.chat.model       # noqa: F401 — Conversation, ChatMessage
         from app.core.database import init_db
         init_db()
         logger.info("[OK] Database schema initialized successfully.")
