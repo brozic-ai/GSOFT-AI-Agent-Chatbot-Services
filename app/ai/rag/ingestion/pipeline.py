@@ -17,7 +17,7 @@ import os
 from typing import Dict, Any, Optional
 
 from app.ai.rag.ingestion.extractor import FileTextExtractor
-from app.ai.rag.text_splitter import TextChunker
+from app.ai.rag.chunking import TextChunker
 from app.ai.rag.embedding.service import TeiEmbeddingService
 from app.modules.document.repository import DocumentRepository
 

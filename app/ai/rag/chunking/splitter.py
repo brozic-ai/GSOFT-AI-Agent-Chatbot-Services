@@ -1,5 +1,5 @@
 """
-Module phân tách văn bản (Text Chunker) cho RAG System.
+Subsystem Phân tách Văn bản (Text Chunking Subsystem) cho RAG AI System.
 Sử dụng RecursiveCharacterTextSplitter để phân tách văn bản theo ngữ nghĩa thay cho naive slicing.
 """
 
