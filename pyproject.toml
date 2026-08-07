@@ -25,6 +25,8 @@ dependencies = [
   "httpx>=0.27.0",
   "cachetools>=5.5.0",
   "python-multipart>=0.0.20",
+  "docx>=0.2.4",
+  "torch>=2.13.0",
 ]
 
 [tool.uv]

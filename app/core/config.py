@@ -57,10 +57,13 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-3.5-flash-lite"
     GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com"
 
-    TAVILY_API_KEY: str = ""
+    # --- OpenAI API Config ---
+    OPENAI_API_KEY: str = ""
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
 
     # --- RAG & Vector Database Config ---
     TEI_URL: str = "http://localhost:8080"
+    EMBEDDING_MODEL: str = "BAAI/bge-m3"
     EMBEDDING_DIMS: int = 1024
     SEARCH_CHAT_TOP_K: int = 5
     SEARCH_TOP_K_MAX: int = 50

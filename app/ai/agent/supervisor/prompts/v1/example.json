@@ -1,0 +1,56 @@
+[
+    {
+        "query": "Làm thế nào để đăng nhập vào hệ thống eOffice?",
+        "output": {
+            "intent": "faq",
+            "query": "Cách đăng nhập hệ thống eOffice",
+            "confidence": 0.95,
+            "reasoning": "Câu hỏi tra cứu thao tác đăng nhập chuẩn trên eOffice có quy trình xử lý cố định."
+        }
+    },
+    {
+        "query": "Giờ làm việc của chi nhánh Quận 1 là mấy giờ?",
+        "output": {
+            "intent": "faq",
+            "query": "Giờ làm việc chi nhánh Quận 1",
+            "confidence": 0.95,
+            "reasoning": "Câu hỏi về giờ làm việc là thông tin FAQ cố định."
+        }
+    },
+    {
+        "query": "Nghỉ ốm dài ngày do phẫu thuật thì hồ sơ bảo hiểm và chính sách lương chi tiết áp dụng theo điều khoản nào trong nội quy?",
+        "output": {
+            "intent": "rag",
+            "query": "Quy định hồ sơ bảo hiểm và chính sách lương nghỉ ốm dài ngày do phẫu thuật",
+            "confidence": 0.90,
+            "reasoning": "Câu hỏi phức tạp về chế độ lương và hồ sơ bảo hiểm cần tra cứu tổng hợp từ văn bản quy định nội bộ."
+        }
+    },
+    {
+        "query": "Điều khoản phạt trả nợ trước hạn trong hợp đồng vay của tôi là gì?",
+        "output": {
+            "intent": "rag",
+            "query": "Điều khoản phí phạt trả nợ trước hạn hợp đồng vay",
+            "confidence": 0.90,
+            "reasoning": "Cần tra cứu và trích xuất nội dung cụ thể trong hợp đồng vay."
+        }
+    },
+    {
+        "query": "Chào bạn, hôm nay thời tiết thế nào?",
+        "output": {
+            "intent": "general",
+            "query": "Chào bạn, hôm nay thời tiết thế nào?",
+            "confidence": 0.85,
+            "reasoning": "Câu chào hỏi xã giao và hỏi thời tiết không liên quan nghiệp vụ ngân hàng."
+        }
+    },
+    {
+        "query": "Lỗi rồi",
+        "output": {
+            "intent": "general",
+            "query": "Lỗi rồi",
+            "confidence": 0.40,
+            "reasoning": "Câu hỏi quá ngắn và mơ hồ, không đủ thông tin để xác định intent nghiệp vụ."
+        }
+    }
+]
