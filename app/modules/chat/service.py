@@ -94,5 +94,6 @@ class ChatService:
 
         except Exception as ex:
             logger.error("[FAIL] Error in RAG Chat Stream: %s", ex, exc_info=True)
-            yield f"event: token\ndata: {json.dumps({'text': '\\n[Lỗi kết nối tới mô hình AI hoặc Database]'})}\n\n"
+            err_payload = json.dumps({"text": "\n[Lỗi kết nối tới mô hình AI hoặc Database]"}, ensure_ascii=False)
+            yield f"event: token\ndata: {err_payload}\n\n"
             yield "event: chat_ended\ndata: {}\n\n"

@@ -1,1 +1,39 @@
+# version: '3.8'
+
+# services:
+#   tei-embedding:
+#     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6
+#     container_name: tei-bge-m3
+#     ports:
+#       - "8080:80"
+#     volumes:
+#       - tei-data:/data
+#     command: --model-id BAAI/bge-m3 --auto-truncate
+#     restart: unless-stopped
+
+# volumes:
+#   tei-data:
+
+# version: '3.8'
+
 services:
+  tei-embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:latest
+    container_name: tei-bge-m3
+    ports:
+      - "8080:80"
+    volumes:
+      - tei-data:/data
+    command: --model-id BAAI/bge-m3 --auto-truncate
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
+volumes:
+  tei-data:
+
