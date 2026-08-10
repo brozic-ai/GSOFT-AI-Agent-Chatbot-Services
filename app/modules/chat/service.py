@@ -5,7 +5,8 @@ Service tầng nghiệp vụ Chatbot RAG (Chat Business Service).
 
 import json
 import logging
-from typing import AsyncGenerator, Optional, List, Dict, Any
+from collections.abc import AsyncGenerator
+
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from app.ai.rag.retrieval.retriever import VectorRetriever
@@ -23,7 +24,7 @@ class ChatService:
     async def generate_rag_response_stream(
         self,
         message: str,
-        user_roles: Optional[str] = None,
+        user_roles: str | None = None,
         top_k: int = 5,
     ) -> AsyncGenerator[str, None]:
         """
@@ -54,14 +55,21 @@ class ChatService:
                 user_roles=user_roles,
             )
 
-            documents = search_res["documents"][0] if search_res.get("documents") else []
-            metadatas = search_res["metadatas"][0] if search_res.get("metadatas") else []
-            citations_list = search_res["citations"][0] if search_res.get("citations") else []
+            documents = (
+                search_res["documents"][0] if search_res.get("documents") else []
+            )
+            citations_list = (
+                search_res["citations"][0] if search_res.get("citations") else []
+            )
 
             # 3. Trả về trích dẫn tài liệu (Citations SSE Event)
             yield f"event: citations\ndata: {json.dumps(citations_list, ensure_ascii=False, default=str)}\n\n"
 
             if not documents or not any(doc.strip() for doc in documents):
+                logger.warning(
+                    "[WARN] [CHAT] No context documents found for query='%s'",
+                    base_query,
+                )
                 yield f"event: token\ndata: {json.dumps({'text': 'Tôi không tìm thấy thông tin phù hợp trong tài liệu được cấp quyền.'})}\n\n"
                 yield "event: chat_ended\ndata: {}\n\n"
                 return
@@ -80,20 +88,40 @@ class ChatService:
 
             # 5. Gọi LLM Provider Streaming (LangChain / OpenAI-compatible API)
             logger.info("[CHAT] Calling LLM streaming for query='%s'...", base_query)
-            
+
+            response_chunks: list[str] = []
             # Hỗ trợ stream từ LangChain BaseChatModel
-            async for chunk in self.llm_provider.astream([
-                ("system", system_prompt),
-                ("user", user_prompt),
-            ]):
+            async for chunk in self.llm_provider.astream(
+                [
+                    ("system", system_prompt),
+                    ("user", user_prompt),
+                ]
+            ):
                 token_text = chunk.content if hasattr(chunk, "content") else str(chunk)
                 if token_text:
+                    response_chunks.append(token_text)
                     yield f"event: token\ndata: {json.dumps({'text': token_text}, ensure_ascii=False)}\n\n"
+
+            full_response_text = "".join(response_chunks)
+            logger.info(
+                "[OK] [CHAT] LLM response completed for query='%s' | Length: %d chars | Response:\n%s",
+                base_query,
+                len(full_response_text),
+                full_response_text,
+            )
 
             yield "event: chat_ended\ndata: {}\n\n"
 
         except Exception as ex:
-            logger.error("[FAIL] Error in RAG Chat Stream: %s", ex, exc_info=True)
-            err_payload = json.dumps({"text": "\n[Lỗi kết nối tới mô hình AI hoặc Database]"}, ensure_ascii=False)
+            logger.error(
+                "[FAIL] Error in RAG Chat Stream for query='%s': %s",
+                base_query,
+                ex,
+                exc_info=True,
+            )
+            err_payload = json.dumps(
+                {"text": "\n[Lỗi kết nối tới mô hình AI hoặc Database]"},
+                ensure_ascii=False,
+            )
             yield f"event: token\ndata: {err_payload}\n\n"
             yield "event: chat_ended\ndata: {}\n\n"

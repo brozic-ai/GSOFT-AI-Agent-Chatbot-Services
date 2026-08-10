@@ -12,9 +12,8 @@ Cách dùng:
     logger.info("Hello")
 """
 
-import sys
 import logging
-from typing import Optional
+import sys
 
 from app.core.config import settings
 
@@ -27,20 +26,16 @@ _ENV_LOG_LEVELS = {
 }
 
 # Format cho từng môi trường (Dùng ASCII | tương thích Windows Terminal CP1252)
-_DEV_FORMAT = (
-    "%(levelname)-8s | %(asctime)s | %(location)s | %(message)s"
-)
-_PROD_FORMAT = (
-    "%(levelname)-8s | %(asctime)s | %(location)s | %(message)s"
-)
+_DEV_FORMAT = "%(levelname)-8s | %(asctime)s | %(location)s | %(message)s"
+_PROD_FORMAT = "%(levelname)-8s | %(asctime)s | %(location)s | %(message)s"
 
 # ANSI Color Codes
 _COLORS = {
-    "DEBUG":    "\033[36m",   # Cyan
-    "INFO":     "\033[32m",   # Green
-    "WARNING":  "\033[33m",   # Yellow
-    "ERROR":    "\033[31m",   # Red
-    "CRITICAL": "\033[1;31m", # Bold Red
+    "DEBUG": "\033[36m",  # Cyan
+    "INFO": "\033[32m",  # Green
+    "WARNING": "\033[33m",  # Yellow
+    "ERROR": "\033[31m",  # Red
+    "CRITICAL": "\033[1;31m",  # Bold Red
 }
 _RESET = "\033[0m"
 
@@ -70,8 +65,8 @@ class PlainFormatter(logging.Formatter):
 
 
 def setup_logging(
-    level: Optional[int] = None,
-    log_format: Optional[str] = None,
+    level: int | None = None,
+    log_format: str | None = None,
 ) -> None:
     """
     Thiết lập logging cho toàn bộ ứng dụng. Gọi 1 lần trong main.py.
@@ -104,9 +99,13 @@ def setup_logging(
 
     # Dùng ColoredFormatter cho local/dev, PlainFormatter cho production
     if env in ("local", "development"):
-        console_handler.setFormatter(ColoredFormatter(log_format, datefmt="%Y-%m-%d %H:%M:%S"))
+        console_handler.setFormatter(
+            ColoredFormatter(log_format, datefmt="%Y-%m-%d %H:%M:%S")
+        )
     else:
-        console_handler.setFormatter(PlainFormatter(log_format, datefmt="%Y-%m-%d %H:%M:%S"))
+        console_handler.setFormatter(
+            PlainFormatter(log_format, datefmt="%Y-%m-%d %H:%M:%S")
+        )
 
     root.addHandler(console_handler)
 
@@ -135,4 +134,3 @@ def get_logger(name: str) -> logging.Logger:
         logger.info("Processing request...")
     """
     return logging.getLogger(name)
-

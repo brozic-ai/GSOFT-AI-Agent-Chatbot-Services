@@ -11,12 +11,12 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal, engine
 from app.core.config import settings
+from app.core.database import SessionLocal, engine
 from app.modules.document.model import RagDocument, RagDocumentRole
 
 logger = logging.getLogger(__name__)
@@ -33,16 +33,16 @@ class DocumentRepository:
         file_name: str,
         file_path: str,
         file_size: int,
-        category: Optional[str] = None,
-        owner_department: Optional[str] = None,
-        description: Optional[str] = None,
-        tags: Optional[str] = None,
+        category: str | None = None,
+        owner_department: str | None = None,
+        description: str | None = None,
+        tags: str | None = None,
         access_scope: str = "Public",
-        effective_date: Optional[str] = None,
-        expiration_date: Optional[str] = None,
-        uploaded_by: Optional[str] = None,
-        tenant_id: Optional[int] = None,
-        allowed_roles: Optional[List[str]] = None,
+        effective_date: str | None = None,
+        expiration_date: str | None = None,
+        uploaded_by: str | None = None,
+        tenant_id: int | None = None,
+        allowed_roles: list[str] | None = None,
     ) -> int:
         """Tạo bản ghi tài liệu mới kèm khai báo Vai trò (Roles) truy cập bằng ORM."""
         allowed_roles = allowed_roles or []
@@ -59,8 +59,12 @@ class DocumentRepository:
                 description=description,
                 tags=tags,
                 access_scope=access_scope,
-                effective_date=datetime.fromisoformat(effective_date) if effective_date else None,
-                expiration_date=datetime.fromisoformat(expiration_date) if expiration_date else None,
+                effective_date=datetime.fromisoformat(effective_date)
+                if effective_date
+                else None,
+                expiration_date=datetime.fromisoformat(expiration_date)
+                if expiration_date
+                else None,
                 uploaded_by=uploaded_by,
                 tenant_id=tenant_id,
                 ingest_status="Pending",
@@ -72,19 +76,30 @@ class DocumentRepository:
             if access_scope.lower() == "restricted" and allowed_roles:
                 for role in allowed_roles:
                     if role.strip():
-                        db.add(RagDocumentRole(rag_document_id=doc.id, role_name=role.strip()))
+                        db.add(
+                            RagDocumentRole(
+                                rag_document_id=doc.id, role_name=role.strip()
+                            )
+                        )
 
             db.commit()
-            logger.info("[OK] Created RagDocument ID=%d (ORM), Scope=%s, Roles=%s", doc.id, access_scope, allowed_roles)
+            logger.info(
+                "[OK] Created RagDocument ID=%d (ORM), Scope=%s, Roles=%s",
+                doc.id,
+                access_scope,
+                allowed_roles,
+            )
             return doc.id
         except Exception as ex:
             db.rollback()
-            logger.error("[FAIL] Error creating RagDocument via ORM: %s", ex, exc_info=True)
+            logger.error(
+                "[FAIL] Error creating RagDocument via ORM: %s", ex, exc_info=True
+            )
             raise ex
         finally:
             db.close()
 
-    def get_rag_documents_list(self) -> List[Dict[str, Any]]:
+    def get_rag_documents_list(self) -> list[dict[str, Any]]:
         """Lấy danh sách tất cả tài liệu RAG kèm danh sách vai trò truy cập bằng ORM."""
         db: Session = SessionLocal()
         try:
@@ -92,24 +107,28 @@ class DocumentRepository:
             results = []
             for doc in docs:
                 roles_list = [r.role_name for r in doc.roles]
-                results.append({
-                    "id": doc.id,
-                    "document_name": doc.document_name,
-                    "file_name": doc.file_name,
-                    "file_path": doc.file_path,
-                    "file_size": doc.file_size,
-                    "category": doc.category,
-                    "access_scope": doc.access_scope,
-                    "ingest_status": doc.ingest_status,
-                    "chunk_count": doc.chunk_count,
-                    "creation_time": str(doc.creation_time) if doc.creation_time else None,
-                    "allowed_roles": roles_list,
-                })
+                results.append(
+                    {
+                        "id": doc.id,
+                        "document_name": doc.document_name,
+                        "file_name": doc.file_name,
+                        "file_path": doc.file_path,
+                        "file_size": doc.file_size,
+                        "category": doc.category,
+                        "access_scope": doc.access_scope,
+                        "ingest_status": doc.ingest_status,
+                        "chunk_count": doc.chunk_count,
+                        "creation_time": str(doc.creation_time)
+                        if doc.creation_time
+                        else None,
+                        "allowed_roles": roles_list,
+                    }
+                )
             return results
         finally:
             db.close()
 
-    def get_rag_document(self, doc_id: int) -> Optional[Dict[str, Any]]:
+    def get_rag_document(self, doc_id: int) -> dict[str, Any] | None:
         """Lấy chi tiết 1 tài liệu RAG theo ID bằng ORM."""
         db: Session = SessionLocal()
         try:
@@ -133,16 +152,22 @@ class DocumentRepository:
         finally:
             db.close()
 
-    def get_rag_document_roles(self, doc_id: int) -> List[str]:
+    def get_rag_document_roles(self, doc_id: int) -> list[str]:
         """Lấy danh sách vai trò được truy cập của tài liệu bằng ORM."""
         db: Session = SessionLocal()
         try:
-            roles = db.query(RagDocumentRole).filter(RagDocumentRole.rag_document_id == doc_id).all()
+            roles = (
+                db.query(RagDocumentRole)
+                .filter(RagDocumentRole.rag_document_id == doc_id)
+                .all()
+            )
             return [r.role_name for r in roles]
         finally:
             db.close()
 
-    def update_rag_document_status(self, doc_id: int, status: str, chunk_count: int, error: Optional[str] = None) -> None:
+    def update_rag_document_status(
+        self, doc_id: int, status: str, chunk_count: int, error: str | None = None
+    ) -> None:
         """Cập nhật trạng thái Ingest từ C# Gateway bằng ORM."""
         db: Session = SessionLocal()
         try:
@@ -155,13 +180,23 @@ class DocumentRepository:
                 db.commit()
         except Exception as ex:
             db.rollback()
-            logger.error("[FAIL] Error updating RagDocument status ID=%d: %s", doc_id, ex, exc_info=True)
+            logger.error(
+                "[FAIL] Error updating RagDocument status ID=%d: %s",
+                doc_id,
+                ex,
+                exc_info=True,
+            )
             raise ex
         finally:
             db.close()
 
     def update_rag_document(
-        self, doc_id: int, document_name: str, category: Optional[str], access_scope: str, allowed_roles: List[str]
+        self,
+        doc_id: int,
+        document_name: str,
+        category: str | None,
+        access_scope: str,
+        allowed_roles: list[str],
     ) -> None:
         """Cập nhật siêu dữ liệu và danh sách vai trò được phép truy cập bằng ORM."""
         db: Session = SessionLocal()
@@ -174,22 +209,34 @@ class DocumentRepository:
                 doc.last_modification_time = datetime.utcnow()
 
                 # Xóa roles cũ và nạp lại roles mới
-                db.query(RagDocumentRole).filter(RagDocumentRole.rag_document_id == doc_id).delete()
+                db.query(RagDocumentRole).filter(
+                    RagDocumentRole.rag_document_id == doc_id
+                ).delete()
                 if access_scope.lower() == "restricted" and allowed_roles:
                     for role in allowed_roles:
                         if role.strip():
-                            db.add(RagDocumentRole(rag_document_id=doc_id, role_name=role.strip()))
+                            db.add(
+                                RagDocumentRole(
+                                    rag_document_id=doc_id, role_name=role.strip()
+                                )
+                            )
 
                 db.commit()
-                logger.info("[OK] Updated RagDocument ID=%d (ORM) with roles=%s", doc_id, allowed_roles)
+                logger.info(
+                    "[OK] Updated RagDocument ID=%d (ORM) with roles=%s",
+                    doc_id,
+                    allowed_roles,
+                )
         except Exception as ex:
             db.rollback()
-            logger.error("[FAIL] Error updating RagDocument ID=%d: %s", doc_id, ex, exc_info=True)
+            logger.error(
+                "[FAIL] Error updating RagDocument ID=%d: %s", doc_id, ex, exc_info=True
+            )
             raise ex
         finally:
             db.close()
 
-    def delete_rag_document(self, backend_id: int) -> Optional[str]:
+    def delete_rag_document(self, backend_id: int) -> str | None:
         """Xóa tài liệu và các vai trò theo backend_id bằng ORM, trả về FilePath để xóa file vật lý."""
         file_path = None
         file_name = None
@@ -203,7 +250,12 @@ class DocumentRepository:
                 db.commit()
         except Exception as ex:
             db.rollback()
-            logger.error("[FAIL] Error deleting RagDocument ID=%d: %s", backend_id, ex, exc_info=True)
+            logger.error(
+                "[FAIL] Error deleting RagDocument ID=%d: %s",
+                backend_id,
+                ex,
+                exc_info=True,
+            )
             raise ex
         finally:
             db.close()
@@ -212,7 +264,9 @@ class DocumentRepository:
         self.delete_documents_by_backend_id(backend_id, file_name=file_name)
         return file_path
 
-    def delete_documents_by_backend_id(self, backend_id: int, file_name: Optional[str] = None) -> None:
+    def delete_documents_by_backend_id(
+        self, backend_id: int, file_name: str | None = None
+    ) -> None:
         """
         Xóa các chunk vector thuộc tài liệu có backendId tương ứng hoặc file_name tương ứng.
         Lưu ý: SQL Server 2025 yêu cầu tạm DROP Vector Index trước khi DELETE dòng,
@@ -223,26 +277,37 @@ class DocumentRepository:
             with raw_conn.cursor() as cursor:
                 # 1. Tạm drop Vector Index nếu có để tránh lỗi SQL Server 42231 khi DELETE
                 try:
-                    cursor.execute("DROP INDEX IF EXISTS idx_documents_embedding ON dbo.Documents;")
-                except Exception as idx_ex:
-                    logger.warning("[WARN] Exception dropping vector index before DELETE: %s", idx_ex)
+                    cursor.execute(
+                        "DROP INDEX IF EXISTS idx_documents_embedding ON dbo.Documents;"
+                    )
+                except Exception as idx_ex:  # noqa: BLE001
+                    logger.warning(
+                        "[WARN] Exception dropping vector index before DELETE: %s",
+                        idx_ex,
+                    )
 
                 # 2. Xóa các chunks theo backend_id hoặc source file_name
                 if file_name:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         DELETE FROM Documents
                         WHERE JSON_VALUE(metadata, '$.backendId') = ?
                            OR JSON_VALUE(metadata, '$.backend_document_id') = ?
                            OR JSON_VALUE(metadata, '$.backend_id') = ?
                            OR JSON_VALUE(metadata, '$.source') = ?;
-                    """, (str(backend_id), str(backend_id), str(backend_id), file_name))
+                    """,
+                        (str(backend_id), str(backend_id), str(backend_id), file_name),
+                    )
                 else:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         DELETE FROM Documents
                         WHERE JSON_VALUE(metadata, '$.backendId') = ?
                            OR JSON_VALUE(metadata, '$.backend_document_id') = ?
                            OR JSON_VALUE(metadata, '$.backend_id') = ?;
-                    """, (str(backend_id), str(backend_id), str(backend_id)))
+                    """,
+                        (str(backend_id), str(backend_id), str(backend_id)),
+                    )
 
             raw_conn.commit()
             logger.info("[OK] Deleted vector chunks for backend_id=%d", backend_id)
@@ -251,15 +316,24 @@ class DocumentRepository:
 
         # 3. Tái tạo lại Vector Index bằng kết nối autocommit độc lập (tránh lỗi transaction 574 của SQL Server 2025)
         try:
-            import pyodbc
             conn = pyodbc.connect(settings.SQLSERVER_CONNECTIONSTRING, autocommit=True)
             with conn.cursor() as cursor:
-                cursor.execute("CREATE VECTOR INDEX idx_documents_embedding ON dbo.Documents(embedding) WITH (METRIC = 'cosine');")
+                cursor.execute(
+                    "CREATE VECTOR INDEX idx_documents_embedding ON dbo.Documents(embedding) WITH (METRIC = 'cosine');"
+                )
             conn.close()
-        except Exception as idx_ex:
-            logger.warning("[WARN] Exception recreating vector index after DELETE: %s", idx_ex)
+        except Exception as idx_ex:  # noqa: BLE001
+            logger.warning(
+                "[WARN] Exception recreating vector index after DELETE: %s", idx_ex
+            )
 
-    def upsert_documents(self, ids: List[str], documents: List[str], metadatas: List[Dict[str, Any]], embeddings: List[List[float]]) -> None:
+    def upsert_documents(
+        self,
+        ids: list[str],
+        documents: list[str],
+        metadatas: list[dict[str, Any]],
+        embeddings: list[list[float]],
+    ) -> None:
         """
         Lưu/cập nhật danh sách vector chunks vào CSDL SQL Server.
         Sử dụng CAST(CAST(? AS VARCHAR(MAX)) AS VECTOR(1024)) để tránh lỗi 529 'ntext to vector conversion' của SQL Server 2025.
@@ -280,9 +354,14 @@ class DocumentRepository:
             with raw_conn.cursor() as cursor:
                 # 1. Tạm drop Vector Index trước khi batch MERGE
                 try:
-                    cursor.execute("DROP INDEX IF EXISTS idx_documents_embedding ON dbo.Documents;")
-                except Exception as idx_ex:
-                    logger.warning("[WARN] Exception dropping vector index before upsert: %s", idx_ex)
+                    cursor.execute(
+                        "DROP INDEX IF EXISTS idx_documents_embedding ON dbo.Documents;"
+                    )
+                except Exception as idx_ex:  # noqa: BLE001
+                    logger.warning(
+                        "[WARN] Exception dropping vector index before upsert: %s",
+                        idx_ex,
+                    )
 
                 # 2. Thực thi MERGE các chunks
                 for i in range(len(ids)):
@@ -295,7 +374,14 @@ class DocumentRepository:
         finally:
             raw_conn.close()
 
-    def upsert_ingestion_file(self, file_name: str, file_size: int, status: str, chunk_count: int, error: Optional[str] = None) -> None:
+    def upsert_ingestion_file(
+        self,
+        file_name: str,
+        file_size: int,
+        status: str,
+        chunk_count: int,
+        error: str | None = None,
+    ) -> None:
         """Lưu/cập nhật thông tin file vào bảng IngestionFiles để đồng bộ với thiết kế CSDL của dự án Rag cũ."""
         sql = """
             MERGE IngestionFiles AS target
@@ -310,10 +396,25 @@ class DocumentRepository:
         raw_conn = engine.raw_connection()
         try:
             with raw_conn.cursor() as cursor:
-                cursor.execute(sql, (file_name, status, chunk_count, error, file_name, file_name, file_size, file_name, status, chunk_count, error))
+                cursor.execute(
+                    sql,
+                    (
+                        file_name,
+                        status,
+                        chunk_count,
+                        error,
+                        file_name,
+                        file_name,
+                        file_size,
+                        file_name,
+                        status,
+                        chunk_count,
+                        error,
+                    ),
+                )
             raw_conn.commit()
             logger.info("[OK] Logged IngestionFiles record for '%s'", file_name)
-        except Exception as ex:
+        except Exception as ex:  # noqa: BLE001
             logger.warning("[WARN] Failed to log IngestionFiles record: %s", ex)
         finally:
             raw_conn.close()
@@ -323,11 +424,11 @@ class DocumentRepository:
     def search_vector_chunks(
         self,
         query: str,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int,
-        content_kind: Optional[str] = None,
-        user_roles: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        content_kind: str | None = None,
+        user_roles: str | None = None,
+    ) -> dict[str, Any]:
         """
         Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (RBAC) sử dụng SessionLocal connection.
 
@@ -338,10 +439,12 @@ class DocumentRepository:
         """
         top_k = max(1, min(top_k, settings.SEARCH_TOP_K_MAX))
         candidate_count = max(top_k, settings.SEARCH_VECTOR_CANDIDATE_COUNT)
-        rrf_constant = settings.SEARCH_RRF_CONSTANT if settings.SEARCH_RRF_CONSTANT > 0 else 60
+        rrf_constant = (
+            settings.SEARCH_RRF_CONSTANT if settings.SEARCH_RRF_CONSTANT > 0 else 60
+        )
         query_embedding_json = json.dumps(query_embedding)
 
-        match = re.search(r'\b\d{6,}\b', query)
+        match = re.search(r"\b\d{6,}\b", query)
         exact_keyword = match.group(0) if match else ""
 
         sql = """
@@ -409,11 +512,15 @@ class DocumentRepository:
         try:
             with raw_conn.cursor() as cursor:
                 params = (
-                    content_kind, content_kind,
-                    user_roles, user_roles, user_roles,
+                    content_kind,
+                    content_kind,
+                    user_roles,
+                    user_roles,
+                    user_roles,
                     query_embedding_json,
                     candidate_count,
-                    exact_keyword, exact_keyword,
+                    exact_keyword,
+                    exact_keyword,
                     top_k,
                     rrf_constant,
                 )
@@ -428,12 +535,14 @@ class DocumentRepository:
                     documents.append(doc_text)
                     metadatas.append(meta)
                     distances.append(dist_val)
-                    citations.append({
-                        "source": meta.get("source"),
-                        "page": meta.get("page") or meta.get("slide"),
-                        "chunk_id": doc_id,
-                        "score": score_val,
-                    })
+                    citations.append(
+                        {
+                            "source": meta.get("source"),
+                            "page": meta.get("page") or meta.get("slide"),
+                            "chunk_id": doc_id,
+                            "score": score_val,
+                        }
+                    )
         finally:
             raw_conn.close()
 

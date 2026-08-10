@@ -1,0 +1,15 @@
+# Supervisor chỉ làm 1 việc: routing. Không dùng llm_judge (đó là cho agent
+# trả lời văn bản như faq/agentic_rag) — chỉ cần đúng agent + đủ tự tin + đủ nhanh.
+metrics:
+  - type: exact_field_match
+    params:
+      field: target_agent
+
+  - type: min_value
+    params:
+      field: confidence
+      min_value: 0.5
+
+  - type: latency
+    params:
+      max_seconds: 35.0

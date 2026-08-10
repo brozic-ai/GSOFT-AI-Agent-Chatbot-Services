@@ -1,8 +1,8 @@
-import os
 from functools import lru_cache
-from typing import List, Union
-from pydantic import AnyHttpUrl, field_validator
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -19,13 +19,16 @@ class Settings(BaseSettings):
 
     # API Key để xác thực request nội bộ (rỗng = tắt auth, dùng cho dev mode)
     REQUIRED_API_KEY: str = ""
-    
+
     # CORS Origins (Hỗ trợ string phân cách bằng phẩy hoặc list)
-    BACKEND_CORS_ORIGINS: Union[List[str], str] = ["http://localhost", "http://localhost:4200"]
+    BACKEND_CORS_ORIGINS: list[str] | str = [
+        "http://localhost",
+        "http://localhost:4200",
+    ]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+    def assemble_cors_origins(cls, v: str | list[str]) -> list[str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, (list, str)):
@@ -72,11 +75,18 @@ class Settings(BaseSettings):
     INGESTION_ENABLE_OCR: bool = True
     INGESTION_TESSDATA_PATH: str = "tessdata"
 
+    # --- LangSmith LLMOps Tracing Config ---
+    LANGCHAIN_TRACING_V2: str = "false"
+    LANGCHAIN_API_KEY: str = ""
+    LANGCHAIN_PROJECT: str = "ai-agent-bvbank"
+    LANGCHAIN_ENDPOINT: str = "https://apac.api.smith.langchain.com"
+
 
 @lru_cache
 def get_settings() -> Settings:
     """Trả về Singleton instance của Settings được cache."""
     return Settings()
+
 
 # Instance cài đặt sẵn cho việc import tiện lợi
 settings = get_settings()

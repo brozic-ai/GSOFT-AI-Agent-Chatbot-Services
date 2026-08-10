@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "agent_name": "supervisor",
+    "timestamp_utc": "2026-08-10T03:32:15.886840+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 0.0,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": false
+  },
+  "summary": {
+    "total_cases": 0,
+    "passed_cases": 0,
+    "failed_cases": 0,
+    "pass_rate": 0.0,
+    "pass_percentage": "0%",
+    "avg_score": 0.0,
+    "accuracy": 0.0,
+    "macro_f1": 0.0
+  },
+  "classification_metrics": {},
+  "confusion_matrix": {},
+  "confidence_calibration": {},
+  "cases": []
+}

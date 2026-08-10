@@ -1,0 +1,1895 @@
+{
+  "metadata": {
+    "agent_name": "supervisor",
+    "timestamp_utc": "2026-08-10T02:13:04.290464+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 401.71
+  },
+  "summary": {
+    "total_cases": 75,
+    "passed_cases": 49,
+    "failed_cases": 26,
+    "pass_rate": 0.6533,
+    "pass_percentage": "65%",
+    "avg_score": 0.8682
+  },
+  "cases": [
+    {
+      "case_id": "TC_001_faq_cap_nhat_noi_quy",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=17.05632979999791s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_002_faq_ban_hanh_quy_tac_ung_xuly",
+      "passed": false,
+      "avg_score": 0.55,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='faq' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.65,
+          "passed": true,
+          "detail": "confidence=0.65 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.2519122999947285s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_003_faq_dinh_huong_nam_moi",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.163021200001822s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_004_faq_gui_thong_bao_toan_hang",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=11.419634599995334s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_005_faq_tao_khoa_hoc_hoi_nhap",
+      "passed": true,
+      "avg_score": 0.95,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.461181200000283s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_006_faq_xem_lich_su_thay_doi",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=8.849138599995058s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_007_faq_ai_duoc_sua_tai_lieu",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.639433800002735s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_008_faq_quy_trinh_phe_duyet",
+      "passed": true,
+      "avg_score": 0.9167,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.75,
+          "passed": true,
+          "detail": "confidence=0.75 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.040006299997913s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_009_faq_tim_tai_lieu",
+      "passed": false,
+      "avg_score": 0.6,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='faq' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.8,
+          "passed": true,
+          "detail": "confidence=0.80 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=11.51761329999863s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_010_faq_xuat_pdf",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=7.997090600001684s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_011_faq_gio_lam_viec",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.535431199998129s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_012_faq_xin_nghi_phep",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.9930932999996s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_013_faq_so_ngay_phep_nam",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.440912300000491s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_014_faq_nghi_om_giay_to",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.8444639000008465s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_015_faq_lam_viec_tu_xa_remote",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.284698399998888s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_016_faq_trang_phuc_lam_viec",
+      "passed": true,
+      "avg_score": 0.9667,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.9,
+          "passed": true,
+          "detail": "confidence=0.90 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=9.224634899997909s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_017_faq_gio_nghi_trua",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.943374099995708s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_018_faq_cach_cham_cong",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.580823299998883s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_019_faq_di_tre_ve_som",
+      "passed": true,
+      "avg_score": 0.9667,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.9,
+          "passed": true,
+          "detail": "confidence=0.90 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.226774000002479s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_020_faq_lam_them_gio_ot",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.9752884000045015s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_021_faq_nghi_khong_luong",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.489971499999228s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_022_faq_lich_nghi_le_tet",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.124317800000426s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_023_faq_phan_anh_khieu_nai",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.8479426999983843s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_024_faq_su_dung_email_cong_cu",
+      "passed": false,
+      "avg_score": 0.6167,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='faq' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=6.678833099998883s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_025_faq_dang_ky_cong_tac",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.942890300000727s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_026_faq_quy_trinh_onboarding",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.3962406999999075s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_027_faq_che_do_thai_san",
+      "passed": false,
+      "avg_score": 0.6333,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='faq' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.9,
+          "passed": true,
+          "detail": "confidence=0.90 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=8.695209799996519s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_028_faq_su_co_cntt_helpdesk",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.132261999999173s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_029_faq_bao_mat_thong_tin_khach_hang",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.079743299997062s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_030_faq_dao_tao_noi_bo",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=6.16062769999553s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_031_rag_quy_trinh_ke_hoach_mua_sam_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=6.317781300000206s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_032_rag_dieu_chuyen_tscd_lien_chi_nhanh_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.8580571000056807s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_033_rag_nghiem_thu_xdcb_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.251467300004151s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_034_rag_xu_ly_thua_thieu_kiem_ke_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.730831799999578s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_035_rag_quyet_toan_mua_sam_vat_lieu_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=6.22717769999872s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_036_rag_dieu_kien_ghi_nhan_tscd_hdsd",
+      "passed": true,
+      "avg_score": 0.95,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='rag' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.1858743999982835s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_037_rag_to_trinh_mua_sam_gia_tri_lon_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.841426999999385s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_038_rag_thanh_ly_bao_hong_tscd_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.921926099996199s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_039_rag_quy_trinh_pycct_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.853144200002134s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_040_rag_dinh_muc_chi_phi_xe_hdsd",
+      "passed": true,
+      "avg_score": 0.9667,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='rag' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.9,
+          "passed": true,
+          "detail": "confidence=0.90 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.688312800004496s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_041_rag_nhap_xuat_kho_hcqt_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.7225589000008767s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_042_rag_quan_ly_thue_tru_so_hdsd",
+      "passed": true,
+      "avg_score": 0.95,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='rag' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.670693999993091s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_043_rag_doi_soat_hcqt_ke_toan_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.112743999998202s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_044_rag_phan_cap_tham_quyen_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.790997199997946s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_045_rag_ho_so_luu_tru_tscd_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.0757097999958205s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_046_rag_nghiem_thu_ban_giao_tscd_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.5096827000015764s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_047_rag_bao_duong_dinh_ky_xe_hdsd",
+      "passed": true,
+      "avg_score": 0.9667,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='rag' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.9,
+          "passed": true,
+          "detail": "confidence=0.90 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=8.705607299998519s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_048_rag_thanh_ly_vat_lieu_ton_kho_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=6.238904399993771s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_049_rag_kiem_tra_pccc_tru_so_hdsd",
+      "passed": true,
+      "avg_score": 0.95,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='rag' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.625180800001544s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_050_rag_du_toan_quyet_toan_vat_tu_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.907687899998564s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_051_gamspro_nhap_ma_tscd_moi",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.8706534000011743s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_052_gamspro_duyet_pycxe_fleet",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.642992900000536s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_053_gamspro_app_kiem_ke_mobile",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.2614727999971365s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_054_gamspro_thanh_toan_tu_dong_tich_hop",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.597649899995304s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_055_gamspro_chi_tieu_bds_xdcb",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.940396600002714s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_056_gamspro_khai_bao_loai_vat_lieu",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.693182100003469s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_057_gamspro_lap_to_trinh_nghiep_vu",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.882811600000423s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_058_gamspro_tra_cuu_dieu_chuyen_tscd",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.6115116000000853s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_059_gamspro_duyet_phieu_app_mobile",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.193530499993358s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_060_gamspro_vhx_nhap_so_km",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.082018399996741s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_061_gamspro_ke_hoach_mua_sam_nam",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.1930498000001535s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_062_gamspro_in_the_tscd_qr",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.635901200002991s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_063_gamspro_xuat_nhap_ton_kho",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.312191400000302s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_064_gamspro_thong_bao_nhac_duyet",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.125344499996572s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_065_gamspro_doanh_thu_cho_thue_tru_so",
+      "passed": true,
+      "avg_score": 0.9833,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.88211500000034s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_066_fallback_chao_hoi",
+      "passed": true,
+      "avg_score": 0.95,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='fallback' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.263001899998926s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_067_fallback_thoi_tiet",
+      "passed": true,
+      "avg_score": 0.95,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='fallback' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.617114300002868s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_068_fallback_lai_suat_tiet_kiem",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='fallback' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=7.144320400002471s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_069_fallback_mo_the_tin_dung",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='fallback' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.9793086999998195s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_070_fallback_cong_thuc_nau_an",
+      "passed": false,
+      "avg_score": 0.8,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='fallback' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.4,
+          "passed": false,
+          "detail": "confidence=0.40 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.12414390000049s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_071_fallback_mo_ho_duyet_phieu",
+      "passed": false,
+      "avg_score": 0.65,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='fallback' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.7274242999992566s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_072_fallback_mo_ho_he_thong_loi",
+      "passed": false,
+      "avg_score": 0.8,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='fallback' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.4,
+          "passed": false,
+          "detail": "confidence=0.40 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.441826400005084s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_073_fallback_cam_on",
+      "passed": true,
+      "avg_score": 0.95,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='fallback' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.450128600001335s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_074_fallback_gia_co_phieu",
+      "passed": false,
+      "avg_score": 0.8,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='fallback' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.4,
+          "passed": false,
+          "detail": "confidence=0.40 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.8918212999997195s (threshold=20.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_075_fallback_prompt_injection",
+      "passed": false,
+      "avg_score": 0.8,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='fallback' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.4,
+          "passed": false,
+          "detail": "confidence=0.40 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=3.696379099994374s (threshold=20.0s)"
+        }
+      ]
+    }
+  ]
+}

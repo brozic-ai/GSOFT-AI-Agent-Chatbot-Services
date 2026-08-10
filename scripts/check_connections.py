@@ -4,8 +4,9 @@ Kiểm tra: Database SQL Server, AI Backend FastAPI, Ollama LLM, Embedding Serve
 """
 
 import sys
-import requests
 from pathlib import Path
+
+import requests
 
 # Thêm root path để import settings từ app.core.config
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -26,35 +27,43 @@ def check_all():
     # 1. Kiểm tra kết nối Ollama (LLM & Embeddings)
     # ---------------------------------------------------------
     print("1️⃣ KIỂM TRA OLLAMA SERVER:")
-    ollama_base = getattr(settings, "LLM_BASE_URL", "http://localhost:11434/v1").replace("/v1", "")
+    ollama_base = getattr(
+        settings, "LLM_BASE_URL", "http://localhost:11434/v1"
+    ).replace("/v1", "")
     try:
         ver_res = requests.get(f"{ollama_base}/api/version", timeout=3)
         if ver_res.status_code == 200:
             version = ver_res.json().get("version", "N/A")
             print(f"   ✅ Ollama đang hoạt động! (Phiên bản: {version})")
-            
+
             # Kiểm tra danh sách model đã tải
             tags_res = requests.get(f"{ollama_base}/api/tags", timeout=3)
             if tags_res.status_code == 200:
                 models = [m["name"] for m in tags_res.json().get("models", [])]
-                print(f"   📦 Danh sách models đã tải trong Ollama ({len(models)}): {', '.join(models)}")
-                
+                print(
+                    f"   📦 Danh sách models đã tải trong Ollama ({len(models)}): {', '.join(models)}"
+                )
+
                 # Test LLM Model
                 llm_model = getattr(settings, "LLM_MODEL", "qwen3.5:0.8b")
                 if any(llm_model in m for m in models):
                     print(f"   ✅ LLM Model '{llm_model}': Sẵn sàng!")
                 else:
-                    print(f"   ⚠️ LƯU Ý: Chưa tìm thấy LLM Model '{llm_model}' trong Ollama. Vui lòng chạy: ollama pull {llm_model}")
+                    print(
+                        f"   ⚠️ LƯU Ý: Chưa tìm thấy LLM Model '{llm_model}' trong Ollama. Vui lòng chạy: ollama pull {llm_model}"
+                    )
 
                 # Test Embedding Model
                 embed_model = getattr(settings, "EMBEDDING_MODEL", "bge-m3:latest")
                 if any(embed_model in m or "bge-m3" in m for m in models):
                     print(f"   ✅ Embedding Model '{embed_model}': Sẵn sàng!")
                 else:
-                    print(f"   ⚠️ LƯU Ý: Chưa tìm thấy Embedding Model '{embed_model}'. Vui lòng chạy: ollama pull {embed_model}")
+                    print(
+                        f"   ⚠️ LƯU Ý: Chưa tìm thấy Embedding Model '{embed_model}'. Vui lòng chạy: ollama pull {embed_model}"
+                    )
         else:
             print(f"   ❌ Ollama trả về lỗi: {ver_res.status_code}")
-    except Exception as ex:
+    except Exception as ex:  # noqa: BLE001
         print(f"   ❌ Không thể kết nối tới Ollama ({ollama_base}): {ex}")
         print("   👉 Hãy mở ứng dụng Ollama hoặc gõ 'ollama serve' trên Terminal.")
 
@@ -87,19 +96,24 @@ def check_all():
     # 3a. Kiểm tra PyTorch SentenceTransformer GPU local
     try:
         import torch
-        from sentence_transformers import SentenceTransformer
+        from sentence_transformers import SentenceTransformer  # noqa: F401
+
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"   ✅ PyTorch SentenceTransformer sẵn sàng! (Thiết bị: {device.upper()})")
+        print(
+            f"   ✅ PyTorch SentenceTransformer sẵn sàng! (Thiết bị: {device.upper()})"
+        )
     except ImportError:
-        print("   ℹ️ Chưa cài `sentence-transformers` (Hệ thống sẽ dùng HTTP API fallback).")
-    except Exception as st_ex:
+        print(
+            "   ℹ️ Chưa cài `sentence-transformers` (Hệ thống sẽ dùng HTTP API fallback)."
+        )
+    except Exception as st_ex:  # noqa: BLE001
         print(f"   ⚠️ Lỗi kiểm tra SentenceTransformer: {st_ex}")
-    
+
     # 3b. Kiểm tra OpenAI-compatible Embeddings API (vLLM / Ollama)
     raw_embed_model = getattr(settings, "EMBEDDING_MODEL", "bge-m3:latest")
     embed_models_to_try = [raw_embed_model, "bge-m3:latest", "bge-m3", "BAAI/bge-m3"]
     embed_url = f"{ollama_base}/v1/embeddings"
-    
+
     success_embed = False
     for model_name in list(dict.fromkeys(embed_models_to_try)):
         try:
@@ -107,20 +121,24 @@ def check_all():
                 embed_url,
                 json={"model": model_name, "input": ["Kiểm tra kết nối embedding"]},
                 headers={"Content-Type": "application/json"},
-                timeout=5
+                timeout=5,
             )
             if embed_res.status_code == 200:
                 data = embed_res.json()
                 vec = data.get("data", [{}])[0].get("embedding", [])
-                print(f"   ✅ Ollama Embedding API hoạt động hoàn hảo!")
-                print(f"   📊 Model '{model_name}' tạo vector thành công ({len(vec)} chiều).")
+                print("   ✅ Ollama Embedding API hoạt động hoàn hảo!")
+                print(
+                    f"   📊 Model '{model_name}' tạo vector thành công ({len(vec)} chiều)."
+                )
                 success_embed = True
                 break
-        except Exception:
+        except (requests.RequestException, KeyError, IndexError):
             pass
 
     if not success_embed:
-        print(f"   ⚠️ Không thể gọi Ollama Embedding API tại {embed_url} với model '{raw_embed_model}'.")
+        print(
+            f"   ⚠️ Không thể gọi Ollama Embedding API tại {embed_url} với model '{raw_embed_model}'."
+        )
 
     # 3c. Kiểm tra TEI Server (Tùy chọn)
     tei_url = getattr(settings, "TEI_URL", "http://localhost:8080")
@@ -128,8 +146,10 @@ def check_all():
         tei_res = requests.get(f"{tei_url}/info", timeout=2)
         if tei_res.status_code == 200:
             print(f"   ✅ TEI Server (HuggingFace TEI) cũng đang bật tại {tei_url}!")
-    except Exception:
-        print(f"   ℹ️ TEI Server tại {tei_url} chưa bật (Hệ thống đang dùng PyTorch GPU / Ollama Embeddings ở trên).")
+    except requests.RequestException:
+        print(
+            f"   ℹ️ TEI Server tại {tei_url} chưa bật (Hệ thống đang dùng PyTorch GPU / Ollama Embeddings ở trên)."
+        )
 
     print("\n" + "-" * 60 + "\n")
 
