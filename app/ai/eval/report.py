@@ -397,7 +397,7 @@ def print_report(
                 err_lines.append(
                     f"❌ [bold cyan]{c.case_id}[/]\n"
                     f"   💬 [bold white]User Query:[/] \"{user_query}\"\n"
-                    f"   🔀 [bold red]Expected:[/] [bold green]{exp_intent}[/] ➔ [bold red]Actual:[/] [bold red]{act_intent}[/] [dim cyan](conf: {conf:.2f})[/]\n"
+                    f"   🔀 [bold red]Expected:[/] [bold green]{exp_intent}[/] ➔  [bold red]Actual:[/] [bold red]{act_intent}[/] [dim cyan](conf: {conf:.2f})[/]\n"
                     f"   🧠 [bold yellow]LLM Reasoning:[/] [italic]{reasoning}[/]\n"
                 )
 

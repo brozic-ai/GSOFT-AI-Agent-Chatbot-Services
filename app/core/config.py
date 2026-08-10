@@ -1,7 +1,12 @@
+import os
 from functools import lru_cache
 
+from dotenv import load_dotenv
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Tự động nạp file .env vào os.environ cho LangChain Tracer
+load_dotenv(override=True)
 
 
 class Settings(BaseSettings):
@@ -90,3 +95,13 @@ def get_settings() -> Settings:
 
 # Instance cài đặt sẵn cho việc import tiện lợi
 settings = get_settings()
+
+# Đồng bộ biến môi trường cho LangChain Tracing / LangSmith
+if settings.LANGCHAIN_TRACING_V2 and settings.LANGCHAIN_TRACING_V2.lower() == "true":
+    os.environ["LANGCHAIN_TRACING_V2"] = "true"
+    if settings.LANGCHAIN_API_KEY:
+        os.environ["LANGCHAIN_API_KEY"] = settings.LANGCHAIN_API_KEY
+    if settings.LANGCHAIN_PROJECT:
+        os.environ["LANGCHAIN_PROJECT"] = settings.LANGCHAIN_PROJECT
+    if settings.LANGCHAIN_ENDPOINT:
+        os.environ["LANGCHAIN_ENDPOINT"] = settings.LANGCHAIN_ENDPOINT
