@@ -1,56 +1,56 @@
 [
     {
-        "query": "Làm thế nào để đăng nhập vào hệ thống eOffice?",
+        "query": "Khi gặp sự cố CNTT, tôi liên hệ hỗ trợ ở đâu?",
         "output": {
+            "reasoning": "Câu hỏi tra cứu một bước, đáp án cố định về kênh hỗ trợ CNTT.",
             "intent": "faq",
-            "query": "Cách đăng nhập hệ thống eOffice",
-            "confidence": 0.95,
-            "reasoning": "Câu hỏi tra cứu thao tác đăng nhập chuẩn trên eOffice có quy trình xử lý cố định."
+            "query": "Liên hệ hỗ trợ sự cố CNTT",
+            "confidence": 0.95
         }
     },
     {
-        "query": "Giờ làm việc của chi nhánh Quận 1 là mấy giờ?",
+        "query": "Quy trình duyệt kỳ đăng ký văn phòng phẩm và trường hợp nào hồ sơ bị trả về cho người tạo diễn ra như thế nào?",
         "output": {
-            "intent": "faq",
-            "query": "Giờ làm việc chi nhánh Quận 1",
-            "confidence": 0.95,
-            "reasoning": "Câu hỏi về giờ làm việc là thông tin FAQ cố định."
-        }
-    },
-    {
-        "query": "Nghỉ ốm dài ngày do phẫu thuật thì hồ sơ bảo hiểm và chính sách lương chi tiết áp dụng theo điều khoản nào trong nội quy?",
-        "output": {
+            "reasoning": "Câu hỏi mô tả quy trình nhiều bước có điều kiện, cần truy hồi từ sổ tay nghiệp vụ.",
             "intent": "rag",
-            "query": "Quy định hồ sơ bảo hiểm và chính sách lương nghỉ ốm dài ngày do phẫu thuật",
-            "confidence": 0.90,
-            "reasoning": "Câu hỏi phức tạp về chế độ lương và hồ sơ bảo hiểm cần tra cứu tổng hợp từ văn bản quy định nội bộ."
+            "query": "Quy trình duyệt và trả về kỳ đăng ký văn phòng phẩm",
+            "confidence": 0.90
         }
     },
     {
-        "query": "Điều khoản phạt trả nợ trước hạn trong hợp đồng vay của tôi là gì?",
+        "query": "Quy trình điều chuyển tài sản cố định từ chi nhánh A sang chi nhánh B trên Phân hệ TSCĐ & CCLD gồm những bước nào?",
         "output": {
-            "intent": "rag",
-            "query": "Điều khoản phí phạt trả nợ trước hạn hợp đồng vay",
-            "confidence": 0.90,
-            "reasoning": "Cần tra cứu và trích xuất nội dung cụ thể trong hợp đồng vay."
+            "reasoning": "Câu hỏi thao tác chuyên sâu trên phân hệ Quản lý Tài sản cố định của hệ thống.",
+            "intent": "gamspro",
+            "query": "Quy trình điều chuyển tài sản cố định Phân hệ TSCĐ & CCLD",
+            "confidence": 0.95
+        }
+    },
+    {
+        "query": "Làm thế nào để tạo Phiếu yêu cầu xe đi công tác tỉnh trên Phân hệ Fleet?",
+        "output": {
+            "reasoning": "Câu hỏi thao tác nghiệp vụ cụ thể trên phân hệ Yêu cầu xe/Vận hành xe.",
+            "intent": "gamspro",
+            "query": "Tạo Phiếu yêu cầu xe đi công tác Phân hệ Fleet",
+            "confidence": 0.95
         }
     },
     {
         "query": "Chào bạn, hôm nay thời tiết thế nào?",
         "output": {
-            "intent": "general",
+            "reasoning": "Câu chào hỏi xã giao và thắc mắc ngoài phạm vi hệ thống.",
+            "intent": "fallback",
             "query": "Chào bạn, hôm nay thời tiết thế nào?",
-            "confidence": 0.85,
-            "reasoning": "Câu chào hỏi xã giao và hỏi thời tiết không liên quan nghiệp vụ ngân hàng."
+            "confidence": 0.85
         }
     },
     {
         "query": "Lỗi rồi",
         "output": {
-            "intent": "general",
+            "reasoning": "Câu hỏi quá ngắn và mơ hồ, không đủ thông tin để xác định intent nghiệp vụ.",
+            "intent": "fallback",
             "query": "Lỗi rồi",
-            "confidence": 0.40,
-            "reasoning": "Câu hỏi quá ngắn và mơ hồ, không đủ thông tin để xác định intent nghiệp vụ."
+            "confidence": 0.85
         }
     }
 ]

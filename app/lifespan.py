@@ -25,7 +25,9 @@ async def lifespan(app: FastAPI):
     Shutdown: Giải phóng connections, reset cache.
     """
     # ── Startup ──
-    logger.info("[START] Starting '%s' [env=%s]...", settings.PROJECT_NAME, settings.ENVIRONMENT)
+    logger.info(
+        "[START] Starting '%s' [env=%s]...", settings.PROJECT_NAME, settings.ENVIRONMENT
+    )
     await _startup()
     logger.info("[START] Application '%s' started successfully.", settings.PROJECT_NAME)
 
@@ -53,6 +55,7 @@ async def _startup() -> None:
     # 2. Database — tạo bảng ORM (RagDocuments, RagDocumentRoles)
     try:
         from app.core.database import init_db
+
         init_db()
         logger.info("[OK] Database schema initialized successfully.")
     except Exception as ex:
@@ -62,10 +65,13 @@ async def _startup() -> None:
     # Bảng này dùng kiểu VECTOR(1024) không được SQLAlchemy ORM hỗ trợ native trên SQL Server.
     try:
         from app.core.database import engine
+
         raw_conn = engine.raw_connection()
         try:
             with raw_conn.cursor() as cursor:
-                cursor.execute("SELECT 1 FROM sysobjects WHERE name='Documents' AND xtype='U'")
+                cursor.execute(
+                    "SELECT 1 FROM sysobjects WHERE name='Documents' AND xtype='U'"
+                )
                 if not cursor.fetchone():
                     cursor.execute("""
                         CREATE TABLE Documents (
@@ -76,7 +82,9 @@ async def _startup() -> None:
                             embedding VECTOR(1024)
                         );
                     """)
-                    logger.info("[OK] Table 'Documents' (Vector Chunks) created via DDL.")
+                    logger.info(
+                        "[OK] Table 'Documents' (Vector Chunks) created via DDL."
+                    )
             raw_conn.commit()
         finally:
             raw_conn.close()
@@ -95,8 +103,11 @@ async def _shutdown() -> None:
     # 2. Database connections
     try:
         from app.core.database import close_db
+
         close_db()
     except Exception as ex:
-        logger.error("[FAIL] Failed to close database connection: %s", ex, exc_info=True)
+        logger.error(
+            "[FAIL] Failed to close database connection: %s", ex, exc_info=True
+        )
 
     logger.info("[DONE] All resources released.")

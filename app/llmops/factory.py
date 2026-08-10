@@ -1,13 +1,14 @@
 from functools import lru_cache
+
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
 
+
 def _build_gemini(**overrides) -> BaseChatModel:
-    """
-    """
+    """ """
     return ChatGoogleGenerativeAI(
         model=overrides.pop("model", settings.GEMINI_MODEL),
         google_api_key=settings.GEMINI_API_KEY,
@@ -16,9 +17,9 @@ def _build_gemini(**overrides) -> BaseChatModel:
         **overrides,
     )
 
+
 def _build_openai_compat(**overrides) -> BaseChatModel:
-    """
-    """
+    """ """
     return ChatOpenAI(
         model=overrides.pop("model", settings.LLM_MODEL),
         base_url=overrides.pop("base_url", settings.LLM_BASE_URL),
@@ -29,11 +30,13 @@ def _build_openai_compat(**overrides) -> BaseChatModel:
         **overrides,
     )
 
+
 _BUILDER = {
     "gemini": _build_gemini,
     "openai_compat": _build_openai_compat,
     "vllm": _build_openai_compat,  # vLLM / Ollama dùng OpenAI-compatible API
 }
+
 
 @lru_cache(maxsize=8)
 def get_chat_model(provider: str | None = None, **overrides) -> BaseChatModel:

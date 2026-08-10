@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "agent_name": "supervisor",
+    "timestamp_utc": "2026-08-10T02:31:31.686042+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 14.71
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 0,
+    "failed_cases": 1,
+    "pass_rate": 0.0,
+    "pass_percentage": "0%",
+    "avg_score": 0.55
+  },
+  "cases": [
+    {
+      "case_id": "TC_002_faq_ban_hanh_quy_tac_ung_xuly",
+      "passed": false,
+      "avg_score": 0.55,
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='faq' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.65,
+          "passed": true,
+          "detail": "confidence=0.65 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=14.621282899999642s (threshold=20.0s)"
+        }
+      ]
+    }
+  ]
+}

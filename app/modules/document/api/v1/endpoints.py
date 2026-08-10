@@ -6,16 +6,28 @@ Dành riêng cho phân hệ Quản lý Tài liệu theo chuẩn Clean Architectu
 import json
 import logging
 from email.header import decode_header
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header, status
 
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    Header,
+    HTTPException,
+    UploadFile,
+    status,
+)
+
+from app.ai.rag.retrieval.retriever import VectorRetriever
 from app.modules.document.api.v1.schemas import (
-    CreateDocumentMetadataRequest, UpdateDocumentMetadataRequest,
-    UpdateDocumentStatusRequest, AddDocumentsRequest, AddDocumentsResponse,
-    SearchRequest, SearchResponse, DocumentResponse
+    CreateDocumentMetadataRequest,
+    DocumentResponse,
+    SearchRequest,
+    SearchResponse,
+    UpdateDocumentMetadataRequest,
+    UpdateDocumentStatusRequest,
 )
 from app.modules.document.service import DocumentService
-from app.ai.rag.retrieval.retriever import VectorRetriever
 from app.routers.dependencies import get_document_service, get_vector_retriever
 
 logger = logging.getLogger(__name__)
@@ -23,7 +35,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/documents", status_code=status.HTTP_201_CREATED)
+@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post("/", status_code=status.HTTP_201_CREATED, include_in_schema=False)
 async def create_document(
     request: CreateDocumentMetadataRequest,
     service: DocumentService = Depends(get_document_service),
@@ -34,10 +47,13 @@ async def create_document(
         return {"status": "success", "id": doc_id}
     except Exception as ex:
         logger.error("[FAIL] Error creating document metadata: %s", ex, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex)
+        )
 
 
-@router.get("/documents", response_model=List[DocumentResponse])
+@router.get("", response_model=list[DocumentResponse])
+@router.get("/", response_model=list[DocumentResponse], include_in_schema=False)
 async def get_documents_list(
     service: DocumentService = Depends(get_document_service),
 ):
@@ -46,10 +62,12 @@ async def get_documents_list(
         return service.get_documents_list()
     except Exception as ex:
         logger.error("[FAIL] Error listing documents: %s", ex, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex)
+        )
 
 
-@router.get("/documents/{id}")
+@router.get("/{id}")
 async def get_document(
     id: int,
     service: DocumentService = Depends(get_document_service),
@@ -57,11 +75,13 @@ async def get_document(
     """Lấy thông tin chi tiết của 1 tài liệu RAG."""
     doc = service.get_document_by_id(id)
     if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Document not found."
+        )
     return doc
 
 
-@router.get("/documents/{id}/roles")
+@router.get("/{id}/roles")
 async def get_document_roles(
     id: int,
     service: DocumentService = Depends(get_document_service),
@@ -70,7 +90,7 @@ async def get_document_roles(
     return service.get_document_roles(id)
 
 
-@router.put("/documents/{id}/status")
+@router.put("/{id}/status")
 async def update_document_status(
     id: int,
     request: UpdateDocumentStatusRequest,
@@ -78,14 +98,21 @@ async def update_document_status(
 ):
     """Cập nhật trạng thái Ingest của tài liệu từ C# Gateway."""
     try:
-        service.update_document_status(id, request.status, request.chunk_count, request.error)
+        service.update_document_status(
+            id, request.status, request.chunk_count, request.error
+        )
         return {"status": "success"}
     except Exception as ex:
-        logger.error("[FAIL] Error updating document status ID=%d: %s", id, ex, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex))
+        logger.error(
+            "[FAIL] Error updating document status ID=%d: %s", id, ex, exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex)
+        )
 
 
-@router.put("/documents/{id}")
+@router.put("/{id}")
+@router.post("/{id}")
 async def update_document_metadata(
     id: int,
     request: UpdateDocumentMetadataRequest,
@@ -102,11 +129,15 @@ async def update_document_metadata(
         )
         return {"status": "success"}
     except Exception as ex:
-        logger.error("[FAIL] Error updating document metadata ID=%d: %s", id, ex, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex))
+        logger.error(
+            "[FAIL] Error updating document metadata ID=%d: %s", id, ex, exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex)
+        )
 
 
-@router.delete("/documents/{backend_id}")
+@router.delete("/{backend_id}")
 async def delete_document(
     backend_id: int,
     service: DocumentService = Depends(get_document_service),
@@ -120,8 +151,12 @@ async def delete_document(
             "filePath": file_path,
         }
     except Exception as ex:
-        logger.error("[FAIL] Error deleting document ID=%d: %s", backend_id, ex, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex))
+        logger.error(
+            "[FAIL] Error deleting document ID=%d: %s", backend_id, ex, exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex)
+        )
 
 
 @router.post("/upload")
@@ -132,7 +167,10 @@ async def upload_document(
 ):
     """Tải lên file và thực hiện Ingestion kèm siêu dữ liệu phân quyền RBAC."""
     if not metadata:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Metadata form field is required.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Metadata form field is required.",
+        )
 
     filename = file.filename
     try:
@@ -140,7 +178,7 @@ async def upload_document(
         decoded_filename = ""
         for part, encoding in decoded_parts:
             if isinstance(part, bytes):
-                decoded_filename += part.decode(encoding or 'utf-8', errors='replace')
+                decoded_filename += part.decode(encoding or "utf-8", errors="replace")
             else:
                 decoded_filename += part
         if decoded_filename:
@@ -151,11 +189,16 @@ async def upload_document(
     try:
         custom_metadata = json.loads(metadata)
     except Exception as ex:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid metadata JSON: {ex}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid metadata JSON: {ex}",
+        )
 
     content = await file.read()
     if not content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty."
+        )
 
     try:
         success, chunk_count = await service.ingest_uploaded_file(
@@ -170,13 +213,15 @@ async def upload_document(
         }
     except Exception as ex:
         logger.error("[FAIL] Error processing document upload: %s", ex, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex)
+        )
 
 
 @router.post("/search", response_model=SearchResponse)
 async def search_documents(
     request: SearchRequest,
-    x_user_roles: Optional[str] = Header(None, alias="X-User-Roles"),
+    x_user_roles: str | None = Header(None, alias="X-User-Roles"),
     retriever: VectorRetriever = Depends(get_vector_retriever),
 ):
     """Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (RBAC User Roles)."""
@@ -191,5 +236,9 @@ async def search_documents(
         )
         return SearchResponse(**response)
     except Exception as ex:
-        logger.error("[FAIL] Error searching documents with RBAC: %s", ex, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex))
+        logger.error(
+            "[FAIL] Error searching documents with RBAC: %s", ex, exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex)
+        )

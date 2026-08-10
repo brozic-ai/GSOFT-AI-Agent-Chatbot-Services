@@ -4,7 +4,7 @@ Dành riêng cho phân hệ Chatbot RAG theo chuẩn Clean Architecture & DDD.
 """
 
 import logging
-from typing import Optional
+
 from fastapi import APIRouter, Depends, Header
 from fastapi.responses import StreamingResponse
 
@@ -20,7 +20,7 @@ router = APIRouter()
 @router.post("/stream")
 async def chat_stream(
     request: ChatRequest,
-    x_user_roles: Optional[str] = Header(None, alias="X-User-Roles"),
+    x_user_roles: str | None = Header(None, alias="X-User-Roles"),
     service: ChatService = Depends(get_chat_service),
 ):
     """
@@ -28,6 +28,11 @@ async def chat_stream(
     Nhận danh sách vai trò từ Body hoặc Header `X-User-Roles` từ C# Gateway để thực thi RBAC Vector Search.
     """
     roles = request.user_roles or x_user_roles
+    logger.info(
+        "[CHAT] Received POST /stream request | query='%s' | roles='%s'",
+        request.message,
+        roles,
+    )
 
     generator = service.generate_rag_response_stream(
         message=request.message,

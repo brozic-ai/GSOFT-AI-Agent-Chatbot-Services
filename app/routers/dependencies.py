@@ -6,17 +6,16 @@ vào các route handler một cách nhất quán, dễ duy trì và dễ test (C
 """
 
 import logging
-from typing import Generator
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from app.core.config import settings, get_settings, Settings
-from app.llmops.factory import get_chat_model
-from app.modules.document.repository import DocumentRepository
-from app.modules.document.service import DocumentService
 from app.ai.rag.embedding.service import TeiEmbeddingService
 from app.ai.rag.retrieval.retriever import VectorRetriever
+from app.core.config import Settings, get_settings
+from app.llmops.factory import get_chat_model
 from app.modules.chat.service import ChatService
+from app.modules.document.repository import DocumentRepository
+from app.modules.document.service import DocumentService
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,9 @@ def get_llm_provider_dep() -> BaseChatModel:
     global _llm_provider_cache
     if _llm_provider_cache is None:
         _llm_provider_cache = get_chat_model()
-        logger.info("[OK] LLM Provider initialized: %s", type(_llm_provider_cache).__name__)
+        logger.info(
+            "[OK] LLM Provider initialized: %s", type(_llm_provider_cache).__name__
+        )
     return _llm_provider_cache
 
 

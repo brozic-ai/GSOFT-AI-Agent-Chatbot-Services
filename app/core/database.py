@@ -1,10 +1,11 @@
 import logging
 import re
-from typing import Generator
+from collections.abc import Generator
 from urllib.parse import quote_plus
+
 import pyodbc
-from sqlalchemy import create_engine, text, event
-from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from app.core.config import settings
 
@@ -27,11 +28,13 @@ def build_database_url(conn_str: str) -> str:
     ]
 
     # Kiểm tra xem driver hiện tại trong conn_str có trên máy không
-    driver_match = re.search(r'Driver=\{([^}]+)\}', conn_str, re.IGNORECASE)
+    driver_match = re.search(r"Driver=\{([^}]+)\}", conn_str, re.IGNORECASE)
     if driver_match:
         current_driver = driver_match.group(1)
         if current_driver not in available_drivers:
-            fallback_driver = next((d for d in preferred_drivers if d in available_drivers), None)
+            fallback_driver = next(
+                (d for d in preferred_drivers if d in available_drivers), None
+            )
             if fallback_driver:
                 logger.warning(
                     "[WARN] ODBC Driver '%s' không có sẵn. Tự động chuyển sang '%s'.",
@@ -39,15 +42,19 @@ def build_database_url(conn_str: str) -> str:
                     fallback_driver,
                 )
                 conn_str = re.sub(
-                    r'Driver=\{[^}]+\}',
-                    f'Driver={{{fallback_driver}}}',
+                    r"Driver=\{[^}]+\}",
+                    f"Driver={{{fallback_driver}}}",
                     conn_str,
                     flags=re.IGNORECASE,
                 )
             else:
-                logger.warning("[WARN] Không tìm thấy ODBC Driver tương thích cho SQL Server trong pyodbc.drivers().")
+                logger.warning(
+                    "[WARN] Không tìm thấy ODBC Driver tương thích cho SQL Server trong pyodbc.drivers()."
+                )
     else:
-        fallback_driver = next((d for d in preferred_drivers if d in available_drivers), None)
+        fallback_driver = next(
+            (d for d in preferred_drivers if d in available_drivers), None
+        )
         if fallback_driver:
             if not conn_str.rstrip().endswith(";"):
                 conn_str += ";"
@@ -95,7 +102,9 @@ def init_db() -> None:
         logger.info("[OK] Database connection established successfully.")
         Base.metadata.create_all(bind=engine)
     except Exception as ex:
-        logger.error("[FAIL] Failed to initialize database connection: %s", ex, exc_info=True)
+        logger.error(
+            "[FAIL] Failed to initialize database connection: %s", ex, exc_info=True
+        )
         raise ex
 
 

@@ -8,8 +8,17 @@ Bảng này được tạo bởi DDL script trong lifespan startup (app/lifespan
 """
 
 from datetime import datetime
+
 from sqlalchemy import (
-    Column, Integer, String, Text, BigInteger, DateTime, ForeignKey, Index, Unicode, UnicodeText
+    BigInteger,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Unicode,
+    UnicodeText,
 )
 from sqlalchemy.orm import relationship
 
@@ -18,6 +27,7 @@ from app.core.database import Base
 
 class RagDocument(Base):
     """Bảng lưu thông tin siêu dữ liệu tài liệu RAG."""
+
     __tablename__ = "RagDocuments"
 
     id = Column("Id", Integer, primary_key=True, autoincrement=True)
@@ -29,27 +39,41 @@ class RagDocument(Base):
     owner_department = Column("OwnerDepartment", Unicode(200), nullable=True)
     description = Column("Description", UnicodeText, nullable=True)
     tags = Column("Tags", UnicodeText, nullable=True)  # Chuỗi JSON chứa mảng tag
-    access_scope = Column("AccessScope", String(50), nullable=False, default="Public")  # 'Public' hoặc 'Restricted'
+    access_scope = Column(
+        "AccessScope", String(50), nullable=False, default="Public"
+    )  # 'Public' hoặc 'Restricted'
     effective_date = Column("EffectiveDate", DateTime, nullable=True)
     expiration_date = Column("ExpirationDate", DateTime, nullable=True)
-    ingest_status = Column("IngestStatus", String(50), nullable=False, default="Pending")  # 'Pending', 'Processing', 'Completed', 'Failed'
+    ingest_status = Column(
+        "IngestStatus", String(50), nullable=False, default="Pending"
+    )  # 'Pending', 'Processing', 'Completed', 'Failed'
     ingest_error = Column("IngestError", UnicodeText, nullable=True)
     chunk_count = Column("ChunkCount", Integer, nullable=False, default=0)
     uploaded_by = Column("UploadedBy", Unicode(100), nullable=True)
     tenant_id = Column("TenantId", Integer, nullable=True)
-    creation_time = Column("CreationTime", DateTime, nullable=False, default=datetime.utcnow)
+    creation_time = Column(
+        "CreationTime", DateTime, nullable=False, default=datetime.utcnow
+    )
     last_modification_time = Column("LastModificationTime", DateTime, nullable=True)
 
     # Quan hệ 1-N tới danh sách Vai trò được truy cập
-    roles = relationship("RagDocumentRole", back_populates="document", cascade="all, delete-orphan")
+    roles = relationship(
+        "RagDocumentRole", back_populates="document", cascade="all, delete-orphan"
+    )
 
 
 class RagDocumentRole(Base):
     """Bảng lưu cấu hình Vai trò (Role) được truy cập tài liệu có mức độ Restricted."""
+
     __tablename__ = "RagDocumentRoles"
 
     id = Column("Id", Integer, primary_key=True, autoincrement=True)
-    rag_document_id = Column("RagDocumentId", Integer, ForeignKey("RagDocuments.Id", ondelete="CASCADE"), nullable=False)
+    rag_document_id = Column(
+        "RagDocumentId",
+        Integer,
+        ForeignKey("RagDocuments.Id", ondelete="CASCADE"),
+        nullable=False,
+    )
     role_name = Column("RoleName", Unicode(200), nullable=False)
 
     document = relationship("RagDocument", back_populates="roles")

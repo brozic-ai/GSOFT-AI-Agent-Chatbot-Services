@@ -8,7 +8,7 @@ Dịch vụ Embedding Service (Hỗ trợ SentenceTransformers PyTorch GPU / TEI
 """
 
 import logging
-from typing import List, Tuple
+
 import httpx
 from cachetools import TTLCache
 
@@ -30,13 +30,42 @@ def get_local_transformer_model():
             import torch
             from sentence_transformers import SentenceTransformer
 
-            model_name = getattr(settings, "EMBEDDING_MODEL", "BAAI/bge-m3")
+            raw_model_name = getattr(settings, "EMBEDDING_MODEL", "BAAI/bge-m3")
+
+            # Map tên Ollama format (bge-m3:latest) → HuggingFace format (BAAI/bge-m3)
+            # SentenceTransformer chỉ chấp nhận HuggingFace model ID (không có dấu ':')
+            _OLLAMA_TO_HF_MAP = {
+                "bge-m3:latest": "BAAI/bge-m3",
+                "bge-m3": "BAAI/bge-m3",
+            }
+            model_name = _OLLAMA_TO_HF_MAP.get(raw_model_name, raw_model_name)
+
             device = "cuda" if torch.cuda.is_available() else "cpu"
-            logger.info("Initializing SentenceTransformer('%s') on device='%s'...", model_name, device)
-            _LOCAL_TRANSFORMER_MODEL = SentenceTransformer(model_name, device=device)
-            logger.info("[OK] SentenceTransformer loaded successfully on device='%s'.", device)
+            logger.info(
+                "Initializing SentenceTransformer('%s') on device='%s'...",
+                model_name,
+                device,
+            )
+            try:
+                _LOCAL_TRANSFORMER_MODEL = SentenceTransformer(
+                    model_name, device=device
+                )
+            except Exception as load_err:
+                logger.info(
+                    "Retrying SentenceTransformer with weights_only=False fallback (%s)...",
+                    load_err,
+                )
+                _LOCAL_TRANSFORMER_MODEL = SentenceTransformer(
+                    model_name, device=device, model_kwargs={"weights_only": False}
+                )
+            logger.info(
+                "[OK] SentenceTransformer loaded successfully on device='%s'.", device
+            )
         except Exception as ex:
-            logger.warning("Could not initialize local SentenceTransformer (%s). Will fallback to HTTP endpoints.", ex)
+            logger.warning(
+                "Could not initialize local SentenceTransformer (%s). Will fallback to HTTP endpoints.",
+                ex,
+            )
             _LOCAL_TRANSFORMER_MODEL = False  # Đánh dấu không khả dụng
     return _LOCAL_TRANSFORMER_MODEL if _LOCAL_TRANSFORMER_MODEL is not False else None
 
@@ -48,7 +77,9 @@ class TeiEmbeddingService:
         self.base_url = (base_url or settings.TEI_URL).rstrip("/")
         self.embed_url = f"{self.base_url}/embed"
 
-    async def embed_texts(self, texts: List[str], batch_size: int = 32) -> List[List[float]]:
+    async def embed_texts(
+        self, texts: list[str], batch_size: int = 32
+    ) -> list[list[float]]:
         """
         Tạo embeddings cho danh sách đoạn văn bản.
         """
@@ -59,18 +90,23 @@ class TeiEmbeddingService:
         local_model = get_local_transformer_model()
         if local_model is not None:
             try:
-                embeddings = local_model.encode(texts, batch_size=batch_size, show_progress_bar=False)
+                embeddings = local_model.encode(
+                    texts, batch_size=batch_size, show_progress_bar=False
+                )
                 return embeddings.tolist()
             except Exception as st_ex:
-                logger.warning("PyTorch SentenceTransformer embed failed (%s). Falling back to HTTP APIs...", st_ex)
+                logger.warning(
+                    "PyTorch SentenceTransformer embed failed (%s). Falling back to HTTP APIs...",
+                    st_ex,
+                )
 
-        all_embeddings: List[List[float]] = []
+        all_embeddings: list[list[float]] = []
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             # 2. Thử kết nối TEI Server (Text Embeddings Inference)
             try:
                 for i in range(0, len(texts), batch_size):
-                    batch = texts[i:i + batch_size]
+                    batch = texts[i : i + batch_size]
                     response = await client.post(
                         self.embed_url,
                         json={"inputs": batch},
@@ -81,7 +117,10 @@ class TeiEmbeddingService:
                     all_embeddings.extend(embeddings)
                 return all_embeddings
             except Exception as tei_ex:
-                logger.debug("[INFO] TEI Server connection failed (%s). Trying OpenAI-compatible (vLLM / Ollama) Embeddings...", tei_ex)
+                logger.debug(
+                    "[INFO] TEI Server connection failed (%s). Trying OpenAI-compatible (vLLM / Ollama) Embeddings...",
+                    tei_ex,
+                )
 
             # 3. Gọi OpenAI-compatible Embeddings API (/v1/embeddings - Tương thích chuẩn với vLLM, Ollama, OpenAI)
             try:
@@ -92,10 +131,14 @@ class TeiEmbeddingService:
                     headers["Authorization"] = f"Bearer {settings.LLM_API_KEY}"
 
                 # Thử các variant tên model (ví dụ "BAAI/bge-m3" trên HuggingFace vs "bge-m3:latest" trên Ollama)
-                candidate_models = [raw_model_name, "bge-m3:latest", "bge-m3"] if "/" in raw_model_name else [raw_model_name]
+                candidate_models = (
+                    [raw_model_name, "bge-m3:latest", "bge-m3"]
+                    if "/" in raw_model_name
+                    else [raw_model_name]
+                )
 
                 for i in range(0, len(texts), batch_size):
-                    batch = texts[i:i + batch_size]
+                    batch = texts[i : i + batch_size]
                     res_data = None
                     for model_name in candidate_models:
                         try:
@@ -107,20 +150,28 @@ class TeiEmbeddingService:
                             response.raise_for_status()
                             res_data = response.json()
                             break
-                        except Exception:
+                        except (httpx.HTTPError, KeyError, ValueError):
                             continue
-                    
-                    if not res_data:
-                        raise RuntimeError(f"Could not get embeddings from {embed_endpoint} with models {candidate_models}")
 
-                    embeddings = [item["embedding"] for item in res_data.get("data", [])]
+                    if not res_data:
+                        raise RuntimeError(
+                            f"Could not get embeddings from {embed_endpoint} with models {candidate_models}"
+                        )
+
+                    embeddings = [
+                        item["embedding"] for item in res_data.get("data", [])
+                    ]
                     all_embeddings.extend(embeddings)
                 return all_embeddings
             except Exception as vllm_ex:
-                logger.error("[FAIL] Error calling OpenAI-compatible (vLLM/Ollama) Embedding API: %s", vllm_ex, exc_info=True)
+                logger.error(
+                    "[FAIL] Error calling OpenAI-compatible (vLLM/Ollama) Embedding API: %s",
+                    vllm_ex,
+                    exc_info=True,
+                )
                 raise vllm_ex
 
-    async def embed_query(self, query: str) -> List[float]:
+    async def embed_query(self, query: str) -> list[float]:
         """
         Tạo embedding cho 1 câu truy vấn của người dùng.
         """
@@ -129,7 +180,7 @@ class TeiEmbeddingService:
             return res[0]
         raise ValueError("Embedding Service returned empty embedding for query.")
 
-    async def embed_query_cached(self, query: str) -> Tuple[List[float], bool]:
+    async def embed_query_cached(self, query: str) -> tuple[list[float], bool]:
         """
         Tạo embedding cho câu truy vấn có sử dụng Cache.
         Trả về: (embedding_vector, cache_hit_boolean)
@@ -142,4 +193,3 @@ class TeiEmbeddingService:
         embedding = await self.embed_query(query)
         _QUERY_EMBEDDING_CACHE[cache_key] = embedding
         return embedding, False
-
