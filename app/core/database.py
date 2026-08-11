@@ -100,12 +100,16 @@ def init_db() -> None:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         logger.info("[OK] Database connection established successfully.")
+        # Import models để SQLAlchemy Base nhận diện tất cả ORM models (RagDocument, RagDocumentRole, IngestionTask, Conversation, ChatMessage)
+        import app.modules.document.model  # noqa: F401
+        import app.modules.chat.model  # noqa: F401
         Base.metadata.create_all(bind=engine)
     except Exception as ex:
         logger.error(
             "[FAIL] Failed to initialize database connection: %s", ex, exc_info=True
         )
         raise ex
+
 
 
 def close_db() -> None:

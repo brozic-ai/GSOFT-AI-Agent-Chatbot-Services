@@ -28,23 +28,16 @@ class VectorRetriever:
         top_k: int = 5,
         content_kind: str | None = None,
         user_roles: str | None = None,
+        user_department: str | None = None,
     ) -> dict[str, Any]:
         """
-        Thực hiện tìm kiếm ngữ cảnh có kiểm tra vai trò người dùng (user_roles).
-
-        Args:
-            query: Câu hỏi/truy vấn của người dùng.
-            top_k: Số lượng chunk tối đa cần lấy.
-            content_kind: Loại nội dung (instruction_text / image_ui_description).
-            user_roles: Chuỗi danh sách vai trò người dùng (X-User-Roles) từ C# Gateway.
-
-        Returns:
-            Dict chứa danh sách chunks, metadatas, distances và citations.
+        Thực hiện tìm kiếm ngữ cảnh có kiểm tra vai trò người dùng (user_roles) và Phòng ban (user_department).
         """
         logger.info(
-            "[RAG] Retrieving context for query='%s', roles='%s', top_k=%d",
+            "[RAG] Retrieving context for query='%s', roles='%s', dept='%s', top_k=%d",
             query,
             user_roles,
+            user_department,
             top_k,
         )
 
@@ -54,13 +47,14 @@ class VectorRetriever:
         )
         logger.debug("[RAG] Query embedding hit_cache=%s", cache_hit)
 
-        # 2. Truy vấn CSDL Vector SQL Server có áp dụng bộ lọc phân quyền RBAC
+        # 2. Truy vấn CSDL Vector SQL Server có áp dụng bộ lọc phân quyền RBAC Vai trò + Phòng ban
         search_results = self.repository.search_vector_chunks(
             query=query,
             query_embedding=query_embedding,
             top_k=top_k,
             content_kind=content_kind,
             user_roles=user_roles,
+            user_department=user_department,
         )
 
         documents = (

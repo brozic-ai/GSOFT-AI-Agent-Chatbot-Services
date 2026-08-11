@@ -1,8 +1,9 @@
 """
-Pydantic Schemas cho phân hệ Chatbot RAG (SSE Chat Stream).
+Pydantic Schemas cho phân hệ Chatbot RAG (SSE Chat Stream & Conversations Management).
 """
 
 
+from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
@@ -14,12 +15,41 @@ class ChatImageInput(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str = ""
-    images: list[ChatImageInput] = Field(default_factory=list)
-    user_roles: str | None = Field(
+    images: List[ChatImageInput] = Field(default_factory=list)
+    user_roles: Optional[str] = Field(
         default=None,
         alias="user_roles",
         description="Danh sách Vai trò của user, phân cách bằng dấu phẩy",
     )
-    conversation_id: str | None = Field(default=None, alias="conversation_id")
+    user_department: Optional[str] = Field(
+        default=None, alias="user_department", description="Phòng ban của user"
+    )
+    conversation_id: Optional[str] = Field(
+        default=None, alias="conversation_id", description="ID Phiên trò chuyện"
+    )
+    user_id: Optional[str] = Field(
+        default=None, alias="user_id", description="ID Người dùng"
+    )
 
     model_config = {"populate_by_name": True}
+
+
+class ConversationResponse(BaseModel):
+    id: str
+    user_id: Optional[str] = None
+    title: Optional[str] = None
+    creation_time: Optional[str] = None
+    updated_time: Optional[str] = None
+
+
+class ConversationListResponse(BaseModel):
+    items: List[ConversationResponse]
+    total_count: int
+
+
+class ChatMessageResponse(BaseModel):
+    id: int
+    role: str
+    content: str
+    citations: Optional[str] = None
+    creation_time: Optional[str] = None

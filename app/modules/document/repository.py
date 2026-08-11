@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import SessionLocal, engine
-from app.modules.document.model import RagDocument, RagDocumentRole
+from app.modules.document.model import RagDocument, RagDocumentRole, IngestionTask
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +115,7 @@ class DocumentRepository:
                         "file_path": doc.file_path,
                         "file_size": doc.file_size,
                         "category": doc.category,
+                        "owner_department": doc.owner_department,
                         "access_scope": doc.access_scope,
                         "ingest_status": doc.ingest_status,
                         "chunk_count": doc.chunk_count,
@@ -143,6 +144,7 @@ class DocumentRepository:
                 "file_path": doc.file_path,
                 "file_size": doc.file_size,
                 "category": doc.category,
+                "owner_department": doc.owner_department,
                 "access_scope": doc.access_scope,
                 "ingest_status": doc.ingest_status,
                 "chunk_count": doc.chunk_count,
@@ -419,7 +421,84 @@ class DocumentRepository:
         finally:
             raw_conn.close()
 
+    # --- INGESTION TASKS ORM CRUD ---
+
+    def create_ingestion_task(self, task_id: str, file_name: str, backend_document_id: Optional[int] = None) -> None:
+        """Tạo bản ghi theo dõi tiến độ Ingestion ngầm với status = PENDING."""
+        db: Session = SessionLocal()
+        try:
+            task = IngestionTask(
+                task_id=task_id,
+                file_name=file_name,
+                backend_document_id=backend_document_id,
+                status="PENDING",
+                progress_percent=0,
+                chunk_count=0,
+                created_at=datetime.utcnow(),
+            )
+            db.add(task)
+            db.commit()
+            logger.info("[OK] Created IngestionTask task_id='%s' for file='%s'", task_id, file_name)
+        except Exception as ex:
+            db.rollback()
+            logger.error("[FAIL] Error creating IngestionTask task_id='%s': %s", task_id, ex, exc_info=True)
+            raise ex
+        finally:
+            db.close()
+
+    def get_ingestion_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Lấy thông tin tiến độ IngestionTask theo task_id UUID."""
+        db: Session = SessionLocal()
+        try:
+            task = db.query(IngestionTask).filter(IngestionTask.task_id == task_id).first()
+            if not task:
+                return None
+            return {
+                "task_id": task.task_id,
+                "backend_document_id": task.backend_document_id,
+                "file_name": task.file_name,
+                "status": task.status,
+                "progress_percent": task.progress_percent,
+                "chunk_count": task.chunk_count,
+                "error_message": task.error_message,
+                "created_at": task.created_at.isoformat() if task.created_at else None,
+                "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+            }
+        finally:
+            db.close()
+
+    def update_ingestion_task(
+        self,
+        task_id: str,
+        status: str,
+        progress_percent: int = 0,
+        chunk_count: int = 0,
+        error_message: Optional[str] = None,
+    ) -> None:
+        """Cập nhật trạng thái, % tiến độ và lỗi của IngestionTask."""
+        db: Session = SessionLocal()
+        try:
+            task = db.query(IngestionTask).filter(IngestionTask.task_id == task_id).first()
+            if task:
+                task.status = status
+                if progress_percent > 0:
+                    task.progress_percent = progress_percent
+                if chunk_count > 0:
+                    task.chunk_count = chunk_count
+                if error_message is not None:
+                    task.error_message = error_message
+                task.updated_at = datetime.utcnow()
+                db.commit()
+                logger.debug("[OK] Updated IngestionTask task_id='%s' status='%s' (%d%%)", task_id, status, progress_percent)
+        except Exception as ex:
+            db.rollback()
+            logger.error("[FAIL] Error updating IngestionTask task_id='%s': %s", task_id, ex, exc_info=True)
+            raise ex
+        finally:
+            db.close()
+
     # --- VECTOR SEARCH CÓ PHÂN QUYỀN RBAC ---
+
 
     def search_vector_chunks(
         self,
@@ -428,14 +507,16 @@ class DocumentRepository:
         top_k: int,
         content_kind: str | None = None,
         user_roles: str | None = None,
+        user_department: str | None = None,
     ) -> dict[str, Any]:
         """
-        Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (RBAC) sử dụng SessionLocal connection.
+        Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (User Roles RBAC) và Phòng ban (Department RBAC).
 
         Luật Phân Quyền SQL:
         - Chunk hợp lệ nếu `accessScope` = 'Public' (hoặc NULL)
         - HOẶC `accessScope` = 'Restricted' VÀ user_roles có chứa 'admin'
         - HOẶC `accessScope` = 'Restricted' VÀ `user_roles` khớp với mảng `allowedRoles` lưu trong metadata.
+        - VÀ nếu tài liệu chỉ định Phòng ban sở hữu (owner_department), chỉ user thuộc phòng ban đó (hoặc Admin) mới xem được.
         """
         top_k = max(1, min(top_k, settings.SEARCH_TOP_K_MAX))
         candidate_count = max(top_k, settings.SEARCH_VECTOR_CANDIDATE_COUNT)
@@ -467,6 +548,16 @@ class DocumentRepository:
                               )
                           )
                       )
+                  )
+                  AND (
+                      ? IS NULL OR ? = ''
+                      OR CHARINDEX('admin', LOWER(?)) > 0
+                      OR (
+                          ISNULL(JSON_VALUE(metadata, '$.owner_department'), '') = ''
+                          AND ISNULL(JSON_VALUE(metadata, '$.ownerDepartment'), '') = ''
+                      )
+                      OR LOWER(JSON_VALUE(metadata, '$.owner_department')) = LOWER(?)
+                      OR LOWER(JSON_VALUE(metadata, '$.ownerDepartment')) = LOWER(?)
                   )
             ),
             VectorBase AS (
@@ -517,6 +608,11 @@ class DocumentRepository:
                     user_roles,
                     user_roles,
                     user_roles,
+                    user_department,
+                    user_department,
+                    user_roles or "",
+                    user_department,
+                    user_department,
                     query_embedding_json,
                     candidate_count,
                     exact_keyword,
