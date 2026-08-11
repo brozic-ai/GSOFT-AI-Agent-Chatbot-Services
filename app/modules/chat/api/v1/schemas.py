@@ -3,6 +3,8 @@ Pydantic Schemas cho phân hệ Chatbot RAG (SSE Chat Stream & Conversations Man
 """
 
 
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 

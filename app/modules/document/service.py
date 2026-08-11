@@ -6,7 +6,7 @@ Service tầng nghiệp vụ quản lý tài liệu (Document Business Service).
 import logging
 import os
 import tempfile
-from typing import Any
+from typing import Any, Dict, Optional
 
 from app.ai.rag.embedding.service import TeiEmbeddingService
 from app.modules.document.repository import DocumentRepository

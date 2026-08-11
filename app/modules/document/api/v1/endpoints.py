@@ -9,9 +9,11 @@ import os
 import tempfile
 import uuid
 from email.header import decode_header
+from typing import Any, Dict, List, Optional
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -29,6 +31,8 @@ from app.modules.document.api.v1.schemas import (
     SearchResponse,
     UpdateDocumentMetadataRequest,
     UpdateDocumentStatusRequest,
+    UploadAcceptedResponse,
+    UploadStatusResponse,
 )
 from app.modules.document.service import DocumentService
 from app.ai.rag.ingestion.pipeline import IngestionPipeline

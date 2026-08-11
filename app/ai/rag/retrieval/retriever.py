@@ -5,7 +5,7 @@ Chịu trách nhiệm truy vấn ngữ cảnh tài liệu và ép chặt quy t�
 """
 
 import logging
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from app.ai.rag.embedding.service import TeiEmbeddingService
 from app.modules.document.repository import DocumentRepository

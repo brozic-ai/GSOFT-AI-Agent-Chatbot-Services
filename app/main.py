@@ -7,7 +7,7 @@ from app.core.middleware import register_middlewares
 from app.lifespan import lifespan
 from app.routers.router import alias_router, api_v1_router
 
-# Khởi tạo logging (gọi 1 lần duy nhất)
+# Khởi tạo logging hệ thống Python AI Backend
 setup_logging()
 logger = get_logger(__name__)
 
