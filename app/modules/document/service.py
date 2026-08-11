@@ -81,6 +81,14 @@ class DocumentService:
         """Xóa tài liệu và các vector chunk liên quan."""
         return self.repository.delete_rag_document(backend_id)
 
+    def create_ingestion_task(self, task_id: str, file_name: str, backend_document_id: Optional[int] = None) -> None:
+        """Tạo bản ghi theo dõi tiến độ Ingestion ngầm."""
+        self.repository.create_ingestion_task(task_id, file_name, backend_document_id)
+
+    def get_ingestion_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Lấy thông tin tiến độ IngestionTask theo task_id UUID."""
+        return self.repository.get_ingestion_task(task_id)
+
     async def ingest_uploaded_file(
         self, content: bytes, file_name: str, custom_metadata: dict[str, Any]
     ) -> tuple[bool, int]:

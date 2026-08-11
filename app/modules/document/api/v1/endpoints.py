@@ -5,6 +5,9 @@ Dành riêng cho phân hệ Quản lý Tài liệu theo chuẩn Clean Architectu
 
 import json
 import logging
+import os
+import tempfile
+import uuid
 from email.header import decode_header
 
 from fastapi import (
@@ -28,7 +31,10 @@ from app.modules.document.api.v1.schemas import (
     UpdateDocumentStatusRequest,
 )
 from app.modules.document.service import DocumentService
-from app.routers.dependencies import get_document_service, get_vector_retriever
+from app.ai.rag.ingestion.pipeline import IngestionPipeline
+from app.ai.rag.retrieval.retriever import VectorRetriever
+from app.routers.dependencies import get_document_service, get_vector_retriever, get_embedding_service
+
 
 logger = logging.getLogger(__name__)
 
@@ -159,13 +165,17 @@ async def delete_document(
         )
 
 
-@router.post("/upload")
+@router.post("/upload", status_code=status.HTTP_202_ACCEPTED, response_model=UploadAcceptedResponse)
 async def upload_document(
     file: UploadFile = File(...),
     metadata: str = Form(...),
+    background_tasks: BackgroundTasks = None,
     service: DocumentService = Depends(get_document_service),
 ):
-    """Tải lên file và thực hiện Ingestion kèm siêu dữ liệu phân quyền RBAC."""
+    """
+    Tải lên file bất đồng bộ (Async Ingestion with BackgroundTasks).
+    Nhanh chóng tạo task_id UUID, lưu file tạm, lưu IngestionTask PENDING và trả về 202 Accepted lập tức.
+    """
     if not metadata:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -196,43 +206,89 @@ async def upload_document(
 
     content = await file.read()
     if not content:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty."
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty.")
 
+    # 1. Tạo file tạm để pipeline đọc ngầm
+    fd, temp_path = tempfile.mkstemp()
     try:
-        success, chunk_count = await service.ingest_uploaded_file(
-            content=content,
+        with os.fdopen(fd, 'wb') as temp_file:
+            temp_file.write(content)
+    except Exception as temp_ex:
+        logger.error("[FAIL] Error saving temporary upload file: %s", temp_ex, exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save upload temp file.")
+
+    # 2. Khởi tạo task_id UUID
+    task_id = str(uuid.uuid4())
+    backend_id_val = custom_metadata.get("backend_document_id") or custom_metadata.get("backendId") or custom_metadata.get("backend_id") or custom_metadata.get("id")
+    backend_doc_id = int(backend_id_val) if backend_id_val and str(backend_id_val).isdigit() else None
+
+    # 3. Tạo bản ghi PENDING trong DB
+    try:
+        service.create_ingestion_task(
+            task_id=task_id,
             file_name=filename,
-            custom_metadata=custom_metadata,
+            backend_document_id=backend_doc_id,
         )
-        return {
-            "status": "success",
-            "message": f"Successfully ingested {filename}.",
-            "chunkCount": chunk_count,
-        }
-    except Exception as ex:
-        logger.error("[FAIL] Error processing document upload: %s", ex, exc_info=True)
+    except Exception as task_ex:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        logger.error("[FAIL] Error creating IngestionTask: %s", task_ex, exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(task_ex))
+
+    # 4. Đưa IngestionPipeline vào BackgroundTasks
+    pipeline = IngestionPipeline(
+        repository=service.repository,
+        embedding_service=service.embedding_service,
+    )
+    background_tasks.add_task(
+        pipeline.run_sync,
+        task_id=task_id,
+        temp_path=temp_path,
+        file_name=filename,
+        file_size=len(content),
+        metadata=custom_metadata,
+    )
+
+    logger.info("[UPLOAD] Queued async ingestion task_id='%s' for file='%s'", task_id, filename)
+    return UploadAcceptedResponse(task_id=task_id, status="PENDING")
+
+
+@router.get("/upload-status/{task_id}", response_model=UploadStatusResponse)
+async def get_upload_status(
+    task_id: str,
+    service: DocumentService = Depends(get_document_service),
+):
+    """
+    Cung cấp endpoint cho Frontend / Gateway poll trạng thái và % tiến độ xử lý file theo task_id UUID.
+    """
+    task_info = service.get_ingestion_task(task_id)
+    if not task_info:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex)
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Ingestion task with task_id='{task_id}' not found."
         )
+    return UploadStatusResponse(**task_info)
+
 
 
 @router.post("/search", response_model=SearchResponse)
 async def search_documents(
     request: SearchRequest,
-    x_user_roles: str | None = Header(None, alias="X-User-Roles"),
+    x_user_roles: Optional[str] = Header(None, alias="X-User-Roles"),
+    x_user_department: Optional[str] = Header(None, alias="X-User-Department"),
     retriever: VectorRetriever = Depends(get_vector_retriever),
 ):
-    """Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (RBAC User Roles)."""
+    """Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (RBAC User Roles + Department)."""
     try:
         roles = request.user_roles or x_user_roles
+        department = request.user_department or x_user_department
 
         response = await retriever.retrieve_context(
             query=request.query,
             top_k=request.top_k,
             content_kind=request.content_kind,
             user_roles=roles,
+            user_department=department,
         )
         return SearchResponse(**response)
     except Exception as ex:
