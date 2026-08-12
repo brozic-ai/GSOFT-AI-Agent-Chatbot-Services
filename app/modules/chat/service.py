@@ -10,8 +10,9 @@ import uuid
 from typing import AsyncGenerator, Optional, List, Dict, Any
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from app.core.config import settings
+from app.ai.rag.context.builder import RagContextBuilder, determine_max_tokens
 from app.ai.rag.retrieval.retriever import VectorRetriever
+from app.core.config import settings
 from app.modules.chat.repository import ChatRepository
 
 logger = logging.getLogger(__name__)
@@ -91,16 +92,20 @@ class ChatService:
                 user_department=user_department,
             )
 
-            documents = search_res["documents"][0] if search_res.get("documents") else []
-            metadatas = search_res["metadatas"][0] if search_res.get("metadatas") else []
-            citations_list = search_res["citations"][0] if search_res.get("citations") else []
-            citations_json = json.dumps(citations_list, ensure_ascii=False, default=str)
+            raw_documents = search_res["documents"][0] if search_res.get("documents") else []
+            raw_metadatas = search_res["metadatas"][0] if search_res.get("metadatas") else []
 
-            # 7. Trả về trích dẫn tài liệu (Citations SSE Event)
+            # 7. Xây dựng Ngữ cảnh RAG đã qua làm sạch, khử trùng lặp và giới hạn dung lượng
+            context_str, used_metadatas, used_citations = RagContextBuilder.build(
+                documents=raw_documents, metadatas=raw_metadatas
+            )
+            citations_json = json.dumps(used_citations, ensure_ascii=False, default=str)
+
+            # 8. Trả về trích dẫn tài liệu chuẩn xác thực sự dùng trong prompt (Citations SSE Event)
             yield f"event: citations\ndata: {citations_json}\n\n"
 
-            # 8. Kiểm tra luồng Early Return: Không tìm thấy tài liệu phù hợp
-            if not documents or not any(doc.strip() for doc in documents):
+            # 9. Kiểm tra luồng Early Return: Không tìm thấy tài liệu phù hợp sau khi lọc
+            if not context_str or not context_str.strip():
                 no_doc_msg = "Tôi không tìm thấy thông tin phù hợp trong tài liệu được cấp quyền."
                 self.chat_repository.save_message(
                     conversation_id, role="assistant", content=no_doc_msg, citations_json=citations_json
@@ -109,7 +114,7 @@ class ChatService:
                 yield "event: chat_ended\ndata: {}\n\n"
                 return
 
-            # 9. Lấy lịch sử hội thoại cũ (loại bỏ tin nhắn câu hỏi vừa lưu ở bước 3 khỏi history cũ)
+            # 10. Lấy lịch sử hội thoại cũ (loại bỏ tin nhắn câu hỏi vừa lưu ở bước 3 khỏi history cũ)
             raw_history = self.chat_repository.get_chat_history(
                 conversation_id, limit=settings.CHAT_HISTORY_LIMIT + 1
             )
@@ -118,8 +123,7 @@ class ChatService:
             else:
                 history_msgs = raw_history
 
-            # 10. Xây dựng Danh sách Messages gửi cho LLM Streaming
-            context_str = "\n---\n".join(documents)
+            # 11. Xây dựng Danh sách Messages gửi cho LLM Streaming
             system_prompt = (
                 "Bạn là trợ lý AI thông minh của hệ thống Enterprise. "
                 "Hãy trả lời câu hỏi của người dùng dựa trên NGỮ CẢNH TÀI LIỆU được cung cấp bên dưới.\n"
@@ -138,17 +142,28 @@ class ChatService:
             user_prompt = f"NGỮ CẢNH TÀI LIỆU:\n{context_str}\n\nCÂU HỎI: {base_query}"
             llm_messages.append(("user", user_prompt))
 
-            # 11. Gọi LLM Provider Streaming (LangChain BaseChatModel)
+            # 12. Gắn max_tokens động (nếu bật) và Gọi LLM Provider Streaming
+            llm_engine = self.llm_provider
+            if getattr(settings, "RAG_DYNAMIC_MAX_TOKENS_ENABLED", True) and context_str:
+                calc_max_tokens = determine_max_tokens(context_str)
+                try:
+                    llm_engine = self.llm_provider.bind(max_tokens=calc_max_tokens)
+                except Exception:
+                    try:
+                        llm_engine = self.llm_provider.bind(max_output_tokens=calc_max_tokens)
+                    except Exception as bind_ex:
+                        logger.warning("[CHAT] Could not bind dynamic max_tokens (%s); using default provider.", bind_ex)
+
             logger.info("[CHAT] Calling LLM streaming for query='%s', history_count=%d...", base_query, len(history_msgs))
             full_response_text = ""
 
-            async for chunk in self.llm_provider.astream(llm_messages):
+            async for chunk in llm_engine.astream(llm_messages):
                 token_text = chunk.content if hasattr(chunk, "content") else str(chunk)
                 if token_text:
                     full_response_text += token_text
                     yield f"event: token\ndata: {json.dumps({'text': token_text}, ensure_ascii=False)}\n\n"
 
-            # 12. Lưu câu trả lời hoàn chỉnh của Assistant + Citations vào CSDL SQL Server
+            # 13. Lưu câu trả lời hoàn chỉnh của Assistant + Citations vào CSDL SQL Server
             if full_response_text:
                 self.chat_repository.save_message(
                     conversation_id, role="assistant", content=full_response_text, citations_json=citations_json

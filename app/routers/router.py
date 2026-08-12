@@ -24,6 +24,9 @@ alias_router.include_router(
     document_router, prefix="/api/rag/documents", tags=["Angular RAG Documents"]
 )
 alias_router.include_router(
+    document_router, prefix="/db/documents", tags=["Legacy C# Gateway DB Documents"]
+)
+alias_router.include_router(
     document_router, prefix="/db", tags=["Legacy C# Gateway DB Endpoints"]
 )
 alias_router.include_router(

@@ -4,8 +4,6 @@ Service tầng nghiệp vụ quản lý tài liệu (Document Business Service).
 """
 
 import logging
-import os
-import tempfile
 from typing import Any
 
 from app.ai.rag.embedding.service import TeiEmbeddingService
@@ -82,10 +80,20 @@ class DocumentService:
         return self.repository.delete_rag_document(backend_id)
 
     def create_ingestion_task(
-        self, task_id: str, file_name: str, backend_document_id: int | None = None
+        self,
+        task_id: str,
+        file_name: str,
+        backend_document_id: int | None = None,
+        file_size: int | None = None,
+        status: str = "PENDING",
+        progress_percent: int = 0,
     ) -> None:
         """Tạo bản ghi theo dõi tiến độ Ingestion ngầm."""
-        self.repository.create_ingestion_task(task_id, file_name, backend_document_id)
+        self.repository.create_ingestion_task(
+            task_id,
+            file_name,
+            backend_document_id,
+        )
 
     def get_ingestion_task(self, task_id: str) -> dict[str, Any] | None:
         """Lấy thông tin tiến độ IngestionTask theo task_id UUID."""

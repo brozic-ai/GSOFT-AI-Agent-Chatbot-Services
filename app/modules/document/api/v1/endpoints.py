@@ -37,7 +37,11 @@ from app.modules.document.api.v1.schemas import (
 )
 from app.modules.document.service import DocumentService
 from app.ai.rag.ingestion.pipeline import IngestionPipeline
-from app.routers.dependencies import get_document_service, get_vector_retriever, get_embedding_service
+from app.routers.dependencies import (
+    get_document_service,
+    get_vector_retriever,
+    get_embedding_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +80,7 @@ async def get_documents_list(
         )
 
 
-@router.get("/{id}")
+@router.get("/{id:int}")
 async def get_document(
     id: int,
     service: DocumentService = Depends(get_document_service),
@@ -90,7 +94,7 @@ async def get_document(
     return doc
 
 
-@router.get("/{id}/roles")
+@router.get("/{id:int}/roles")
 async def get_document_roles(
     id: int,
     service: DocumentService = Depends(get_document_service),
@@ -99,7 +103,7 @@ async def get_document_roles(
     return service.get_document_roles(id)
 
 
-@router.put("/{id}/status")
+@router.put("/{id:int}/status")
 async def update_document_status(
     id: int,
     request: UpdateDocumentStatusRequest,
@@ -120,8 +124,8 @@ async def update_document_status(
         )
 
 
-@router.put("/{id}")
-@router.post("/{id}")
+@router.put("/{id:int}")
+@router.post("/{id:int}")
 async def update_document_metadata(
     id: int,
     request: UpdateDocumentMetadataRequest,
@@ -146,7 +150,7 @@ async def update_document_metadata(
         )
 
 
-@router.delete("/{backend_id}")
+@router.delete("/{backend_id:int}")
 async def delete_document(
     backend_id: int,
     service: DocumentService = Depends(get_document_service),
@@ -168,7 +172,11 @@ async def delete_document(
         )
 
 
-@router.post("/upload", status_code=status.HTTP_202_ACCEPTED, response_model=UploadAcceptedResponse)
+@router.post(
+    "/upload",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=UploadAcceptedResponse,
+)
 async def upload_document(
     file: UploadFile = File(...),
     metadata: str = Form(...),
@@ -213,19 +221,34 @@ async def upload_document(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is empty."
         )
 
-    # 1. Tạo file tạm để pipeline đọc ngầm
-    fd, temp_path = tempfile.mkstemp()
+    # 1. Tạo file tạm có extension gốc để MarkItDown và Extractor detect đúng định dạng
+    ext = os.path.splitext(filename)[1].lower()
+    fd, temp_path = tempfile.mkstemp(suffix=ext)
     try:
-        with os.fdopen(fd, 'wb') as temp_file:
+        with os.fdopen(fd, "wb") as temp_file:
             temp_file.write(content)
     except Exception as temp_ex:
-        logger.error("[FAIL] Error saving temporary upload file: %s", temp_ex, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save upload temp file.")
+        logger.error(
+            "[FAIL] Error saving temporary upload file: %s", temp_ex, exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save upload temp file.",
+        )
 
     # 2. Khởi tạo task_id UUID
     task_id = str(uuid.uuid4())
-    backend_id_val = custom_metadata.get("backend_document_id") or custom_metadata.get("backendId") or custom_metadata.get("backend_id") or custom_metadata.get("id")
-    backend_doc_id = int(backend_id_val) if backend_id_val and str(backend_id_val).isdigit() else None
+    backend_id_val = (
+        custom_metadata.get("backend_document_id")
+        or custom_metadata.get("backendId")
+        or custom_metadata.get("backend_id")
+        or custom_metadata.get("id")
+    )
+    backend_doc_id = (
+        int(backend_id_val)
+        if backend_id_val and str(backend_id_val).isdigit()
+        else None
+    )
 
     # 3. Tạo bản ghi PENDING trong DB
     try:
@@ -238,7 +261,9 @@ async def upload_document(
         if os.path.exists(temp_path):
             os.remove(temp_path)
         logger.error("[FAIL] Error creating IngestionTask: %s", task_ex, exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(task_ex))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(task_ex)
+        )
 
     # 4. Đưa IngestionPipeline vào BackgroundTasks
     pipeline = IngestionPipeline(
@@ -254,7 +279,9 @@ async def upload_document(
         metadata=custom_metadata,
     )
 
-    logger.info("[UPLOAD] Queued async ingestion task_id='%s' for file='%s'", task_id, filename)
+    logger.info(
+        "[UPLOAD] Queued async ingestion task_id='%s' for file='%s'", task_id, filename
+    )
     return UploadAcceptedResponse(task_id=task_id, status="PENDING")
 
 
@@ -270,7 +297,7 @@ async def get_upload_status(
     if not task_info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Ingestion task with task_id='{task_id}' not found."
+            detail=f"Ingestion task with task_id='{task_id}' not found.",
         )
     return UploadStatusResponse(**task_info)
 

@@ -2,7 +2,7 @@
 Pydantic Schemas / DTOs cho phân hệ Quản lý Tài liệu (Document Management & RBAC API).
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -48,25 +48,28 @@ class UpdateDocumentStatusRequest(BaseModel):
 
 class UploadAcceptedResponse(BaseModel):
     """Phản hồi HTTP 202 Accepted khi nhận file upload xử lý ngầm."""
+
     task_id: str
-    status: str = Field(default="PENDING", description="PENDING | PROCESSING | COMPLETED | FAILED")
+    status: str = Field(
+        default="PENDING", description="PENDING | PROCESSING | COMPLETED | FAILED"
+    )
 
 
 class UploadStatusResponse(BaseModel):
     """Phản hồi thông tin tiến độ xử lý file khi client poll theo task_id."""
+
     task_id: str
-    file_name: Optional[str] = None
-    backend_document_id: Optional[int] = None
+    file_name: str | None = None
+    backend_document_id: int | None = None
     status: str  # PENDING | PROCESSING | COMPLETED | FAILED
     progress_percent: int = 0
     chunk_count: int = 0
-    error_message: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    error_message: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class AddDocumentsRequest(BaseModel):
-
     """Yêu cầu nạp thô danh sách Chunks vào CSDL Vector."""
 
     documents: list[str]
@@ -84,13 +87,13 @@ class SearchRequest(BaseModel):
 
     query: str
     top_k: int = Field(default=5, alias="top_k")
-    content_kind: Optional[str] = Field(default=None, alias="content_kind")
-    user_roles: Optional[str] = Field(
+    content_kind: str | None = Field(default=None, alias="content_kind")
+    user_roles: str | None = Field(
         default=None,
         alias="user_roles",
         description="Chuỗi chứa các vai trò của user, phân cách bằng phẩy",
     )
-    user_department: Optional[str] = Field(
+    user_department: str | None = Field(
         default=None,
         alias="user_department",
         description="Tên phòng ban của user",
@@ -101,7 +104,7 @@ class SearchRequest(BaseModel):
 
 class Citation(BaseModel):
     source: str | None = None
-    page: str | None = None
+    page: int | str | None = None
     chunk_id: str
     score: float
 
@@ -116,14 +119,16 @@ class SearchResponse(BaseModel):
 
 class DocumentResponse(BaseModel):
     id: int
-    document_name: str
-    file_name: str
-    file_path: str
-    file_size: int
-    category: Optional[str] = None
-    owner_department: Optional[str] = None
-    access_scope: str
-    ingest_status: str
-    chunk_count: int
+    document_name: str | None = None
+    file_name: str | None = None
+    file_path: str | None = None
+    file_size: int | None = 0
+    category: str | None = None
+    owner_department: str | None = None
+    access_scope: str | None = "Public"
+    ingest_status: str | None = "Completed"
+    progress_percent: int = 0
+    chunk_count: int | None = 0
+    error_message: str | None = None
     creation_time: str | None = None
     allowed_roles: list[str] = Field(default_factory=list)
