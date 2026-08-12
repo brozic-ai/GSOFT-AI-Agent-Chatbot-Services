@@ -85,6 +85,9 @@ class ChatService:
                 return
 
             # 6. Truy vấn ngữ cảnh RAG từ Vector Store với phân quyền RBAC Vai trò + Phòng ban
+            thinking_search_json = json.dumps({'text': 'Đang truy vấn ngữ cảnh tài liệu theo phân quyền...\n'}, ensure_ascii=False)
+            yield f"event: thinking\ndata: {thinking_search_json}\n\n"
+
             search_res = await self.retriever.retrieve_context(
                 query=base_query,
                 top_k=top_k,
@@ -110,9 +113,14 @@ class ChatService:
                 self.chat_repository.save_message(
                     conversation_id, role="assistant", content=no_doc_msg, citations_json=citations_json
                 )
-                yield f"event: token\ndata: {json.dumps({'text': no_doc_msg}, ensure_ascii=False)}\n\n"
+                no_doc_json = json.dumps({'text': no_doc_msg}, ensure_ascii=False)
+                yield f"event: token\ndata: {no_doc_json}\n\n"
                 yield "event: chat_ended\ndata: {}\n\n"
                 return
+
+            thinking_extract_text = f"Đã trích xuất {len(used_citations)} trích dẫn tài liệu phù hợp.\nĐang suy luận và tổng hợp câu trả lời...\n\n"
+            thinking_extract_json = json.dumps({'text': thinking_extract_text}, ensure_ascii=False)
+            yield f"event: thinking\ndata: {thinking_extract_json}\n\n"
 
             # 10. Lấy lịch sử hội thoại cũ (loại bỏ tin nhắn câu hỏi vừa lưu ở bước 3 khỏi history cũ)
             raw_history = self.chat_repository.get_chat_history(
@@ -156,11 +164,43 @@ class ChatService:
 
             logger.info("[CHAT] Calling LLM streaming for query='%s', history_count=%d...", base_query, len(history_msgs))
             full_response_text = ""
+            in_thinking = False
 
             async for chunk in llm_engine.astream(llm_messages):
                 token_text = chunk.content if hasattr(chunk, "content") else str(chunk)
-                if token_text:
-                    full_response_text += token_text
+                if not token_text:
+                    continue
+
+                full_response_text += token_text
+
+                # Parse <think> and </think> tags from LLM stream (e.g. Qwen2.5 / DeepSeek R1)
+                if "<think>" in token_text:
+                    in_thinking = True
+                    parts = token_text.split("<think>")
+                    if parts[0]:
+                        yield f"event: token\ndata: {json.dumps({'text': parts[0]}, ensure_ascii=False)}\n\n"
+                    if len(parts) > 1 and parts[1]:
+                        if "</think>" in parts[1]:
+                            think_parts = parts[1].split("</think>")
+                            yield f"event: thinking\ndata: {json.dumps({'text': think_parts[0]}, ensure_ascii=False)}\n\n"
+                            in_thinking = False
+                            if think_parts[1]:
+                                yield f"event: token\ndata: {json.dumps({'text': think_parts[1]}, ensure_ascii=False)}\n\n"
+                        else:
+                            yield f"event: thinking\ndata: {json.dumps({'text': parts[1]}, ensure_ascii=False)}\n\n"
+                    continue
+
+                if in_thinking:
+                    if "</think>" in token_text:
+                        parts = token_text.split("</think>")
+                        if parts[0]:
+                            yield f"event: thinking\ndata: {json.dumps({'text': parts[0]}, ensure_ascii=False)}\n\n"
+                        in_thinking = False
+                        if len(parts) > 1 and parts[1]:
+                            yield f"event: token\ndata: {json.dumps({'text': parts[1]}, ensure_ascii=False)}\n\n"
+                    else:
+                        yield f"event: thinking\ndata: {json.dumps({'text': token_text}, ensure_ascii=False)}\n\n"
+                else:
                     yield f"event: token\ndata: {json.dumps({'text': token_text}, ensure_ascii=False)}\n\n"
 
             # 13. Lưu câu trả lời hoàn chỉnh của Assistant + Citations vào CSDL SQL Server

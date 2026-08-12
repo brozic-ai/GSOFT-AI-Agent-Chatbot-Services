@@ -26,7 +26,6 @@ def _build_openai_compat(**overrides) -> BaseChatModel:
         api_key=overrides.pop("api_key", settings.LLM_API_KEY),
         temperature=overrides.pop("temperature", settings.LLM_TEMPERATURE),
         max_tokens=overrides.pop("max_tokens", settings.LLM_MAX_TOKENS),
-        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
         **overrides,
     )
 
