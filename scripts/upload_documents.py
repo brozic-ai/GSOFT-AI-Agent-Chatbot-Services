@@ -368,7 +368,7 @@ def _run_with_rich(console, files, existing_docs, results):
                 finally:
                     reader.close()
 
-                if upload_res.status_code == 200:
+                if upload_res.status_code in (200, 202):
                     data = upload_res.json()
                     chunk_count = data.get("chunkCount", 0)
                     progress.update(
@@ -462,7 +462,7 @@ def _run_plain(files, existing_docs, results):
                     files={"file": (filename, f)},
                     data={"metadata": json.dumps(custom_metadata, ensure_ascii=False)},
                 )
-            if upload_res.status_code == 200:
+            if upload_res.status_code in (200, 202):
                 data = upload_res.json()
                 chunk_count = data.get("chunkCount", 0)
                 print(f" ✅ ({chunk_count} chunks)")

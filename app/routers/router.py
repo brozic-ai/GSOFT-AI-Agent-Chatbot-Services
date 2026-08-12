@@ -6,9 +6,9 @@ và các Alias Routers tương thích với C# Gateway & Angular Frontend.
 
 from fastapi import APIRouter
 
+from app.modules.chat.api.v1.endpoints import router as chat_router
+from app.modules.document.api.v1.endpoints import router as document_router
 from app.modules.health.api.v1.router import router as health_router
-from app.modules.document.api.v1.router import router as document_router
-from app.modules.chat.api.v1.router import router as chat_router
 
 # 1. Router chuẩn RESTful DDD (/api/v1)
 api_v1_router = APIRouter(prefix="/api/v1")
@@ -24,7 +24,10 @@ alias_router.include_router(
     document_router, prefix="/api/rag/documents", tags=["Angular RAG Documents"]
 )
 alias_router.include_router(
-    document_router, prefix="/db/documents", tags=["Legacy C# Gateway DB Endpoints"]
+    document_router, prefix="/db/documents", tags=["Legacy C# Gateway DB Documents"]
+)
+alias_router.include_router(
+    document_router, prefix="/db", tags=["Legacy C# Gateway DB Endpoints"]
 )
 alias_router.include_router(
     chat_router, prefix="/v1/chat", tags=["Legacy C# Gateway Chat Stream"]

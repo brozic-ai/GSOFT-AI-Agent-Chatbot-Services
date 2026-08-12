@@ -85,16 +85,18 @@ Index("IX_RagDocumentRoles_RagDocumentId", RagDocumentRole.rag_document_id)
 
 class IngestionTask(Base):
     """Bảng lưu trạng thái và tiến độ xử lý Ingestion ngầm (Async Ingestion Tasks)."""
+
     __tablename__ = "IngestionTasks"
 
     id = Column("Id", Integer, primary_key=True, autoincrement=True)
     task_id = Column("TaskId", String(36), unique=True, nullable=False, index=True)
     backend_document_id = Column("BackendDocumentId", Integer, nullable=True)
     file_name = Column("FileName", Unicode(500), nullable=False)
-    status = Column("Status", String(50), nullable=False, default="PENDING")  # PENDING, PROCESSING, COMPLETED, FAILED
+    status = Column(
+        "Status", String(50), nullable=False, default="PENDING"
+    )  # PENDING, PROCESSING, COMPLETED, FAILED
     progress_percent = Column("ProgressPercent", Integer, nullable=False, default=0)
     chunk_count = Column("ChunkCount", Integer, nullable=False, default=0)
     error_message = Column("ErrorMessage", UnicodeText, nullable=True)
     created_at = Column("CreatedAt", DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column("UpdatedAt", DateTime, nullable=True)
-

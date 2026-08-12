@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: list[str] | str = [
         "http://localhost",
         "http://localhost:4200",
+        "http://172.26.16.1:4200",
+        "http://172.26.16.1:5000",
     ]
 
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
@@ -73,6 +75,7 @@ class Settings(BaseSettings):
     TEI_URL: str = "http://localhost:8080"
     EMBEDDING_MODEL: str = "BAAI/bge-m3"
     EMBEDDING_DIMS: int = 1024
+    ENABLE_LOCAL_EMBEDDING_FALLBACK: bool = False
     SEARCH_CHAT_TOP_K: int = 5
     SEARCH_TOP_K_MAX: int = 50
     SEARCH_VECTOR_CANDIDATE_COUNT: int = 200
@@ -81,12 +84,31 @@ class Settings(BaseSettings):
     INGESTION_TESSDATA_PATH: str = "tessdata"
     RAG_CHUNK_SIZE: int = 600
     RAG_CHUNK_OVERLAP: int = 120
+    INGESTION_ENABLE_VISION_OCR: bool = False
+    RERANKER_TYPE: str = "disabled"
+    RERANKER_TOP_K: int = 5
+    HYBRID_TOP_K_CANDIDATES: int = 20
     CHAT_HISTORY_LIMIT: int = 10
 
+    # --- RAG Preprocessing & Context Builder Config ---
+    RAG_ENABLE_VIETNAMESE_NORMALIZATION: bool = True
+    RAG_ENABLE_MARKDOWN_CONVERSION: bool = True
+    RAG_CONTEXT_MAX_CHARS: int = 18000
+    RAG_CONTEXT_GENERAL_CHUNK_MAX_CHARS: int = 2000
+    RAG_CONTEXT_PROCEDURE_CHUNK_MAX_CHARS: int = 5000
+    RAG_CONTEXT_IMAGE_CHUNK_MAX_CHARS: int = 1500
+    RAG_CONTEXT_NEAR_DUP_LINE_OVERLAP: float = 0.85
+    RAG_DYNAMIC_MAX_TOKENS_ENABLED: bool = True
+
     # --- LangSmith LLMOps Tracing Config ---
-    LANGCHAIN_TRACING_V2: str = "false"
+    LANGSMITH_TRACING: str = "true"
+    LANGSMITH_API_KEY: str = ""
+    LANGSMITH_PROJECT: str = "bvbank"
+    LANGSMITH_ENDPOINT: str = "https://apac.api.smith.langchain.com"
+
+    LANGCHAIN_TRACING_V2: str = "true"
     LANGCHAIN_API_KEY: str = ""
-    LANGCHAIN_PROJECT: str = "ai-agent-bvbank"
+    LANGCHAIN_PROJECT: str = "bvbank"
     LANGCHAIN_ENDPOINT: str = "https://apac.api.smith.langchain.com"
 
 
@@ -99,12 +121,26 @@ def get_settings() -> Settings:
 # Instance cài đặt sẵn cho việc import tiện lợi
 settings = get_settings()
 
-# Đồng bộ biến môi trường cho LangChain Tracing / LangSmith
-if settings.LANGCHAIN_TRACING_V2 and settings.LANGCHAIN_TRACING_V2.lower() == "true":
+# Đồng bộ biến môi trường cho LangChain Tracing / LangSmith SDK
+tracing_enabled = (
+    str(settings.LANGSMITH_TRACING).lower() == "true"
+    or str(settings.LANGCHAIN_TRACING_V2).lower() == "true"
+)
+api_key = settings.LANGSMITH_API_KEY or settings.LANGCHAIN_API_KEY
+project = settings.LANGSMITH_PROJECT or settings.LANGCHAIN_PROJECT
+endpoint = settings.LANGSMITH_ENDPOINT or settings.LANGCHAIN_ENDPOINT
+
+if tracing_enabled:
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    if settings.LANGCHAIN_API_KEY:
-        os.environ["LANGCHAIN_API_KEY"] = settings.LANGCHAIN_API_KEY
-    if settings.LANGCHAIN_PROJECT:
-        os.environ["LANGCHAIN_PROJECT"] = settings.LANGCHAIN_PROJECT
-    if settings.LANGCHAIN_ENDPOINT:
-        os.environ["LANGCHAIN_ENDPOINT"] = settings.LANGCHAIN_ENDPOINT
+    os.environ["LANGSMITH_TRACING"] = "true"
+    if api_key:
+        os.environ["LANGCHAIN_API_KEY"] = api_key
+        os.environ["LANGSMITH_API_KEY"] = api_key
+    if project:
+        os.environ["LANGCHAIN_PROJECT"] = project
+        os.environ["LANGSMITH_PROJECT"] = project
+    if endpoint:
+        os.environ["LANGCHAIN_ENDPOINT"] = endpoint
+        os.environ["LANGSMITH_ENDPOINT"] = endpoint
+
+

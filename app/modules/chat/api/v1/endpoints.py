@@ -4,7 +4,7 @@ Dành riêng cho phân hệ Chatbot RAG theo chuẩn Clean Architecture & DDD.
 """
 
 import logging
-from typing import List, Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
@@ -36,9 +36,11 @@ async def chat_stream(
     department = request.user_department or x_user_department
     user_id = request.user_id or x_user_id
     logger.info(
-        "[CHAT] Received POST /stream request | query='%s' | roles='%s'",
+        "[CHAT] Received POST /stream request | query='%s' | roles='%s' | dept='%s' | user_id='%s'",
         request.message,
         roles,
+        department,
+        user_id,
     )
 
     generator = service.generate_rag_response_stream(

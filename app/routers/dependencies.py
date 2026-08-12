@@ -77,10 +77,15 @@ def get_embedding_service() -> TeiEmbeddingService:
 
 # 6. Vector Retriever Dependency
 def get_vector_retriever() -> VectorRetriever:
-    """FastAPI Dependency trả về VectorRetriever hỗ trợ phân quyền RBAC."""
+    """FastAPI Dependency trả về VectorRetriever hỗ trợ phân quyền RBAC và Reranker."""
+    from app.ai.rag.reranker import get_reranker
+
     repo = get_repository()
     embed_svc = get_embedding_service()
-    return VectorRetriever(repository=repo, embedding_service=embed_svc)
+    reranker = get_reranker()
+    return VectorRetriever(
+        repository=repo, embedding_service=embed_svc, reranker=reranker
+    )
 
 
 # 7. Document Business Service Dependency
