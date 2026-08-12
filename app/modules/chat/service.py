@@ -4,9 +4,11 @@ Service tầng nghiệp vụ Chatbot RAG (Chat Business Service).
 gọi LLM Streaming và quản lý lịch sử hội thoại (Chat History).
 """
 
+import asyncio
 import json
 import logging
 from typing import AsyncGenerator, Optional, List, Dict, Any
+from fastapi import Request
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from app.ai.rag.retrieval.retriever import VectorRetriever
@@ -57,6 +59,7 @@ class ChatService:
         user_id: Optional[str] = None,
         user_roles: Optional[str] = None,
         top_k: int = 5,
+        request: Optional[Request] = None,
     ) -> AsyncGenerator[str, None]:
         """
         Tạo luồng Server-Sent Events (SSE) phản hồi câu hỏi RAG.
@@ -72,6 +75,9 @@ class ChatService:
         try:
             # Phát sự kiện khởi đầu chat
             yield "event: chat_started\ndata: {}\n\n"
+
+            if request and await request.is_disconnected():
+                return
 
             base_query = message.strip()
             if not base_query:
@@ -90,6 +96,8 @@ class ChatService:
             history: List[Dict[str, Any]] = []
             is_first_message = True
             if conversation_id:
+                if request and await request.is_disconnected():
+                    return
                 message_count = self.chat_repo.get_message_count(conversation_id)
                 is_first_message = (message_count == 0)
                 if message_count > 0:
@@ -97,6 +105,8 @@ class ChatService:
 
             # 2. Lưu câu hỏi của User vào DB
             if conversation_id:
+                if request and await request.is_disconnected():
+                    return
                 self.chat_repo.save_message(
                     conversation_id=conversation_id,
                     role="user",
@@ -112,6 +122,9 @@ class ChatService:
                 top_k=top_k,
                 user_roles=user_roles,
             )
+
+            if request and await request.is_disconnected():
+                return
 
             documents = search_res["documents"][0] if search_res.get("documents") else []
             citations_list = search_res["citations"][0] if search_res.get("citations") else []
@@ -154,12 +167,17 @@ class ChatService:
             full_response_chunks = []
 
             async for chunk in self.llm_provider.astream(messages_for_llm):
+                if request and await request.is_disconnected():
+                    return
                 token_text = chunk.content if hasattr(chunk, "content") else str(chunk)
                 if token_text:
                     full_response_chunks.append(token_text)
                     yield f"event: token\ndata: {json.dumps({'text': token_text}, ensure_ascii=False)}\n\n"
 
             # 6. Lưu câu trả lời hoàn chỉnh vào DB sau khi stream xong
+            if request and await request.is_disconnected():
+                return
+
             if conversation_id and full_response_chunks:
                 full_response = "".join(full_response_chunks)
                 self.chat_repo.save_message(
@@ -171,7 +189,11 @@ class ChatService:
 
             yield "event: chat_ended\ndata: {}\n\n"
 
+        except asyncio.CancelledError:
+            # The ASGI server cancels the generator when the downstream client disconnects.
+            logger.info("[CHAT] Stream cancelled by client for conversation_id=%s", conversation_id)
+            raise
         except Exception as ex:
-            logger.error("[FAIL] Error in RAG Chat Stream: %s", ex, exc_info=True)
-            yield f"event: token\ndata: {json.dumps({'text': '\\n[Lỗi kết nối tới mô hình AI hoặc Database]'})}\n\n"
+            error_msg = json.dumps({'text': '\n[Lỗi kết nối tới mô hình AI hoặc Database]'})
+            yield f"event: token\ndata: {error_msg}\n\n"
             yield "event: chat_ended\ndata: {}\n\n"

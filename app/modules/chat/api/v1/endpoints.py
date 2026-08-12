@@ -12,7 +12,7 @@ Endpoints:
 
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from app.modules.chat.api.v1.schemas import (
@@ -116,6 +116,7 @@ def get_messages(
 @router.post("/stream")
 async def chat_stream(
     request: ChatRequest,
+    http_request: Request,
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
     x_user_roles: Optional[str] = Header(None, alias="X-User-Roles"),
     service: ChatService = Depends(get_chat_service),
@@ -146,6 +147,7 @@ async def chat_stream(
         conversation_id=request.conversation_id,
         user_id=x_user_id,
         user_roles=roles,
+        request=http_request,
     )
 
     return StreamingResponse(generator, media_type="text/event-stream")
