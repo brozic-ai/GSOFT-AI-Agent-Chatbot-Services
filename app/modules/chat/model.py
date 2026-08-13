@@ -52,6 +52,4 @@ class ChatMessage(Base):
 
 
 # Đánh chỉ mục Index bổ sung
-Index("IX_Conversations_UserId", Conversation.user_id)
 Index("IX_Conversations_User_Pinned_Updated", Conversation.user_id, Conversation.is_pinned, Conversation.updated_at)
-Index("IX_ChatMessages_ConversationId", ChatMessage.conversation_id)
