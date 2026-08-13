@@ -6,7 +6,7 @@ Tuân thủ cùng nguyên tắc SessionLocal với DocumentRepository đang áp 
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 from sqlalchemy.orm import Session
@@ -62,36 +62,65 @@ class ChatRepository:
         finally:
             db.close()
 
-    def list_conversations(self, user_id: str) -> List[Dict[str, Any]]:
+    @staticmethod
+    def _time_label(value: Optional[datetime]) -> Optional[str]:
+        if not value:
+            return None
+        now = datetime.now(timezone.utc)
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        seconds = max(0, int((now - value).total_seconds()))
+        if seconds < 60:
+            return "Vừa xong"
+        if seconds < 3600:
+            return f"{seconds // 60} phút trước"
+        if seconds < 86400:
+            return f"{seconds // 3600} giờ trước"
+        if seconds < 30 * 86400:
+            return f"{seconds // 86400} ngày trước"
+        return f"{max(1, seconds // (30 * 86400))} tháng trước"
+
+    @classmethod
+    def _serialize_conversation(cls, conv: Conversation) -> Dict[str, Any]:
+        def iso(value: Optional[datetime]) -> Optional[str]:
+            return value.isoformat() + ("Z" if value and value.tzinfo is None else "")
+
+        return {
+            "id": conv.id,
+            "title": conv.title,
+            "is_pinned": bool(conv.is_pinned),
+            "created_at": iso(conv.created_at),
+            "updated_at": iso(conv.updated_at),
+            "time_label": cls._time_label(conv.updated_at),
+        }
+
+    def list_conversations(self, user_id: str, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
         """Lấy danh sách các phiên hội thoại của người dùng, sắp xếp theo mới nhất trước."""
         db: Session = SessionLocal()
         try:
             convs = (
                 db.query(Conversation)
                 .filter(Conversation.user_id == user_id)
-                .order_by(Conversation.updated_at.desc())
+                .order_by(Conversation.is_pinned.desc(), Conversation.updated_at.desc(), Conversation.id.desc())
+                .offset(offset)
+                .limit(limit)
                 .all()
             )
-            return [
-                {
-                    "id": conv.id,
-                    "title": conv.title,
-                    "created_at": conv.created_at.isoformat() if conv.created_at else None,
-                    "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
-                }
-                for conv in convs
-            ]
+            return [self._serialize_conversation(conv) for conv in convs]
         finally:
             db.close()
 
-    def update_conversation_title(self, conversation_id: int, title: str) -> None:
+    def update_conversation_title(self, conversation_id: int, title: str, source: str = "llm") -> None:
         """Cập nhật tiêu đề phiên hội thoại (thường dùng từ câu hỏi đầu tiên)."""
         db: Session = SessionLocal()
         try:
             conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
             if conv:
                 # Giới hạn tiêu đề 80 ký tự
+                if source == "llm" and conv.title_source == "manual":
+                    return
                 conv.title = title[:80] + ("..." if len(title) > 80 else "")
+                conv.title_source = source
                 conv.updated_at = datetime.utcnow()
                 db.commit()
                 logger.info("[OK] Updated title for Conversation ID=%d", conversation_id)
@@ -99,6 +128,37 @@ class ChatRepository:
             db.rollback()
             logger.error("[FAIL] Error updating conversation title ID=%d: %s", conversation_id, ex, exc_info=True)
             raise ex
+        finally:
+            db.close()
+
+    def update_conversation(
+        self,
+        conversation_id: int,
+        user_id: str,
+        title: Optional[str] = None,
+        is_pinned: Optional[bool] = None,
+    ) -> Optional[Dict[str, Any]]:
+        db: Session = SessionLocal()
+        try:
+            conv = db.query(Conversation).filter(
+                Conversation.id == conversation_id,
+                Conversation.user_id == user_id,
+            ).first()
+            if not conv:
+                return None
+            if title is not None:
+                conv.title = title.strip()
+                conv.title_source = "manual"
+            if is_pinned is not None:
+                conv.is_pinned = is_pinned
+                conv.pinned_at = datetime.utcnow() if is_pinned else None
+            conv.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(conv)
+            return self._serialize_conversation(conv)
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 

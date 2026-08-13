@@ -12,7 +12,7 @@ Endpoints:
 
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
 from app.modules.chat.api.v1.schemas import (
@@ -20,6 +20,7 @@ from app.modules.chat.api.v1.schemas import (
     ConversationCreateResponse,
     ConversationResponse,
     ChatMessageResponse,
+    ConversationUpdateRequest,
 )
 from app.modules.chat.service import ChatService
 from app.routers.dependencies import get_chat_service
@@ -42,10 +43,10 @@ def create_conversation(
     Trả về `conversation_id` để dùng trong các request chat tiếp theo.
     """
     try:
-        conv_id = service.create_conversation(user_id=x_user_id)
+        conv_id = service.create_conversation(user_id=x_user_id, title="\u0110o\u1ea1n chat m\u1edbi")
         return ConversationCreateResponse(
             conversation_id=conv_id,
-            title="Cuộc hội thoại mới",
+            title="\u0110o\u1ea1n chat m\u1edbi",
         )
     except Exception as ex:
         logger.error("[FAIL] Error creating conversation for user='%s': %s", x_user_id, ex, exc_info=True)
@@ -55,6 +56,8 @@ def create_conversation(
 @router.get("/conversations", response_model=List[ConversationResponse])
 def list_conversations(
     x_user_id: str = Header(..., alias="X-User-Id"),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     service: ChatService = Depends(get_chat_service),
 ):
     """
@@ -62,10 +65,34 @@ def list_conversations(
     Sắp xếp theo thứ tự mới nhất trước (updated_at DESC).
     """
     try:
-        return service.list_conversations(user_id=x_user_id)
+        return service.list_conversations(user_id=x_user_id, limit=limit, offset=offset)
     except Exception as ex:
         logger.error("[FAIL] Error listing conversations for user='%s': %s", x_user_id, ex, exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex))
+
+
+@router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)
+def update_conversation(
+    conversation_id: int,
+    request: ConversationUpdateRequest,
+    x_user_id: str = Header(..., alias="X-User-Id"),
+    service: ChatService = Depends(get_chat_service),
+):
+    """Rename and/or pin a conversation owned by the current user."""
+    if request.title is None and request.is_pinned is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cần truyền title hoặc is_pinned.")
+    try:
+        result = service.update_conversation(
+            conversation_id=conversation_id,
+            user_id=x_user_id,
+            title=request.title,
+            is_pinned=request.is_pinned,
+        )
+        if not result:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Phiên chat không tồn tại hoặc không thuộc user.")
+        return result
+    except ValueError as ex:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ex))
 
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)

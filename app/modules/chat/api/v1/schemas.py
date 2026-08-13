@@ -34,10 +34,17 @@ class ConversationResponse(BaseModel):
     """Response thông tin một phiên hội thoại."""
     id: int
     title: str
+    is_pinned: bool = False
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    time_label: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class ConversationUpdateRequest(BaseModel):
+    title: Optional[str] = Field(default=None, max_length=255)
+    is_pinned: Optional[bool] = None
 
 
 class ChatMessageResponse(BaseModel):

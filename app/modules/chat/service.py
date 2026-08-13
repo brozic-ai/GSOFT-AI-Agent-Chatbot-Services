@@ -30,17 +30,48 @@ class ChatService:
 
     # ── Conversation Management ──
 
-    def create_conversation(self, user_id: str) -> int:
+    def create_conversation(self, user_id: str, title: str = "\u0110o\u1ea1n chat m\u1edbi") -> int:
         """Tạo phiên hội thoại mới. Trả về conversation_id (int)."""
-        return self.chat_repo.create_conversation(user_id=user_id)
+        return self.chat_repo.create_conversation(user_id=user_id, title=title)
 
     def get_conversation(self, conversation_id: int, user_id: str) -> Optional[Dict[str, Any]]:
         """Lấy thông tin phiên hội thoại, kiểm tra quyền sở hữu theo user_id."""
         return self.chat_repo.get_conversation(conversation_id=conversation_id, user_id=user_id)
 
-    def list_conversations(self, user_id: str) -> List[Dict[str, Any]]:
+    def list_conversations(self, user_id: str, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
         """Lấy danh sách lịch sử các phiên hội thoại của người dùng."""
-        return self.chat_repo.list_conversations(user_id=user_id)
+        return self.chat_repo.list_conversations(user_id=user_id, limit=limit, offset=offset)
+
+    def update_conversation(
+        self,
+        conversation_id: int,
+        user_id: str,
+        title: Optional[str] = None,
+        is_pinned: Optional[bool] = None,
+    ) -> Optional[Dict[str, Any]]:
+        if title is not None and not title.strip():
+            raise ValueError("Title không được để trống.")
+        return self.chat_repo.update_conversation(conversation_id, user_id, title, is_pinned)
+
+    async def generate_conversation_title(self, conversation_id: int, question: str) -> None:
+        """Generate a short title; title generation failure must not fail the chat."""
+        fallback = question.strip()[:80]
+        try:
+            response = await asyncio.wait_for(
+                self.llm_provider.ainvoke([
+                    ("system", "Create a concise Vietnamese chat title, 3-8 words, no quotes or markdown."),
+                    ("user", question.strip()),
+                ]),
+                timeout=5,
+            )
+            title = response.content if hasattr(response, "content") else str(response)
+            if isinstance(title, list):
+                title = "".join(str(item) for item in title)
+            title = str(title).strip().strip("\"'")[:80]
+            self.chat_repo.update_conversation_title(conversation_id, title or fallback, source="llm")
+        except Exception as ex:
+            logger.warning("[WARN] Could not generate title for conversation_id=%d: %s", conversation_id, ex)
+            self.chat_repo.update_conversation_title(conversation_id, fallback, source="llm")
 
     def get_chat_history(self, conversation_id: int, limit: int = HISTORY_LIMIT) -> List[Dict[str, Any]]:
         """Lấy N tin nhắn gần nhất trong phiên hội thoại."""
@@ -114,7 +145,7 @@ class ChatService:
                 )
                 # Tự động đặt tiêu đề từ câu hỏi đầu tiên
                 if is_first_message:
-                    self.chat_repo.update_conversation_title(conversation_id, base_query)
+                    await self.generate_conversation_title(conversation_id, base_query)
 
             # 3. Truy vấn ngữ cảnh RAG từ Vector Store với phân quyền RBAC
             search_res = await self.retriever.retrieve_context(

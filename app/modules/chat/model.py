@@ -8,7 +8,7 @@ Bảng sẽ được tạo tự động khi startup thông qua Base.metadata.cre
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import (
-    Column, Integer, String, Text, DateTime, ForeignKey, Index, Unicode, UnicodeText
+    Boolean, Column, Integer, String, Text, DateTime, ForeignKey, Index, Unicode, UnicodeText
 )
 from sqlalchemy.orm import relationship
 
@@ -21,6 +21,9 @@ class Conversation(Base):
 
     id = Column("Id", Integer, primary_key=True, autoincrement=True)
     user_id = Column("UserId", Unicode(200), nullable=False, index=True)
+    is_pinned = Column("IsPinned", Boolean, nullable=False, default=False, server_default="0")
+    pinned_at = Column("PinnedAt", DateTime, nullable=True)
+    title_source = Column("TitleSource", String(20), nullable=False, default="default", server_default="default")
     title = Column("Title", Unicode(255), nullable=False, default="Cuộc hội thoại mới")
     created_at = Column("CreatedAt", DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column("UpdatedAt", DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -50,4 +53,5 @@ class ChatMessage(Base):
 
 # Đánh chỉ mục Index bổ sung
 Index("IX_Conversations_UserId", Conversation.user_id)
+Index("IX_Conversations_User_Pinned_Updated", Conversation.user_id, Conversation.is_pinned, Conversation.updated_at)
 Index("IX_ChatMessages_ConversationId", ChatMessage.conversation_id)
