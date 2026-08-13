@@ -14,8 +14,7 @@ from app.ai.rag.retrieval.retriever import VectorRetriever
 from app.core.config import Settings, get_settings
 from app.llmops.factory import get_chat_model
 from app.modules.chat.service import ChatService
-from app.modules.document.repository import DocumentRepository
-from app.modules.document.service import DocumentService
+from app.modules.chat.repository import ChatRepository
 
 logger = logging.getLogger(__name__)
 
@@ -96,18 +95,16 @@ def get_document_service() -> DocumentService:
     return DocumentService(repository=repo, embedding_service=embed_svc)
 
 
-from app.modules.chat.repository import ChatRepository
-
 # 8. Chat Repository Dependency
 _chat_repository_cache: ChatRepository | None = None
 
 
 def get_chat_repository() -> ChatRepository:
-    """FastAPI Dependency trả về ChatRepository instance."""
+    """FastAPI Dependency trả về ChatRepository singleton instance."""
     global _chat_repository_cache
     if _chat_repository_cache is None:
         _chat_repository_cache = ChatRepository()
-        logger.info("[OK] ChatRepository initialized.")
+        logger.info("[OK] ChatRepository initialized with ORM SessionLocal.")
     return _chat_repository_cache
 
 

@@ -104,12 +104,49 @@ def init_db() -> None:
         import app.modules.document.model  # noqa: F401
         import app.modules.chat.model  # noqa: F401
         Base.metadata.create_all(bind=engine)
+        _ensure_chat_conversation_columns()
     except Exception as ex:
         logger.error(
             "[FAIL] Failed to initialize database connection: %s", ex, exc_info=True
         )
         raise ex
 
+
+def _ensure_chat_conversation_columns() -> None:
+    """Add conversation-management columns for databases created by older releases."""
+    statements = [
+        """
+        IF COL_LENGTH('dbo.Conversations', 'IsPinned') IS NULL
+        ALTER TABLE dbo.Conversations ADD IsPinned BIT NOT NULL
+            CONSTRAINT DF_Conversations_IsPinned DEFAULT 0
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'PinnedAt') IS NULL
+        ALTER TABLE dbo.Conversations ADD PinnedAt DATETIME2 NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'TitleSource') IS NULL
+        ALTER TABLE dbo.Conversations ADD TitleSource NVARCHAR(20) NOT NULL
+            CONSTRAINT DF_Conversations_TitleSource DEFAULT 'default'
+        """,
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.indexes
+            WHERE name = 'IX_Conversations_User_Pinned_Updated'
+              AND object_id = OBJECT_ID('dbo.Conversations')
+        )
+        CREATE INDEX IX_Conversations_User_Pinned_Updated
+            ON dbo.Conversations(UserId, IsPinned, UpdatedAt)
+        """,
+    ]
+    try:
+        with engine.begin() as conn:
+            for statement in statements:
+                conn.execute(text(statement))
+        logger.info("[OK] Conversation schema is up to date.")
+    except Exception as ex:
+        logger.error("[FAIL] Failed to migrate conversation schema: %s", ex, exc_info=True)
+        raise
 
 
 def close_db() -> None:

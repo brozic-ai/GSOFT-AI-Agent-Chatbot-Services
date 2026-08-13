@@ -8,7 +8,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # Tự động nạp file .env vào os.environ cho LangChain Tracer
 load_dotenv(override=True)
 
-
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -1,10 +1,12 @@
 """
-Repository quản lý dữ liệu Phiên hội thoại và Lịch sử tin nhắn (Chat & Session Repository).
-Sử dụng SQLAlchemy ORM (SessionLocal) tuân thủ Clean Architecture.
+Repository Data Access Layer cho phân hệ Lịch sử Trò chuyện (Chat History Repository).
+Đóng gói toàn bộ logic truy vấn và ghi dữ liệu vào 2 bảng: Conversations và ChatMessages.
+
+Tuân thủ cùng nguyên tắc SessionLocal với DocumentRepository đang áp dụng trong dự án.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
 from sqlalchemy.orm import Session
@@ -16,206 +18,239 @@ logger = logging.getLogger(__name__)
 
 
 class ChatRepository:
-    """Repository quản lý CRUD Conversations và ChatMessages trong CSDL SQL Server."""
+    """Repository quản lý phiên hội thoại và tin nhắn lịch sử Chat."""
 
-    def get_or_create_conversation(
-        self,
-        conversation_id: str,
-        user_id: Optional[str] = None,
-        user_roles: Optional[str] = None,
-        user_department: Optional[str] = None,
-        title: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Lấy phiên hội thoại theo ID, nếu chưa có thì tạo mới."""
+    # ── Conversation Operations ──
+
+    def create_conversation(self, user_id: str, title: str = "Cuộc hội thoại mới") -> int:
+        """Tạo phiên hội thoại mới và trả về conversation_id (int)."""
         db: Session = SessionLocal()
         try:
-            conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if not conv:
-                conv = Conversation(
-                    id=conversation_id,
-                    user_id=user_id,
-                    user_roles=user_roles,
-                    user_department=user_department,
-                    title=title or "Hội thoại mới",
-                    creation_time=datetime.utcnow(),
-                    updated_time=datetime.utcnow(),
-                )
-                db.add(conv)
-                db.commit()
-                logger.info("[OK] Created new Conversation ID='%s' for user='%s'", conversation_id, user_id)
-            return {
-                "id": conv.id,
-                "user_id": conv.user_id,
-                "user_roles": conv.user_roles,
-                "user_department": conv.user_department,
-                "title": conv.title,
-                "creation_time": conv.creation_time.isoformat() if conv.creation_time else None,
-                "updated_time": conv.updated_time.isoformat() if conv.updated_time else None,
-            }
+            conv = Conversation(user_id=user_id, title=title)
+            db.add(conv)
+            db.commit()
+            db.refresh(conv)
+            logger.info("[OK] Created Conversation ID=%d for user_id='%s'", conv.id, user_id)
+            return conv.id
         except Exception as ex:
             db.rollback()
-            logger.error("[FAIL] Error in get_or_create_conversation ID='%s': %s", conversation_id, ex, exc_info=True)
+            logger.error("[FAIL] Error creating Conversation: %s", ex, exc_info=True)
             raise ex
         finally:
             db.close()
 
-    def list_conversations(self, user_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
-        """Lấy danh sách các phiên trò chuyện của user, sắp xếp mới nhất lên đầu."""
+    def get_conversation(self, conversation_id: int, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """
+        Lấy thông tin chi tiết của một phiên hội thoại.
+        Nếu truyền user_id thì sẽ kiểm tra quyền sở hữu (authorization check).
+        """
         db: Session = SessionLocal()
         try:
-            query = db.query(Conversation)
+            query = db.query(Conversation).filter(Conversation.id == conversation_id)
             if user_id:
                 query = query.filter(Conversation.user_id == user_id)
-            convs = query.order_by(Conversation.updated_time.desc()).limit(limit).all()
-            results = []
-            for conv in convs:
-                results.append({
-                    "id": conv.id,
-                    "user_id": conv.user_id,
-                    "title": conv.title,
-                    "creation_time": conv.creation_time.isoformat() if conv.creation_time else None,
-                    "updated_time": conv.updated_time.isoformat() if conv.updated_time else None,
-                })
-            return results
-        finally:
-            db.close()
-
-    def get_conversation(self, conversation_id: str) -> Optional[Dict[str, Any]]:
-        """Lấy thông tin 1 phiên hội thoại theo ID."""
-        db: Session = SessionLocal()
-        try:
-            conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            conv = query.first()
             if not conv:
                 return None
             return {
                 "id": conv.id,
                 "user_id": conv.user_id,
-                "user_roles": conv.user_roles,
-                "user_department": conv.user_department,
                 "title": conv.title,
-                "creation_time": conv.creation_time.isoformat() if conv.creation_time else None,
-                "updated_time": conv.updated_time.isoformat() if conv.updated_time else None,
+                "created_at": conv.created_at.isoformat() if conv.created_at else None,
+                "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
             }
         finally:
             db.close()
 
-    def delete_conversation(self, conversation_id: str, requesting_user_id: Optional[str] = None) -> bool:
-        """Xóa phiên trò chuyện kèm tất cả tin nhắn thuộc phiên (Cascade Delete)."""
+    @staticmethod
+    def _time_label(value: Optional[datetime]) -> Optional[str]:
+        if not value:
+            return None
+        now = datetime.now(timezone.utc)
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        seconds = max(0, int((now - value).total_seconds()))
+        if seconds < 60:
+            return "Vừa xong"
+        if seconds < 3600:
+            return f"{seconds // 60} phút trước"
+        if seconds < 86400:
+            return f"{seconds // 3600} giờ trước"
+        if seconds < 30 * 86400:
+            return f"{seconds // 86400} ngày trước"
+        return f"{max(1, seconds // (30 * 86400))} tháng trước"
+
+    @classmethod
+    def _serialize_conversation(cls, conv: Conversation) -> Dict[str, Any]:
+        def iso(value: Optional[datetime]) -> Optional[str]:
+            return value.isoformat() + ("Z" if value and value.tzinfo is None else "")
+
+        return {
+            "id": conv.id,
+            "title": conv.title,
+            "is_pinned": bool(conv.is_pinned),
+            "created_at": iso(conv.created_at),
+            "updated_at": iso(conv.updated_at),
+            "time_label": cls._time_label(conv.updated_at),
+        }
+
+    def list_conversations(self, user_id: str, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """Lấy danh sách các phiên hội thoại của người dùng, sắp xếp theo mới nhất trước."""
+        db: Session = SessionLocal()
+        try:
+            convs = (
+                db.query(Conversation)
+                .filter(Conversation.user_id == user_id)
+                .order_by(Conversation.is_pinned.desc(), Conversation.updated_at.desc(), Conversation.id.desc())
+                .offset(offset)
+                .limit(limit)
+                .all()
+            )
+            return [self._serialize_conversation(conv) for conv in convs]
+        finally:
+            db.close()
+
+    def update_conversation_title(self, conversation_id: int, title: str, source: str = "llm") -> None:
+        """Cập nhật tiêu đề phiên hội thoại (thường dùng từ câu hỏi đầu tiên)."""
         db: Session = SessionLocal()
         try:
             conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if not conv:
-                return False
-
-            # Validate ownership nếu requesting_user_id được truyền vào
-            if requesting_user_id and conv.user_id and conv.user_id != requesting_user_id:
-                logger.warning("[SECURITY] User '%s' attempted to delete Conversation '%s' owned by '%s'",
-                               requesting_user_id, conversation_id, conv.user_id)
-                return False
-
-            db.delete(conv)
-            db.commit()
-            logger.info("[OK] Deleted Conversation ID='%s'", conversation_id)
-            return True
+            if conv:
+                # Giới hạn tiêu đề 80 ký tự
+                if source == "llm" and conv.title_source == "manual":
+                    return
+                conv.title = title[:80] + ("..." if len(title) > 80 else "")
+                conv.title_source = source
+                conv.updated_at = datetime.utcnow()
+                db.commit()
+                logger.info("[OK] Updated title for Conversation ID=%d", conversation_id)
         except Exception as ex:
             db.rollback()
-            logger.error("[FAIL] Error deleting Conversation ID='%s': %s", conversation_id, ex, exc_info=True)
+            logger.error("[FAIL] Error updating conversation title ID=%d: %s", conversation_id, ex, exc_info=True)
             raise ex
         finally:
             db.close()
 
-    def save_message(
+    def update_conversation(
         self,
-        conversation_id: str,
-        role: str,
-        content: str,
-        citations_json: Optional[str] = None,
-    ) -> int:
-        """Lưu một tin nhắn mới (user hoặc assistant) và cập nhật UpdatedTime của Conversation."""
+        conversation_id: int,
+        user_id: str,
+        title: Optional[str] = None,
+        is_pinned: Optional[bool] = None,
+    ) -> Optional[Dict[str, Any]]:
+        db: Session = SessionLocal()
+        try:
+            conv = db.query(Conversation).filter(
+                Conversation.id == conversation_id,
+                Conversation.user_id == user_id,
+            ).first()
+            if not conv:
+                return None
+            if title is not None:
+                conv.title = title.strip()
+                conv.title_source = "manual"
+            if is_pinned is not None:
+                conv.is_pinned = is_pinned
+                conv.pinned_at = datetime.utcnow() if is_pinned else None
+            conv.updated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(conv)
+            return self._serialize_conversation(conv)
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    def touch_conversation(self, conversation_id: int) -> None:
+        """Cập nhật updated_at của phiên chat để sắp xếp lịch sử chính xác."""
+        db: Session = SessionLocal()
+        try:
+            conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            if conv:
+                conv.updated_at = datetime.utcnow()
+                db.commit()
+        except Exception as ex:
+            db.rollback()
+            logger.warning("[WARN] Could not touch Conversation ID=%d: %s", conversation_id, ex)
+        finally:
+            db.close()
+
+    def delete_conversation(self, conversation_id: int, user_id: str) -> bool:
+        """Xóa phiên hội thoại và toàn bộ tin nhắn liên quan (Cascade)."""
+        db: Session = SessionLocal()
+        try:
+            conv = (
+                db.query(Conversation)
+                .filter(Conversation.id == conversation_id, Conversation.user_id == user_id)
+                .first()
+            )
+            if not conv:
+                return False
+            db.delete(conv)
+            db.commit()
+            logger.info("[OK] Deleted Conversation ID=%d for user_id='%s'", conversation_id, user_id)
+            return True
+        except Exception as ex:
+            db.rollback()
+            logger.error("[FAIL] Error deleting Conversation ID=%d: %s", conversation_id, ex, exc_info=True)
+            raise ex
+        finally:
+            db.close()
+
+    # ── ChatMessage Operations ──
+
+    def save_message(self, conversation_id: int, role: str, content: str) -> int:
+        """Lưu một tin nhắn mới vào phiên hội thoại. Trả về message_id."""
         db: Session = SessionLocal()
         try:
             msg = ChatMessage(
                 conversation_id=conversation_id,
                 role=role,
                 content=content,
-                citations=citations_json,
-                creation_time=datetime.utcnow(),
             )
             db.add(msg)
-
-            # Cập nhật UpdatedTime của Conversation tương ứng
-            conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if conv:
-                conv.updated_time = datetime.utcnow()
-
             db.commit()
-            logger.debug("[OK] Saved ChatMessage ID=%d, Role='%s' for Conversation='%s'", msg.id, role, conversation_id)
+            db.refresh(msg)
+            logger.debug("[OK] Saved message ID=%d (role='%s') for conversation_id=%d", msg.id, role, conversation_id)
             return msg.id
         except Exception as ex:
             db.rollback()
-            logger.error("[FAIL] Error saving ChatMessage for Conversation='%s': %s", conversation_id, ex, exc_info=True)
+            logger.error("[FAIL] Error saving ChatMessage: %s", ex, exc_info=True)
             raise ex
         finally:
             db.close()
 
-    def get_chat_history(self, conversation_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_chat_history(self, conversation_id: int, limit: int = 20) -> List[Dict[str, Any]]:
         """
-        Lấy N tin nhắn gần nhất của phiên để đính kèm vào RAG LLM Prompt.
-        Lấy TOP N tin nhắn mới nhất (DESC) rồi đảo ngược (::-1) về đúng thứ tự thời gian.
+        Lấy N tin nhắn gần nhất trong phiên hội thoại (để làm ngữ cảnh cho LLM).
+        Trả về đúng thứ tự thời gian tăng dần (cũ -> mới).
         """
         db: Session = SessionLocal()
         try:
             msgs = (
                 db.query(ChatMessage)
                 .filter(ChatMessage.conversation_id == conversation_id)
-                .order_by(ChatMessage.id.desc())
+                .order_by(ChatMessage.created_at.asc())
                 .limit(limit)
                 .all()
             )
-            # Đảo ngược về thứ tự thời gian từ cũ -> mới
-            chronological_msgs = msgs[::-1]
             return [
                 {
                     "id": msg.id,
                     "role": msg.role,
                     "content": msg.content,
-                    "citations": msg.citations,
-                    "creation_time": msg.creation_time.isoformat() if msg.creation_time else None,
+                    "created_at": msg.created_at.isoformat() if msg.created_at else None,
                 }
-                for msg in chronological_msgs
+                for msg in msgs
             ]
         finally:
             db.close()
 
-    def get_conversation_messages(self, conversation_id: str, requesting_user_id: Optional[str] = None) -> Optional[List[Dict[str, Any]]]:
-        """Lấy toàn bộ tin nhắn của 1 phiên trò chuyện (cho API xem chi tiết)."""
+    def get_message_count(self, conversation_id: int) -> int:
+        """Đếm số tin nhắn trong phiên hội thoại (dùng để detect tin nhắn đầu tiên)."""
         db: Session = SessionLocal()
         try:
-            conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-            if not conv:
-                return None
-
-            # Validate ownership nếu requesting_user_id được truyền vào
-            if requesting_user_id and conv.user_id and conv.user_id != requesting_user_id:
-                logger.warning("[SECURITY] User '%s' attempted to view Conversation '%s' owned by '%s'",
-                               requesting_user_id, conversation_id, conv.user_id)
-                return None
-
-            msgs = (
-                db.query(ChatMessage)
-                .filter(ChatMessage.conversation_id == conversation_id)
-                .order_by(ChatMessage.id.asc())
-                .all()
-            )
-            return [
-                {
-                    "id": msg.id,
-                    "role": msg.role,
-                    "content": msg.content,
-                    "citations": msg.citations,
-                    "creation_time": msg.creation_time.isoformat() if msg.creation_time else None,
-                }
-                for msg in msgs
-            ]
+            return db.query(ChatMessage).filter(ChatMessage.conversation_id == conversation_id).count()
         finally:
             db.close()
