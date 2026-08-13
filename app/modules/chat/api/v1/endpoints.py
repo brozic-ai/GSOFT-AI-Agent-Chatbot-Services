@@ -73,7 +73,7 @@ def list_conversations(
 
 @router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)
 def update_conversation(
-    conversation_id: int,
+    conversation_id: str,
     request: ConversationUpdateRequest,
     x_user_id: str = Header(..., alias="X-User-Id"),
     service: ChatService = Depends(get_chat_service),
@@ -97,7 +97,7 @@ def update_conversation(
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_conversation(
-    conversation_id: int,
+    conversation_id: str,
     x_user_id: str = Header(..., alias="X-User-Id"),
     service: ChatService = Depends(get_chat_service),
 ):
@@ -115,7 +115,7 @@ def delete_conversation(
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[ChatMessageResponse])
 def get_messages(
-    conversation_id: int,
+    conversation_id: str,
     x_user_id: str = Header(..., alias="X-User-Id"),
     service: ChatService = Depends(get_chat_service),
 ):
@@ -147,7 +147,6 @@ async def chat_stream(
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
     x_user_roles: Optional[str] = Header(None, alias="X-User-Roles"),
     x_user_department: Optional[str] = Header(None, alias="X-User-Department"),
-    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
     service: ChatService = Depends(get_chat_service),
 ):
     """
@@ -189,61 +188,3 @@ async def chat_stream(
     )
 
     return StreamingResponse(generator, media_type="text/event-stream")
-
-
-@router.get("/conversations", response_model=ConversationListResponse)
-async def list_conversations(
-    limit: int = Query(50, ge=1, le=200),
-    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
-    user_id: Optional[str] = Query(None),
-    service: ChatService = Depends(get_chat_service),
-):
-    """
-    Lấy danh sách tất cả các phiên trò chuyện của người dùng (sắp xếp phiên mới nhất lên trước).
-    """
-    target_user_id = x_user_id or user_id
-    items = service.list_conversations(user_id=target_user_id, limit=limit)
-    return ConversationListResponse(
-        items=[ConversationResponse(**item) for item in items],
-        total_count=len(items)
-    )
-
-
-@router.get("/conversations/{conversation_id}/messages", response_model=List[ChatMessageResponse])
-async def get_conversation_messages(
-    conversation_id: str,
-    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
-    user_id: Optional[str] = Query(None),
-    service: ChatService = Depends(get_chat_service),
-):
-    """
-    Lấy toàn bộ lịch sử tin nhắn của một phiên trò chuyện cụ thể.
-    """
-    target_user_id = x_user_id or user_id
-    messages = service.get_conversation_messages(conversation_id=conversation_id, requesting_user_id=target_user_id)
-    if messages is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Phiên trò chuyện ID '{conversation_id}' không tồn tại hoặc bạn không có quyền truy cập."
-        )
-    return [ChatMessageResponse(**msg) for msg in messages]
-
-
-@router.delete("/conversations/{conversation_id}")
-async def delete_conversation(
-    conversation_id: str,
-    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
-    user_id: Optional[str] = Query(None),
-    service: ChatService = Depends(get_chat_service),
-):
-    """
-    Xóa 1 phiên trò chuyện và toàn bộ tin nhắn thuộc phiên đó.
-    """
-    target_user_id = x_user_id or user_id
-    success = service.delete_conversation(conversation_id=conversation_id, requesting_user_id=target_user_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Phiên trò chuyện ID '{conversation_id}' không tồn tại hoặc bạn không có quyền xóa."
-        )
-    return {"status": "success", "message": f"Đã xóa phiên trò chuyện ID '{conversation_id}' thành công."}

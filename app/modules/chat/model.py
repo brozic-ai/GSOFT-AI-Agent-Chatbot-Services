@@ -5,6 +5,7 @@ Quản lý 2 bảng: Conversations (phiên hội thoại) và ChatMessages (từ
 Bảng sẽ được tạo tự động khi startup thông qua Base.metadata.create_all() trong init_db().
 """
 
+import uuid
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import (
@@ -19,14 +20,18 @@ class Conversation(Base):
     """Bảng lưu phiên hội thoại của người dùng (Chat Session)."""
     __tablename__ = "Conversations"
 
-    id = Column("Id", Integer, primary_key=True, autoincrement=True)
-    user_id = Column("UserId", Unicode(200), nullable=False, index=True)
+    id = Column("Id", Unicode(100), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column("UserId", Unicode(200), nullable=True, index=True)
+    user_roles = Column("UserRoles", Unicode(500), nullable=True)
+    user_department = Column("UserDepartment", Unicode(100), nullable=True)
     is_pinned = Column("IsPinned", Boolean, nullable=False, default=False, server_default="0")
     pinned_at = Column("PinnedAt", DateTime, nullable=True)
     title_source = Column("TitleSource", String(20), nullable=False, default="default", server_default="default")
-    title = Column("Title", Unicode(255), nullable=False, default="Cuộc hội thoại mới")
-    created_at = Column("CreatedAt", DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column("UpdatedAt", DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    title = Column("Title", Unicode(255), nullable=True, default="Cuộc hội thoại mới")
+    creation_time = Column("CreationTime", DateTime, nullable=True, default=datetime.utcnow)
+    updated_time = Column("UpdatedTime", DateTime, nullable=True, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column("CreatedAt", DateTime, nullable=True, default=datetime.utcnow)
+    updated_at = Column("UpdatedAt", DateTime, nullable=True, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Quan hệ 1-N tới danh sách tin nhắn trong phiên này
     messages = relationship("ChatMessage", back_populates="conversation", cascade="all, delete-orphan")
@@ -38,14 +43,16 @@ class ChatMessage(Base):
 
     id = Column("Id", Integer, primary_key=True, autoincrement=True)
     conversation_id = Column(
-        "ConversationId", Integer,
+        "ConversationId", Unicode(100),
         ForeignKey("Conversations.Id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
-    role = Column("Role", String(20), nullable=False)   # 'user' | 'assistant' | 'system'
-    content = Column("Content", UnicodeText, nullable=False)
-    created_at = Column("CreatedAt", DateTime, nullable=False, default=datetime.utcnow)
+    role = Column("Role", String(20), nullable=True)   # 'user' | 'assistant' | 'system'
+    content = Column("Content", UnicodeText, nullable=True)
+    # Hỗ trợ cả cột CreationTime (schema cũ) lẫn CreatedAt (schema mới)
+    creation_time = Column("CreationTime", DateTime, nullable=True, default=datetime.utcnow)
+    created_at = Column("CreatedAt", DateTime, nullable=True, default=datetime.utcnow)
 
     # Quan hệ N-1 ngược lại tới phiên hội thoại cha
     conversation = relationship("Conversation", back_populates="messages")

@@ -32,3 +32,6 @@ alias_router.include_router(
 alias_router.include_router(
     chat_router, prefix="/v1/chat", tags=["Legacy C# Gateway Chat Stream"]
 )
+alias_router.include_router(
+    chat_router, prefix="/api/rag", tags=["Angular RAG Chat"]
+)

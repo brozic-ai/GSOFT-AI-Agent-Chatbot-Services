@@ -6,6 +6,7 @@ Tuân thủ cùng nguyên tắc SessionLocal với DocumentRepository đang áp 
 """
 
 import logging
+import uuid
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 
@@ -22,16 +23,17 @@ class ChatRepository:
 
     # ── Conversation Operations ──
 
-    def create_conversation(self, user_id: str, title: str = "Cuộc hội thoại mới") -> int:
-        """Tạo phiên hội thoại mới và trả về conversation_id (int)."""
+    def create_conversation(self, user_id: str, title: str = "Cuộc hội thoại mới") -> str:
+        """Tạo phiên hội thoại mới và trả về conversation_id (str)."""
         db: Session = SessionLocal()
         try:
-            conv = Conversation(user_id=user_id, title=title)
+            conv_id = str(uuid.uuid4())
+            conv = Conversation(id=conv_id, user_id=user_id, title=title)
             db.add(conv)
             db.commit()
             db.refresh(conv)
-            logger.info("[OK] Created Conversation ID=%d for user_id='%s'", conv.id, user_id)
-            return conv.id
+            logger.info("[OK] Created Conversation ID=%s for user_id='%s'", conv.id, user_id)
+            return str(conv.id)
         except Exception as ex:
             db.rollback()
             logger.error("[FAIL] Error creating Conversation: %s", ex, exc_info=True)
@@ -39,7 +41,7 @@ class ChatRepository:
         finally:
             db.close()
 
-    def get_conversation(self, conversation_id: int, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_conversation(self, conversation_id: Any, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Lấy thông tin chi tiết của một phiên hội thoại.
         Nếu truyền user_id thì sẽ kiểm tra quyền sở hữu (authorization check).
@@ -83,15 +85,17 @@ class ChatRepository:
     @classmethod
     def _serialize_conversation(cls, conv: Conversation) -> Dict[str, Any]:
         def iso(value: Optional[datetime]) -> Optional[str]:
-            return value.isoformat() + ("Z" if value and value.tzinfo is None else "")
+            return value.isoformat() + ("Z" if value and value.tzinfo is None else "") if value else None
 
+        created = conv.created_at or conv.creation_time
+        updated = conv.updated_at or conv.updated_time
         return {
             "id": conv.id,
-            "title": conv.title,
+            "title": conv.title or "Cuộc hội thoại mới",
             "is_pinned": bool(conv.is_pinned),
-            "created_at": iso(conv.created_at),
-            "updated_at": iso(conv.updated_at),
-            "time_label": cls._time_label(conv.updated_at),
+            "created_at": iso(created),
+            "updated_at": iso(updated),
+            "time_label": cls._time_label(updated),
         }
 
     def list_conversations(self, user_id: str, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
@@ -231,7 +235,7 @@ class ChatRepository:
             msgs = (
                 db.query(ChatMessage)
                 .filter(ChatMessage.conversation_id == conversation_id)
-                .order_by(ChatMessage.created_at.asc())
+                .order_by(ChatMessage.id.asc())
                 .limit(limit)
                 .all()
             )
@@ -240,14 +244,15 @@ class ChatRepository:
                     "id": msg.id,
                     "role": msg.role,
                     "content": msg.content,
-                    "created_at": msg.created_at.isoformat() if msg.created_at else None,
+                    "created_at": (msg.created_at or msg.creation_time).isoformat()
+                        if (msg.created_at or msg.creation_time) else None,
                 }
                 for msg in msgs
             ]
         finally:
             db.close()
 
-    def get_message_count(self, conversation_id: int) -> int:
+    def get_message_count(self, conversation_id: Any) -> int:
         """Đếm số tin nhắn trong phiên hội thoại (dùng để detect tin nhắn đầu tiên)."""
         db: Session = SessionLocal()
         try:
