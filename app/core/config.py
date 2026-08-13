@@ -111,6 +111,9 @@ class Settings(BaseSettings):
     LANGCHAIN_PROJECT: str = "bvbank"
     LANGCHAIN_ENDPOINT: str = "https://apac.api.smith.langchain.com"
 
+    # --- Net Backend URL ---
+    NET_BACKEND_URL: str = "http://localhost:5000"
+
 
 @lru_cache
 def get_settings() -> Settings:
