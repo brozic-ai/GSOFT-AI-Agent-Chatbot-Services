@@ -1,12 +1,12 @@
 import os
 from functools import lru_cache
-
+from typing import List, Union
 from dotenv import load_dotenv
-from pydantic import field_validator
+from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Tự động nạp file .env vào os.environ cho LangChain Tracer
-load_dotenv(override=True)
+# Load .env into os.environ for SDKs such as LangSmith that read process variables directly.
+load_dotenv()
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

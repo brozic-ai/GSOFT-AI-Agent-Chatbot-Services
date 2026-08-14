@@ -32,11 +32,11 @@ class ChatService:
 
     # ── Conversation Management ──
 
-    def create_conversation(self, user_id: str, title: str = "Đoạn chat mới") -> Any:
-        """Tạo phiên hội thoại mới. Trả về conversation_id."""
+    def create_conversation(self, user_id: str, title: str = "\u0110o\u1ea1n chat m\u1edbi") -> int:
+        """Tạo phiên hội thoại mới. Trả về conversation_id (int)."""
         return self.chat_repo.create_conversation(user_id=user_id, title=title)
 
-    def get_conversation(self, conversation_id: Any, user_id: str) -> Optional[Dict[str, Any]]:
+    def get_conversation(self, conversation_id: int, user_id: str) -> Optional[Dict[str, Any]]:
         """Lấy thông tin phiên hội thoại, kiểm tra quyền sở hữu theo user_id."""
         return self.chat_repo.get_conversation(conversation_id=conversation_id, user_id=user_id)
 
@@ -106,12 +106,6 @@ class ChatService:
         4. Xây dựng Prompt kết hợp ngữ cảnh tài liệu + lịch sử hội thoại.
         5. Stream câu trả lời từ LLM; nối lại và lưu câu trả lời vào DB sau khi hoàn tất.
         """
-        # 1. Xác định/Khởi tạo conversation_id (Memory-only step)
-        if conversation_id is not None:
-            conversation_id = str(conversation_id).strip() or None
-
-        base_query = message.strip()
-
         try:
             # Phát sự kiện khởi đầu chat
             yield "event: chat_started\ndata: {}\n\n"
@@ -239,7 +233,6 @@ class ChatService:
             logger.info("[CHAT] Stream cancelled by client for conversation_id=%s", conversation_id)
             raise
         except Exception as ex:
-            logger.error("[CHAT] Stream error for conversation_id=%s: %s", conversation_id, ex, exc_info=True)
             error_msg = json.dumps({'text': '\n[Lỗi kết nối tới mô hình AI hoặc Database]'})
             yield f"event: token\ndata: {error_msg}\n\n"
             yield "event: chat_ended\ndata: {}\n\n"
