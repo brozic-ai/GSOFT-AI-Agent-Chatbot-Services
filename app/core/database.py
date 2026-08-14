@@ -111,11 +111,24 @@ def init_db() -> None:
             "[FAIL] Failed to initialize database connection: %s", ex, exc_info=True
         )
         raise ex
+    except Exception as ex:
+        logger.error(
+            "[FAIL] Failed to initialize database connection: %s", ex, exc_info=True
+        )
+        raise ex
 
 
 def _ensure_chat_conversation_columns() -> None:
     """Add conversation-management columns for databases created by older releases."""
     statements = [
+        """
+        IF COL_LENGTH('dbo.Conversations', 'UserRoles') IS NULL
+        ALTER TABLE dbo.Conversations ADD UserRoles NVARCHAR(500) NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'UserDepartment') IS NULL
+        ALTER TABLE dbo.Conversations ADD UserDepartment NVARCHAR(100) NULL
+        """,
         """
         IF COL_LENGTH('dbo.Conversations', 'IsPinned') IS NULL
         ALTER TABLE dbo.Conversations ADD IsPinned BIT NOT NULL
@@ -132,17 +145,6 @@ def _ensure_chat_conversation_columns() -> None:
         """,
         """
         IF COL_LENGTH('dbo.Conversations', 'CreatedAt') IS NULL
-        ALTER TABLE dbo.Conversations ADD CreatedAt DATETIME2 NULL
-        """,
-        """
-        IF COL_LENGTH('dbo.Conversations', 'UpdatedAt') IS NULL
-        ALTER TABLE dbo.Conversations ADD UpdatedAt DATETIME2 NULL
-        """,
-        """
-        IF COL_LENGTH('dbo.Conversations', 'CreationTime') IS NOT NULL
-        ALTER TABLE dbo.Conversations ALTER COLUMN CreationTime DATETIME2 NULL
-        """,
-        """
         IF COL_LENGTH('dbo.Conversations', 'UpdatedTime') IS NOT NULL
         ALTER TABLE dbo.Conversations ALTER COLUMN UpdatedTime DATETIME2 NULL
         """,

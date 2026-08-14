@@ -21,19 +21,25 @@ logger = logging.getLogger(__name__)
 class ChatRepository:
     """Repository quản lý phiên hội thoại và tin nhắn lịch sử Chat."""
 
+    @staticmethod
+    def _parse_id(val: Any) -> Any:
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            return val
+
     # ── Conversation Operations ──
 
-    def create_conversation(self, user_id: str, title: str = "Cuộc hội thoại mới") -> str:
-        """Tạo phiên hội thoại mới và trả về conversation_id (str)."""
+    def create_conversation(self, user_id: str, title: str = "Cuộc hội thoại mới") -> int:
+        """Tạo phiên hội thoại mới và trả về conversation_id (int)."""
         db: Session = SessionLocal()
         try:
-            conv_id = str(uuid.uuid4())
-            conv = Conversation(id=conv_id, user_id=user_id, title=title)
+            conv = Conversation(user_id=user_id, title=title)
             db.add(conv)
             db.commit()
             db.refresh(conv)
             logger.info("[OK] Created Conversation ID=%s for user_id='%s'", conv.id, user_id)
-            return str(conv.id)
+            return conv.id
         except Exception as ex:
             db.rollback()
             logger.error("[FAIL] Error creating Conversation: %s", ex, exc_info=True)
@@ -48,7 +54,8 @@ class ChatRepository:
         """
         db: Session = SessionLocal()
         try:
-            query = db.query(Conversation).filter(Conversation.id == conversation_id)
+            parsed_id = self._parse_id(conversation_id)
+            query = db.query(Conversation).filter(Conversation.id == parsed_id)
             if user_id:
                 query = query.filter(Conversation.user_id == user_id)
             conv = query.first()
@@ -87,8 +94,8 @@ class ChatRepository:
         def iso(value: Optional[datetime]) -> Optional[str]:
             return value.isoformat() + ("Z" if value and value.tzinfo is None else "") if value else None
 
-        created = conv.created_at or conv.creation_time
-        updated = conv.updated_at or conv.updated_time
+        created = conv.created_at
+        updated = conv.updated_at
         return {
             "id": conv.id,
             "title": conv.title or "Cuộc hội thoại mới",
@@ -118,7 +125,8 @@ class ChatRepository:
         """Cập nhật tiêu đề phiên hội thoại (thường dùng từ câu hỏi đầu tiên)."""
         db: Session = SessionLocal()
         try:
-            conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            parsed_id = self._parse_id(conversation_id)
+            conv = db.query(Conversation).filter(Conversation.id == parsed_id).first()
             if conv:
                 # Giới hạn tiêu đề 80 ký tự
                 if source == "llm" and conv.title_source == "manual":
@@ -144,8 +152,9 @@ class ChatRepository:
     ) -> Optional[Dict[str, Any]]:
         db: Session = SessionLocal()
         try:
+            parsed_id = self._parse_id(conversation_id)
             conv = db.query(Conversation).filter(
-                Conversation.id == conversation_id,
+                Conversation.id == parsed_id,
                 Conversation.user_id == user_id,
             ).first()
             if not conv:
@@ -170,7 +179,8 @@ class ChatRepository:
         """Cập nhật updated_at của phiên chat để sắp xếp lịch sử chính xác."""
         db: Session = SessionLocal()
         try:
-            conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+            parsed_id = self._parse_id(conversation_id)
+            conv = db.query(Conversation).filter(Conversation.id == parsed_id).first()
             if conv:
                 conv.updated_at = datetime.utcnow()
                 db.commit()
@@ -184,9 +194,10 @@ class ChatRepository:
         """Xóa phiên hội thoại và toàn bộ tin nhắn liên quan (Cascade)."""
         db: Session = SessionLocal()
         try:
+            parsed_id = self._parse_id(conversation_id)
             conv = (
                 db.query(Conversation)
-                .filter(Conversation.id == conversation_id, Conversation.user_id == user_id)
+                .filter(Conversation.id == parsed_id, Conversation.user_id == user_id)
                 .first()
             )
             if not conv:
@@ -208,8 +219,9 @@ class ChatRepository:
         """Lưu một tin nhắn mới vào phiên hội thoại. Trả về message_id."""
         db: Session = SessionLocal()
         try:
+            parsed_id = self._parse_id(conversation_id)
             msg = ChatMessage(
-                conversation_id=conversation_id,
+                conversation_id=parsed_id,
                 role=role,
                 content=content,
             )
@@ -232,9 +244,10 @@ class ChatRepository:
         """
         db: Session = SessionLocal()
         try:
+            parsed_id = self._parse_id(conversation_id)
             msgs = (
                 db.query(ChatMessage)
-                .filter(ChatMessage.conversation_id == conversation_id)
+                .filter(ChatMessage.conversation_id == parsed_id)
                 .order_by(ChatMessage.id.asc())
                 .limit(limit)
                 .all()
@@ -244,8 +257,7 @@ class ChatRepository:
                     "id": msg.id,
                     "role": msg.role,
                     "content": msg.content,
-                    "created_at": (msg.created_at or msg.creation_time).isoformat()
-                        if (msg.created_at or msg.creation_time) else None,
+                    "created_at": msg.created_at.isoformat() if msg.created_at else None,
                 }
                 for msg in msgs
             ]
@@ -256,6 +268,7 @@ class ChatRepository:
         """Đếm số tin nhắn trong phiên hội thoại (dùng để detect tin nhắn đầu tiên)."""
         db: Session = SessionLocal()
         try:
-            return db.query(ChatMessage).filter(ChatMessage.conversation_id == conversation_id).count()
+            parsed_id = self._parse_id(conversation_id)
+            return db.query(ChatMessage).filter(ChatMessage.conversation_id == parsed_id).count()
         finally:
             db.close()
