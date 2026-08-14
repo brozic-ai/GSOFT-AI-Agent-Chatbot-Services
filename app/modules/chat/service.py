@@ -32,11 +32,11 @@ class ChatService:
 
     # ── Conversation Management ──
 
-    def create_conversation(self, user_id: str, title: str = "Đoạn chat mới") -> Union[str, int]:
-        """Tạo phiên hội thoại mới. Trả về conversation_id (str/int)."""
+    def create_conversation(self, user_id: str, title: str = "Đoạn chat mới") -> Any:
+        """Tạo phiên hội thoại mới. Trả về conversation_id."""
         return self.chat_repo.create_conversation(user_id=user_id, title=title)
 
-    def get_conversation(self, conversation_id: Union[str, int], user_id: str) -> Optional[Dict[str, Any]]:
+    def get_conversation(self, conversation_id: Any, user_id: str) -> Optional[Dict[str, Any]]:
         """Lấy thông tin phiên hội thoại, kiểm tra quyền sở hữu theo user_id."""
         return self.chat_repo.get_conversation(conversation_id=conversation_id, user_id=user_id)
 
@@ -46,7 +46,7 @@ class ChatService:
 
     def update_conversation(
         self,
-        conversation_id: Union[str, int],
+        conversation_id: Any,
         user_id: str,
         title: Optional[str] = None,
         is_pinned: Optional[bool] = None,
@@ -55,7 +55,7 @@ class ChatService:
             raise ValueError("Title không được để trống.")
         return self.chat_repo.update_conversation(conversation_id, user_id, title, is_pinned)
 
-    async def generate_conversation_title(self, conversation_id: Union[str, int], question: str) -> None:
+    async def generate_conversation_title(self, conversation_id: Any, question: str) -> None:
         """Generate a short title; title generation failure must not fail the chat."""
         fallback = question.strip()[:80]
         try:
@@ -75,11 +75,11 @@ class ChatService:
             logger.warning("[WARN] Could not generate title for conversation_id=%s: %s", conversation_id, ex)
             self.chat_repo.update_conversation_title(conversation_id, fallback, source="llm")
 
-    def get_chat_history(self, conversation_id: Union[str, int], limit: int = HISTORY_LIMIT) -> List[Dict[str, Any]]:
+    def get_chat_history(self, conversation_id: Any, limit: int = HISTORY_LIMIT) -> List[Dict[str, Any]]:
         """Lấy N tin nhắn gần nhất trong phiên hội thoại."""
         return self.chat_repo.get_chat_history(conversation_id=conversation_id, limit=limit)
 
-    def delete_conversation(self, conversation_id: Union[str, int], user_id: str) -> bool:
+    def delete_conversation(self, conversation_id: Any, user_id: str) -> bool:
         """Xóa phiên hội thoại và toàn bộ tin nhắn liên quan."""
         return self.chat_repo.delete_conversation(conversation_id=conversation_id, user_id=user_id)
 
@@ -88,7 +88,7 @@ class ChatService:
     async def generate_rag_response_stream(
         self,
         message: str,
-        conversation_id: Optional[Union[str, int]] = None,
+        conversation_id: Optional[Any] = None,
         user_id: Optional[str] = None,
         user_roles: Optional[str] = None,
         user_department: Optional[str] = None,
@@ -116,7 +116,8 @@ class ChatService:
             base_query = message.strip()
             if not base_query:
                 reply_empty = "Bạn chưa nhập câu hỏi."
-                self.chat_repository.save_message(conversation_id, role="assistant", content=reply_empty)
+                if conversation_id:
+                    self.chat_repo.save_message(conversation_id, role="assistant", content=reply_empty)
                 yield f"event: token\ndata: {json.dumps({'text': reply_empty}, ensure_ascii=False)}\n\n"
                 yield "event: chat_ended\ndata: {}\n\n"
                 return
@@ -124,7 +125,8 @@ class ChatService:
             # Lời chào đơn giản — không cần RAG, không lưu lịch sử
             if base_query.lower() in ["hi", "hello", "xin chào", "chào", "alo"]:
                 greeting = "Xin chào! Tôi là trợ lý AI thông minh. Tôi có thể giúp gì cho bạn?"
-                self.chat_repository.save_message(conversation_id, role="assistant", content=greeting)
+                if conversation_id:
+                    self.chat_repo.save_message(conversation_id, role="assistant", content=greeting)
                 yield "event: citations\ndata: []\n\n"
                 yield f"event: token\ndata: {json.dumps({'text': greeting}, ensure_ascii=False)}\n\n"
                 yield "event: chat_ended\ndata: {}\n\n"
@@ -233,6 +235,7 @@ class ChatService:
             logger.info("[CHAT] Stream cancelled by client for conversation_id=%s", conversation_id)
             raise
         except Exception as ex:
+            logger.error("[CHAT] Stream error for conversation_id=%s: %s", conversation_id, ex, exc_info=True)
             error_msg = json.dumps({'text': '\n[Lỗi kết nối tới mô hình AI hoặc Database]'})
             yield f"event: token\ndata: {error_msg}\n\n"
             yield "event: chat_ended\ndata: {}\n\n"

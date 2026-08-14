@@ -33,7 +33,7 @@ class ChatRepository:
             db.commit()
             db.refresh(conv)
             logger.info("[OK] Created Conversation ID=%s for user_id='%s'", conv.id, user_id)
-            return conv.id
+            return str(conv.id)
         except Exception as ex:
             db.rollback()
             logger.error("[FAIL] Error creating Conversation: %s", ex, exc_info=True)
@@ -41,7 +41,7 @@ class ChatRepository:
         finally:
             db.close()
 
-    def get_conversation(self, conversation_id: Union[str, int], user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_conversation(self, conversation_id: Any, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Lấy thông tin chi tiết của một phiên hội thoại.
         Nếu truyền user_id thì sẽ kiểm tra quyền sở hữu (authorization check).
@@ -85,15 +85,17 @@ class ChatRepository:
     @classmethod
     def _serialize_conversation(cls, conv: Conversation) -> Dict[str, Any]:
         def iso(value: Optional[datetime]) -> Optional[str]:
-            return value.isoformat() + ("Z" if value and value.tzinfo is None else "")
+            return value.isoformat() + ("Z" if value and value.tzinfo is None else "") if value else None
 
+        created = conv.created_at or conv.creation_time
+        updated = conv.updated_at or conv.updated_time
         return {
             "id": conv.id,
-            "title": conv.title,
+            "title": conv.title or "Cuộc hội thoại mới",
             "is_pinned": bool(conv.is_pinned),
-            "created_at": iso(conv.created_at),
-            "updated_at": iso(conv.updated_at),
-            "time_label": cls._time_label(conv.updated_at),
+            "created_at": iso(created),
+            "updated_at": iso(updated),
+            "time_label": cls._time_label(updated),
         }
 
     def list_conversations(self, user_id: str, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
@@ -112,7 +114,7 @@ class ChatRepository:
         finally:
             db.close()
 
-    def update_conversation_title(self, conversation_id: Union[str, int], title: str, source: str = "llm") -> None:
+    def update_conversation_title(self, conversation_id: Any, title: str, source: str = "llm") -> None:
         """Cập nhật tiêu đề phiên hội thoại (thường dùng từ câu hỏi đầu tiên)."""
         db: Session = SessionLocal()
         try:
@@ -135,7 +137,7 @@ class ChatRepository:
 
     def update_conversation(
         self,
-        conversation_id: Union[str, int],
+        conversation_id: Any,
         user_id: str,
         title: Optional[str] = None,
         is_pinned: Optional[bool] = None,
@@ -164,7 +166,7 @@ class ChatRepository:
         finally:
             db.close()
 
-    def touch_conversation(self, conversation_id: Union[str, int]) -> None:
+    def touch_conversation(self, conversation_id: Any) -> None:
         """Cập nhật updated_at của phiên chat để sắp xếp lịch sử chính xác."""
         db: Session = SessionLocal()
         try:
@@ -178,7 +180,7 @@ class ChatRepository:
         finally:
             db.close()
 
-    def delete_conversation(self, conversation_id: Union[str, int], user_id: str) -> bool:
+    def delete_conversation(self, conversation_id: Any, user_id: str) -> bool:
         """Xóa phiên hội thoại và toàn bộ tin nhắn liên quan (Cascade)."""
         db: Session = SessionLocal()
         try:
@@ -202,7 +204,7 @@ class ChatRepository:
 
     # ── ChatMessage Operations ──
 
-    def save_message(self, conversation_id: Union[str, int], role: str, content: str) -> int:
+    def save_message(self, conversation_id: Any, role: str, content: str) -> int:
         """Lưu một tin nhắn mới vào phiên hội thoại. Trả về message_id."""
         db: Session = SessionLocal()
         try:
@@ -223,7 +225,7 @@ class ChatRepository:
         finally:
             db.close()
 
-    def get_chat_history(self, conversation_id: Union[str, int], limit: int = 20) -> List[Dict[str, Any]]:
+    def get_chat_history(self, conversation_id: Any, limit: int = 20) -> List[Dict[str, Any]]:
         """
         Lấy N tin nhắn gần nhất trong phiên hội thoại (để làm ngữ cảnh cho LLM).
         Trả về đúng thứ tự thời gian tăng dần (cũ -> mới).
@@ -232,8 +234,8 @@ class ChatRepository:
         try:
             msgs = (
                 db.query(ChatMessage)
-                .filter(ChatMessage.conversation_id == str(conversation_id))
-                .order_by(ChatMessage.created_at.asc())
+                .filter(ChatMessage.conversation_id == conversation_id)
+                .order_by(ChatMessage.id.asc())
                 .limit(limit)
                 .all()
             )
@@ -242,14 +244,15 @@ class ChatRepository:
                     "id": msg.id,
                     "role": msg.role,
                     "content": msg.content,
-                    "created_at": msg.created_at.isoformat() if msg.created_at else None,
+                    "created_at": (msg.created_at or msg.creation_time).isoformat()
+                        if (msg.created_at or msg.creation_time) else None,
                 }
                 for msg in msgs
             ]
         finally:
             db.close()
 
-    def get_message_count(self, conversation_id: Union[str, int]) -> int:
+    def get_message_count(self, conversation_id: Any) -> int:
         """Đếm số tin nhắn trong phiên hội thoại (dùng để detect tin nhắn đầu tiên)."""
         db: Session = SessionLocal()
         try:

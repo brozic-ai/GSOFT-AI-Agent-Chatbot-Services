@@ -19,7 +19,8 @@ class ChatRequest(BaseModel):
     user_id: Optional[str] = Field(default=None, description="ID người dùng")
     user_roles: Optional[str] = Field(default=None, description="Danh sách Vai trò của user, phân cách bằng dấu phẩy")
     user_department: Optional[str] = Field(default=None, description="Phòng ban của user")
-    conversation_id: Optional[Union[str, int]] = Field(default=None, description="ID phiên hội thoại (str/int). Nếu None, bot sẽ trả lời không lưu lịch sử.")
+    user_id: Optional[str] = Field(default=None, description="ID người dùng (fallback nếu không có header)")
+    conversation_id: Optional[Union[str, int]] = Field(default=None, description="ID phiên hội thoại. Nếu None, bot sẽ trả lời không lưu lịch sử.")
 
     model_config = {
         "populate_by_name": True
