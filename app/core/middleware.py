@@ -7,10 +7,9 @@ Bao gồm:
 - GlobalExceptionMiddleware: Bắt mọi exception chưa xử lý, trả về response chuẩn.
 """
 
-import time
 import logging
+import time
 import traceback
-from typing import Callable, List
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
@@ -68,7 +67,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 # 2. API Key Authentication Middleware
 
 # Danh sách các path được phép truy cập không cần API Key
-_PUBLIC_PATHS: List[str] = [
+_PUBLIC_PATHS: list[str] = [
     "/",
     "/docs",
     "/redoc",
@@ -141,7 +140,11 @@ class GlobalExceptionMiddleware(BaseHTTPMiddleware):
             )
 
             # Trong production, ẩn chi tiết lỗi
-            detail = str(exc) if settings.ENVIRONMENT != "production" else "Internal Server Error"
+            detail = (
+                str(exc)
+                if settings.ENVIRONMENT != "production"
+                else "Internal Server Error"
+            )
 
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

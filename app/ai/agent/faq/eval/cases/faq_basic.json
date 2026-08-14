@@ -1,0 +1,26 @@
+[
+    {
+        "id": "gio_lam_viec",
+        "input": {
+            "user_query": "Chi nhánh BVBank làm việc từ mấy giờ đến mấy giờ?"
+        },
+        "expected": {
+            "reference_answer": "Giờ làm việc thông thường là 8h00 - 17h00 các ngày trong tuần, trừ Chủ nhật và ngày lễ."
+        },
+        "tags": [
+            "easy"
+        ]
+    },
+    {
+        "id": "hotline_ho_tro",
+        "input": {
+            "user_query": "Số hotline hỗ trợ khách hàng của BVBank là gì?"
+        },
+        "expected": {
+            "reference_answer": "Hotline hỗ trợ khách hàng 24/7."
+        },
+        "tags": [
+            "easy"
+        ]
+    }
+]

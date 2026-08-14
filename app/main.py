@@ -2,14 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.core.logging import setup_logging, get_logger
+from app.core.logging import get_logger, setup_logging
 from app.core.middleware import register_middlewares
 from app.lifespan import lifespan
-from app.routers.router import api_router
-from app.modules.document.api.v1.endpoints import router as document_router
-from app.modules.chat.api.v1.endpoints import router as chat_router
+from app.routers.router import alias_router, api_v1_router
 
-# Khởi tạo logging (gọi 1 lần duy nhất)
+# Khởi tạo logging hệ thống Python AI Backend
 setup_logging()
 logger = get_logger(__name__)
 
@@ -35,12 +33,11 @@ if settings.BACKEND_CORS_ORIGINS:
 # Đăng ký custom middleware (Logging → Auth → Exception)
 register_middlewares(app)
 
-# 1. Đăng ký Router tổng RESTful DDD chuẩn tại `/api/v1`
-app.include_router(api_router, prefix=settings.API_V1_STR)
+# 1. Đăng ký Router chính RESTful v1
+app.include_router(api_v1_router)
 
-# 2. Đăng ký các Alias Router tương thích trực tiếp với C# Backend Gateway (`/db/...` và `/v1/chat/...`)
-app.include_router(document_router, prefix="/db", tags=["Legacy C# Gateway DB Endpoints"])
-app.include_router(chat_router, prefix="/v1/chat", tags=["Legacy C# Gateway Chat Stream"])
+# 2. Đăng ký các Router Aliases (Tương thích C# Gateway & Angular Frontend)
+app.include_router(alias_router)
 
 
 @app.get("/", tags=["Root"])
@@ -56,4 +53,5 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

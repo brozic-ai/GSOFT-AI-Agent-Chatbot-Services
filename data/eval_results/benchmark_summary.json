@@ -1,0 +1,19 @@
+{
+  "supervisor": {
+    "agent_name": "supervisor",
+    "last_run_utc": "2026-08-10T06:48:41.360764+00:00",
+    "pass_percentage": "100%",
+    "pass_rate": 1.0,
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "benchmark_passed": true,
+    "total_cases": 1,
+    "passed_cases": 1,
+    "failed_cases": 0,
+    "execution_time_seconds": 23.85,
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "latest_report": "latest/supervisor_latest.json",
+    "history_report": "history/supervisor/2026-08-10_06-48-41_supervisor_pass100%.json"
+  }
+}

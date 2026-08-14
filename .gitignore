@@ -11,6 +11,7 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+my_documents/
 downloads/
 eggs/
 .eggs/
@@ -218,3 +219,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Temporary / Local files
+create_report_docx.py
+Bao_Cao_Tich_Hop_Phan_Quyen_RAG_GSOFT.docx
+tests/
+ruff_cache/
+

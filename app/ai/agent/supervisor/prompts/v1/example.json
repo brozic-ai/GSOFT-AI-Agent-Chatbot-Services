@@ -1,0 +1,56 @@
+[
+    {
+        "query": "Khi gặp sự cố CNTT, tôi liên hệ hỗ trợ ở đâu?",
+        "output": {
+            "reasoning": "Câu hỏi tra cứu một bước, đáp án cố định về kênh hỗ trợ CNTT.",
+            "intent": "faq",
+            "query": "Liên hệ hỗ trợ sự cố CNTT",
+            "confidence": 0.95
+        }
+    },
+    {
+        "query": "Quy trình duyệt kỳ đăng ký văn phòng phẩm và trường hợp nào hồ sơ bị trả về cho người tạo diễn ra như thế nào?",
+        "output": {
+            "reasoning": "Câu hỏi mô tả quy trình nhiều bước có điều kiện, cần truy hồi từ sổ tay nghiệp vụ.",
+            "intent": "rag",
+            "query": "Quy trình duyệt và trả về kỳ đăng ký văn phòng phẩm",
+            "confidence": 0.90
+        }
+    },
+    {
+        "query": "Quy trình điều chuyển tài sản cố định từ chi nhánh A sang chi nhánh B trên Phân hệ TSCĐ & CCLD gồm những bước nào?",
+        "output": {
+            "reasoning": "Câu hỏi thao tác chuyên sâu trên phân hệ Quản lý Tài sản cố định của hệ thống.",
+            "intent": "gamspro",
+            "query": "Quy trình điều chuyển tài sản cố định Phân hệ TSCĐ & CCLD",
+            "confidence": 0.95
+        }
+    },
+    {
+        "query": "Làm thế nào để tạo Phiếu yêu cầu xe đi công tác tỉnh trên Phân hệ Fleet?",
+        "output": {
+            "reasoning": "Câu hỏi thao tác nghiệp vụ cụ thể trên phân hệ Yêu cầu xe/Vận hành xe.",
+            "intent": "gamspro",
+            "query": "Tạo Phiếu yêu cầu xe đi công tác Phân hệ Fleet",
+            "confidence": 0.95
+        }
+    },
+    {
+        "query": "Chào bạn, hôm nay thời tiết thế nào?",
+        "output": {
+            "reasoning": "Câu chào hỏi xã giao và thắc mắc ngoài phạm vi hệ thống.",
+            "intent": "fallback",
+            "query": "Chào bạn, hôm nay thời tiết thế nào?",
+            "confidence": 0.85
+        }
+    },
+    {
+        "query": "Lỗi rồi",
+        "output": {
+            "reasoning": "Câu hỏi quá ngắn và mơ hồ, không đủ thông tin để xác định intent nghiệp vụ.",
+            "intent": "fallback",
+            "query": "Lỗi rồi",
+            "confidence": 0.85
+        }
+    }
+]

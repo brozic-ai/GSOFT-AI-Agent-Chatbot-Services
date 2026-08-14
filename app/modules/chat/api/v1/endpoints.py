@@ -73,7 +73,7 @@ def list_conversations(
 
 @router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)
 def update_conversation(
-    conversation_id: int,
+    conversation_id: str,
     request: ConversationUpdateRequest,
     x_user_id: str = Header(..., alias="X-User-Id"),
     service: ChatService = Depends(get_chat_service),
@@ -97,7 +97,7 @@ def update_conversation(
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_conversation(
-    conversation_id: int,
+    conversation_id: str,
     x_user_id: str = Header(..., alias="X-User-Id"),
     service: ChatService = Depends(get_chat_service),
 ):
@@ -115,7 +115,7 @@ def delete_conversation(
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[ChatMessageResponse])
 def get_messages(
-    conversation_id: int,
+    conversation_id: str,
     x_user_id: str = Header(..., alias="X-User-Id"),
     service: ChatService = Depends(get_chat_service),
 ):
@@ -134,7 +134,7 @@ def get_messages(
         # Lấy toàn bộ tin nhắn (limit=1000 cho trang xem lại lịch sử)
         return service.get_chat_history(conversation_id=conversation_id, limit=1000)
     except Exception as ex:
-        logger.error("[FAIL] Error fetching messages for conversation_id=%d: %s", conversation_id, ex, exc_info=True)
+        logger.error("[FAIL] Error fetching messages for conversation_id=%s: %s", conversation_id, ex, exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex))
 
 
@@ -146,6 +146,7 @@ async def chat_stream(
     http_request: Request,
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
     x_user_roles: Optional[str] = Header(None, alias="X-User-Roles"),
+    x_user_department: Optional[str] = Header(None, alias="X-User-Department"),
     service: ChatService = Depends(get_chat_service),
 ):
     """
@@ -168,6 +169,15 @@ async def chat_stream(
             )
 
     roles = request.user_roles or x_user_roles
+    department = request.user_department or x_user_department
+    user_id = request.user_id or x_user_id
+    logger.info(
+        "[CHAT] Received POST /stream request | query='%s' | roles='%s' | dept='%s' | user_id='%s'",
+        request.message,
+        roles,
+        department,
+        user_id,
+    )
 
     generator = service.generate_rag_response_stream(
         message=request.message,

@@ -1,0 +1,11 @@
+# FAQ trả lời văn bản tự do -> cần llm_judge để chấm relevance, khác hẳn
+# supervisor (chỉ chấm đúng/sai routing). Vẫn dùng chung runner/scorer ở app/eval/.
+metrics:
+  - type: llm_judge
+    params:
+      criterion: relevance
+      min_score: 0.7
+
+  - type: latency
+    params:
+      max_seconds: 5.0

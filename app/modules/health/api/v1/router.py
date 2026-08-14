@@ -1,8 +1,10 @@
 from fastapi import APIRouter, status
+
 from app.core.config import settings
 from app.modules.health.api.v1.schemas import HealthCheckResponse
 
 router = APIRouter()
+
 
 @router.get("", response_model=HealthCheckResponse, status_code=status.HTTP_200_OK)
 async def health_check():

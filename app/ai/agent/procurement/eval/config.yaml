@@ -1,0 +1,10 @@
+# Agentic RAG Eval Configuration for gAMSPro HDSD
+metrics:
+  - type: llm_judge
+    params:
+      criterion: relevance
+      min_score: 0.7
+
+  - type: latency
+    params:
+      max_seconds: 15.0
