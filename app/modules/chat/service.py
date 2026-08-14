@@ -207,7 +207,17 @@ class ChatService:
             logger.info("[CHAT] Calling LLM streaming for query='%s', history_count=%d...", base_query, len(history))
             full_response_chunks = []
 
-            async for chunk in self.llm_provider.astream(messages_for_llm):
+            stream_config = {
+                "run_name": f"Chatbot-RAG: {base_query[:35]}",
+                "tags": ["rag", "chat", "streaming"],
+                "metadata": {
+                    "conversation_id": str(conversation_id) if conversation_id else None,
+                    "user_roles": user_roles,
+                    "user_department": user_department,
+                },
+            }
+
+            async for chunk in self.llm_provider.astream(messages_for_llm, config=stream_config):
                 if request and await request.is_disconnected():
                     return
                 token_text = chunk.content if hasattr(chunk, "content") else str(chunk)

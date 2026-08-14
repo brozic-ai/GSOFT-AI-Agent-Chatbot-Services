@@ -16,10 +16,9 @@ class ChatImageInput(BaseModel):
 class ChatRequest(BaseModel):
     message: str = ""
     images: List[ChatImageInput] = Field(default_factory=list)
-    user_id: Optional[str] = Field(default=None, description="ID người dùng")
+    user_id: Optional[str] = Field(default=None, description="ID người dùng (fallback nếu không có header)")
     user_roles: Optional[str] = Field(default=None, description="Danh sách Vai trò của user, phân cách bằng dấu phẩy")
     user_department: Optional[str] = Field(default=None, description="Phòng ban của user")
-    user_id: Optional[str] = Field(default=None, description="ID người dùng (fallback nếu không có header)")
     conversation_id: Optional[Union[str, int]] = Field(default=None, description="ID phiên hội thoại. Nếu None, bot sẽ trả lời không lưu lịch sử.")
 
     model_config = {

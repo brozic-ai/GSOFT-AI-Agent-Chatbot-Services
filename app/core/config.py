@@ -102,15 +102,15 @@ class Settings(BaseSettings):
     RAG_DYNAMIC_MAX_TOKENS_ENABLED: bool = True
 
     # --- LangSmith LLMOps Tracing Config ---
-    LANGSMITH_TRACING: str = "true"
-    LANGSMITH_API_KEY: str = ""
-    LANGSMITH_PROJECT: str = "bvbank"
-    LANGSMITH_ENDPOINT: str = "https://apac.api.smith.langchain.com"
-
     LANGCHAIN_TRACING_V2: str = "true"
     LANGCHAIN_API_KEY: str = ""
-    LANGCHAIN_PROJECT: str = "bvbank"
+    LANGCHAIN_PROJECT: str = "ai-agent-bvbank"
     LANGCHAIN_ENDPOINT: str = "https://apac.api.smith.langchain.com"
+
+    LANGSMITH_TRACING: str | None = None
+    LANGSMITH_API_KEY: str | None = None
+    LANGSMITH_PROJECT: str | None = None
+    LANGSMITH_ENDPOINT: str | None = None
 
     # --- Net Backend URL ---
     NET_BACKEND_URL: str = "http://localhost:5000"
@@ -127,12 +127,12 @@ settings = get_settings()
 
 # Đồng bộ biến môi trường cho LangChain Tracing / LangSmith SDK
 tracing_enabled = (
-    str(settings.LANGSMITH_TRACING).lower() == "true"
-    or str(settings.LANGCHAIN_TRACING_V2).lower() == "true"
+    (settings.LANGCHAIN_TRACING_V2 and str(settings.LANGCHAIN_TRACING_V2).lower() == "true")
+    or (settings.LANGSMITH_TRACING and str(settings.LANGSMITH_TRACING).lower() == "true")
 )
-api_key = settings.LANGSMITH_API_KEY or settings.LANGCHAIN_API_KEY
-project = settings.LANGSMITH_PROJECT or settings.LANGCHAIN_PROJECT
-endpoint = settings.LANGSMITH_ENDPOINT or settings.LANGCHAIN_ENDPOINT
+api_key = settings.LANGCHAIN_API_KEY or settings.LANGSMITH_API_KEY or os.getenv("LANGCHAIN_API_KEY", "")
+project = settings.LANGCHAIN_PROJECT or settings.LANGSMITH_PROJECT or os.getenv("LANGCHAIN_PROJECT", "ai-agent-bvbank")
+endpoint = settings.LANGCHAIN_ENDPOINT or settings.LANGSMITH_ENDPOINT or os.getenv("LANGCHAIN_ENDPOINT", "https://apac.api.smith.langchain.com")
 
 if tracing_enabled:
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
