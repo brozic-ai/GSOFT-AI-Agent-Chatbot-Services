@@ -7,12 +7,10 @@ gọi LLM Streaming và quản lý lịch sử hội thoại (Chat History).
 import asyncio
 import json
 import logging
-import uuid
 from typing import AsyncGenerator, Optional, List, Dict, Any
 from fastapi import Request
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from app.ai.rag.context.builder import RagContextBuilder, determine_max_tokens
 from app.ai.rag.retrieval.retriever import VectorRetriever
 from app.modules.chat.repository import ChatRepository
 
@@ -104,9 +102,8 @@ class ChatService:
         2. Lưu câu hỏi mới của User vào DB.
         3. Truy vấn RAG từ Vector Store (có RBAC).
         4. Xây dựng Prompt kết hợp ngữ cảnh tài liệu + lịch sử hội thoại.
-        5. Stream câu trả lời từ LLM; nối lại và lưu câu trả lời vào DB sau khi hoàn tất.
+        5. Stream câu trả lời từ LLM qua background task; đảm bảo lưu câu trả lời vào DB ngay cả khi client disconnect.
         """
-        # 1. Xác định/Khởi tạo conversation_id (Memory-only step)
         if conversation_id is not None:
             conversation_id = str(conversation_id).strip() or None
 
@@ -116,10 +113,6 @@ class ChatService:
             # Phát sự kiện khởi đầu chat
             yield "event: chat_started\ndata: {}\n\n"
 
-            if request and await request.is_disconnected():
-                return
-
-            base_query = message.strip()
             if not base_query:
                 reply_empty = "Bạn chưa nhập câu hỏi."
                 if conversation_id:
@@ -142,8 +135,6 @@ class ChatService:
             history: List[Dict[str, Any]] = []
             is_first_message = True
             if conversation_id:
-                if request and await request.is_disconnected():
-                    return
                 message_count = self.chat_repo.get_message_count(conversation_id)
                 is_first_message = (message_count == 0)
                 if message_count > 0:
@@ -151,16 +142,13 @@ class ChatService:
 
             # 2. Lưu câu hỏi của User vào DB
             if conversation_id:
-                if request and await request.is_disconnected():
-                    return
                 self.chat_repo.save_message(
                     conversation_id=conversation_id,
                     role="user",
                     content=base_query,
                 )
-                # Tự động đặt tiêu đề từ câu hỏi đầu tiên
                 if is_first_message:
-                    await self.generate_conversation_title(conversation_id, base_query)
+                    asyncio.create_task(self.generate_conversation_title(conversation_id, base_query))
 
             # 3. Truy vấn ngữ cảnh RAG từ Vector Store với phân quyền RBAC
             search_res = await self.retriever.retrieve_context(
@@ -170,9 +158,6 @@ class ChatService:
                 user_department=user_department,
             )
 
-            if request and await request.is_disconnected():
-                return
-
             documents = search_res["documents"][0] if search_res.get("documents") else []
             citations_list = search_res["citations"][0] if search_res.get("citations") else []
 
@@ -181,8 +166,7 @@ class ChatService:
 
             if not documents or not any(doc.strip() for doc in documents):
                 no_info_msg = "Tôi không tìm thấy thông tin phù hợp trong tài liệu được cấp quyền."
-                yield f"event: token\ndata: {json.dumps({'text': no_info_msg})}\n\n"
-                # Lưu câu trả lời "không tìm thấy" vào DB
+                yield f"event: token\ndata: {json.dumps({'text': no_info_msg}, ensure_ascii=False)}\n\n"
                 if conversation_id:
                     self.chat_repo.save_message(conversation_id=conversation_id, role="assistant", content=no_info_msg)
                     self.chat_repo.touch_conversation(conversation_id)
@@ -201,7 +185,6 @@ class ChatService:
                 f"NGỮ CẢNH TÀI LIỆU:\n{context_str}"
             )
 
-            # Xây dựng danh sách messages kèm lịch sử hội thoại
             messages_for_llm = [("system", system_prompt)]
             for hist_msg in history:
                 role = hist_msg["role"]
@@ -209,41 +192,62 @@ class ChatService:
                     messages_for_llm.append((role, hist_msg["content"]))
             messages_for_llm.append(("user", base_query))
 
-            # 5. Gọi LLM Provider Streaming và thu thập câu trả lời
+            # 5. Gọi LLM Streaming qua background worker để đảm bảo hoàn thành và lưu DB ngay cả khi client disconnect
             logger.info("[CHAT] Calling LLM streaming for query='%s', history_count=%d...", base_query, len(history))
-            full_response_chunks = []
+            queue: asyncio.Queue = asyncio.Queue()
 
-            async for chunk in self.llm_provider.astream(messages_for_llm):
-                if request and await request.is_disconnected():
-                    return
-                token_text = chunk.content if hasattr(chunk, "content") else str(chunk)
-                if token_text:
-                    full_response_chunks.append(token_text)
-                    yield f"event: token\ndata: {json.dumps({'text': token_text}, ensure_ascii=False)}\n\n"
+            async def _generate_and_save() -> None:
+                collected = []
+                try:
+                    async for chunk in self.llm_provider.astream(messages_for_llm):
+                        token_text = chunk.content if hasattr(chunk, "content") else str(chunk)
+                        if token_text:
+                            collected.append(token_text)
+                            await queue.put(("token", token_text))
 
-            # 6. Lưu câu trả lời hoàn chỉnh vào DB sau khi stream xong
-            if request and await request.is_disconnected():
-                return
+                    if conversation_id and collected:
+                        full_response = "".join(collected)
+                        self.chat_repo.save_message(
+                            conversation_id=conversation_id,
+                            role="assistant",
+                            content=full_response,
+                        )
+                        self.chat_repo.touch_conversation(conversation_id)
+                        logger.info("[CHAT] Saved complete assistant response to DB for conv_id=%s (chars=%d)", conversation_id, len(full_response))
+                    await queue.put(("done", None))
+                except Exception as gen_ex:
+                    logger.error("[CHAT] Background generation failed for conv_id=%s: %s", conversation_id, gen_ex, exc_info=True)
+                    if conversation_id and collected:
+                        full_response = "".join(collected)
+                        self.chat_repo.save_message(
+                            conversation_id=conversation_id,
+                            role="assistant",
+                            content=full_response,
+                        )
+                        self.chat_repo.touch_conversation(conversation_id)
+                    await queue.put(("error", str(gen_ex)))
 
-            if conversation_id and full_response_chunks:
-                full_response = "".join(full_response_chunks)
-                self.chat_repo.save_message(
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=full_response,
-                )
-                self.chat_repo.touch_conversation(conversation_id)
+            worker_task = asyncio.create_task(_generate_and_save())
 
-            yield "event: chat_ended\ndata: {}\n\n"
+            # 6. Stream tokens từ queue tới SSE Client
+            while True:
+                item_type, item_data = await queue.get()
+                if item_type == "token":
+                    yield f"event: token\ndata: {json.dumps({'text': item_data}, ensure_ascii=False)}\n\n"
+                elif item_type == "done":
+                    yield "event: chat_ended\ndata: {}\n\n"
+                    break
+                elif item_type == "error":
+                    error_msg = json.dumps({'text': '\n[Lỗi kết nối tới mô hình AI hoặc Database]'}, ensure_ascii=False)
+                    yield f"event: token\ndata: {error_msg}\n\n"
+                    yield "event: chat_ended\ndata: {}\n\n"
+                    break
 
         except asyncio.CancelledError:
-            # The ASGI server cancels the generator when the downstream client disconnects.
-            logger.info("[CHAT] Stream cancelled by client for conversation_id=%s", conversation_id)
+            logger.info("[CHAT] Client disconnected from stream for conversation_id=%s, background task continues.", conversation_id)
             raise
         except Exception as ex:
             logger.error("[CHAT] Stream error for conversation_id=%s: %s", conversation_id, ex, exc_info=True)
-            error_msg = json.dumps({'text': '\n[Lỗi kết nối tới mô hình AI hoặc Database]'})
+            error_msg = json.dumps({'text': '\n[Lỗi kết nối tới mô hình AI hoặc Database]'}, ensure_ascii=False)
             yield f"event: token\ndata: {error_msg}\n\n"
             yield "event: chat_ended\ndata: {}\n\n"
-
-
