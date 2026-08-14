@@ -5,6 +5,7 @@ Quản lý 2 bảng: Conversations (phiên hội thoại) và ChatMessages (từ
 Bảng sẽ được tạo tự động khi startup thông qua Base.metadata.create_all() trong init_db().
 """
 
+import uuid
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import (
@@ -19,12 +20,12 @@ class Conversation(Base):
     """Bảng lưu phiên hội thoại của người dùng (Chat Session)."""
     __tablename__ = "Conversations"
 
-    id = Column("Id", Integer, primary_key=True, autoincrement=True)
-    user_id = Column("UserId", Unicode(200), nullable=False, index=True)
+    id = Column("Id", Unicode(100), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column("UserId", Unicode(200), nullable=True, index=True)
     is_pinned = Column("IsPinned", Boolean, nullable=False, default=False, server_default="0")
     pinned_at = Column("PinnedAt", DateTime, nullable=True)
     title_source = Column("TitleSource", String(20), nullable=False, default="default", server_default="default")
-    title = Column("Title", Unicode(255), nullable=False, default="Cuộc hội thoại mới")
+    title = Column("Title", Unicode(500), nullable=True, default="Cuộc hội thoại mới")
     created_at = Column("CreatedAt", DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column("UpdatedAt", DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -38,7 +39,7 @@ class ChatMessage(Base):
 
     id = Column("Id", Integer, primary_key=True, autoincrement=True)
     conversation_id = Column(
-        "ConversationId", Integer,
+        "ConversationId", Unicode(100),
         ForeignKey("Conversations.Id", ondelete="CASCADE"),
         nullable=False,
         index=True,

@@ -13,8 +13,10 @@ from app.ai.rag.embedding.service import TeiEmbeddingService
 from app.ai.rag.retrieval.retriever import VectorRetriever
 from app.core.config import Settings, get_settings
 from app.llmops.factory import get_chat_model
-from app.modules.chat.service import ChatService
 from app.modules.chat.repository import ChatRepository
+from app.modules.chat.service import ChatService
+from app.modules.document.repository import DocumentRepository
+from app.modules.document.service import DocumentService
 
 logger = logging.getLogger(__name__)
 

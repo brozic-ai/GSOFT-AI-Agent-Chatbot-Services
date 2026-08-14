@@ -8,7 +8,7 @@ import asyncio
 import json
 import logging
 import uuid
-from typing import AsyncGenerator, Optional, List, Dict, Any
+from typing import AsyncGenerator, Optional, List, Dict, Any, Union
 from fastapi import Request
 from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -32,11 +32,11 @@ class ChatService:
 
     # ── Conversation Management ──
 
-    def create_conversation(self, user_id: str, title: str = "\u0110o\u1ea1n chat m\u1edbi") -> int:
-        """Tạo phiên hội thoại mới. Trả về conversation_id (int)."""
+    def create_conversation(self, user_id: str, title: str = "Đoạn chat mới") -> Union[str, int]:
+        """Tạo phiên hội thoại mới. Trả về conversation_id (str/int)."""
         return self.chat_repo.create_conversation(user_id=user_id, title=title)
 
-    def get_conversation(self, conversation_id: int, user_id: str) -> Optional[Dict[str, Any]]:
+    def get_conversation(self, conversation_id: Union[str, int], user_id: str) -> Optional[Dict[str, Any]]:
         """Lấy thông tin phiên hội thoại, kiểm tra quyền sở hữu theo user_id."""
         return self.chat_repo.get_conversation(conversation_id=conversation_id, user_id=user_id)
 
@@ -46,7 +46,7 @@ class ChatService:
 
     def update_conversation(
         self,
-        conversation_id: int,
+        conversation_id: Union[str, int],
         user_id: str,
         title: Optional[str] = None,
         is_pinned: Optional[bool] = None,
@@ -55,7 +55,7 @@ class ChatService:
             raise ValueError("Title không được để trống.")
         return self.chat_repo.update_conversation(conversation_id, user_id, title, is_pinned)
 
-    async def generate_conversation_title(self, conversation_id: int, question: str) -> None:
+    async def generate_conversation_title(self, conversation_id: Union[str, int], question: str) -> None:
         """Generate a short title; title generation failure must not fail the chat."""
         fallback = question.strip()[:80]
         try:
@@ -72,14 +72,14 @@ class ChatService:
             title = str(title).strip().strip("\"'")[:80]
             self.chat_repo.update_conversation_title(conversation_id, title or fallback, source="llm")
         except Exception as ex:
-            logger.warning("[WARN] Could not generate title for conversation_id=%d: %s", conversation_id, ex)
+            logger.warning("[WARN] Could not generate title for conversation_id=%s: %s", conversation_id, ex)
             self.chat_repo.update_conversation_title(conversation_id, fallback, source="llm")
 
-    def get_chat_history(self, conversation_id: int, limit: int = HISTORY_LIMIT) -> List[Dict[str, Any]]:
+    def get_chat_history(self, conversation_id: Union[str, int], limit: int = HISTORY_LIMIT) -> List[Dict[str, Any]]:
         """Lấy N tin nhắn gần nhất trong phiên hội thoại."""
         return self.chat_repo.get_chat_history(conversation_id=conversation_id, limit=limit)
 
-    def delete_conversation(self, conversation_id: int, user_id: str) -> bool:
+    def delete_conversation(self, conversation_id: Union[str, int], user_id: str) -> bool:
         """Xóa phiên hội thoại và toàn bộ tin nhắn liên quan."""
         return self.chat_repo.delete_conversation(conversation_id=conversation_id, user_id=user_id)
 
@@ -88,7 +88,7 @@ class ChatService:
     async def generate_rag_response_stream(
         self,
         message: str,
-        conversation_id: Optional[int] = None,
+        conversation_id: Optional[Union[str, int]] = None,
         user_id: Optional[str] = None,
         user_roles: Optional[str] = None,
         user_department: Optional[str] = None,
