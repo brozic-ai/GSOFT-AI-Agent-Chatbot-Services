@@ -1,7 +1,7 @@
 from langgraph.graph import END, StateGraph
 from langgraph.prebuilt import ToolNode
 
-from app.ai.agent.procurement.nodes.agent_node import agent_node
+from app.ai.agent.procurement.nodes.agent_node import procurement_node
 from app.ai.agent.procurement.state import ProcurementState
 from app.ai.agent.procurement.tools import PROCUREMENT_TOOLS
 
@@ -27,16 +27,16 @@ def should_continue(state: ProcurementState) -> str:
 # 1. Khởi tạo StateGraph với ProcurementState
 graph = StateGraph(ProcurementState)
 
-# 2. Thêm các Node: agent_node và tools_node (ToolNode)
-graph.add_node("agent_node", agent_node)
+# 2. Thêm các Node: procurement_node và tools_node (ToolNode)
+graph.add_node("procurement_node", procurement_node)
 graph.add_node("tools_node", ToolNode(PROCUREMENT_TOOLS))
 
 # 3. Đặt điểm bắt đầu (Entry Point)
-graph.set_entry_point("agent_node")
+graph.set_entry_point("procurement_node")
 
-# 4. Thiết lập Conditional Edge từ agent_node
+# 4. Thiết lập Conditional Edge từ procurement_node
 graph.add_conditional_edges(
-    "agent_node",
+    "procurement_node",
     should_continue,
     {
         "tools_node": "tools_node",
@@ -44,8 +44,8 @@ graph.add_conditional_edges(
     },
 )
 
-# 5. Thiết lập Edge quay lại agent_node sau khi thực thi tools_node
-graph.add_edge("tools_node", "agent_node")
+# 5. Thiết lập Edge quay lại procurement_node sau khi thực thi tools_node
+graph.add_edge("tools_node", "procurement_node")
 
 # 6. Compile procurement_graph
 procurement_graph = graph.compile()

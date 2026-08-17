@@ -9,9 +9,9 @@ from app.llmops.factory import get_chat_model
 logger = logging.getLogger(__name__)
 
 
-async def agent_node(state: ProcurementState) -> dict[str, list[BaseMessage]]:
+async def procurement_node(state: ProcurementState) -> dict[str, list[BaseMessage]]:
     """
-    Node Agent thực thi suy luận LLM cho Procurement Assistant.
+    Node Procurement thực thi suy luận LLM cho Procurement Assistant (gAMSPro).
     - Khởi tạo LLM qua get_chat_model() liên kết với PROCUREMENT_TOOLS.
     - Đưa System Prompt vào đầu danh sách message nếu chưa có.
     - Thực thi suy luận LLM và sinh tool calls hoặc final answer.
@@ -31,3 +31,7 @@ async def agent_node(state: ProcurementState) -> dict[str, list[BaseMessage]]:
 
     # 4. Trả về message mới để StateGraph cập nhật vào state.messages qua add_messages reducer
     return {"messages": [response]}
+
+
+# Alias để tương thích ngược
+agent_node = procurement_node

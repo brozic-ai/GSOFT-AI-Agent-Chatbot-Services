@@ -35,12 +35,19 @@ _AGENTS_ROOT = PROJECT_ROOT / "app" / "ai" / "agent"
 async def _supervisor_entrypoint(input_: dict[str, Any]) -> dict[str, Any]:
     from app.ai.agent.supervisor.graph.graph import supervisor_graph
 
-    state = {
-        "session_id": input_.get("session_id", "eval-session"),
-        "user_query": input_["user_query"],
-        "chat_history": input_.get("chat_history", []),
+    case_id = input_.get("_eval_case_id") or input_.get("case_id") or "eval"
+    case_idx = input_.get("_eval_case_index")
+    run_name = (
+        f"Supervisor Test #{case_idx:02d} ({case_id})"
+        if case_idx
+        else f"Supervisor Agent [{case_id}]"
+    )
+    config = {
+        "run_name": run_name,
+        "tags": ["eval", "supervisor", f"case:{case_id}"],
+        "metadata": {"case_id": case_id, "case_index": case_idx},
     }
-    result = await supervisor_graph.ainvoke(state)
+    result = await supervisor_graph.ainvoke(state, config=config)
     route_obj = result.get("route")
 
     if hasattr(route_obj, "intent"):
@@ -105,8 +112,25 @@ async def _procurement_entrypoint(input_: dict[str, Any]) -> dict[str, Any]:
         "session_id": input_.get("session_id", "eval-procurement"),
     }
 
-    # 3. Thực thi graph thật
-    result = await procurement_graph.ainvoke(state)
+    # 3. Thực thi graph thật với run_name tùy chỉnh cho LangSmith Tracing
+    case_id = input_.get("_eval_case_id") or input_.get("case_id") or "eval"
+    case_idx = input_.get("_eval_case_index")
+    run_name = (
+        f"Procurement Test #{case_idx:02d} ({case_id})"
+        if case_idx
+        else f"Procurement Agent [{case_id}]"
+    )
+    config = {
+        "run_name": run_name,
+        "tags": ["eval", "procurement", f"case:{case_id}"],
+        "metadata": {
+            "case_id": case_id,
+            "case_index": case_idx,
+            "user_name": state.get("user_name"),
+        },
+    }
+
+    result = await procurement_graph.ainvoke(state, config=config)
     result_messages = result.get("messages", [])
 
     # 4. Trích xuất final_answer và tất cả các tool_calls đã sinh ra
