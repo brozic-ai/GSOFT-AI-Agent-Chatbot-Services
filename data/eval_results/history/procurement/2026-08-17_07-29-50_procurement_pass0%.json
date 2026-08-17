@@ -1,21 +1,21 @@
 {
   "metadata": {
     "agent_name": "procurement",
-    "timestamp_utc": "2026-08-17T07:56:53.239330+00:00",
+    "timestamp_utc": "2026-08-17T07:29:50.933971+00:00",
     "environment": "local",
     "llm_provider": "vllm",
     "llm_model": "qwen3:1.7b",
-    "execution_time_seconds": 20.25,
+    "execution_time_seconds": 14.44,
     "benchmark_threshold": 0.9,
-    "benchmark_passed": true
+    "benchmark_passed": false
   },
   "summary": {
     "total_cases": 1,
-    "passed_cases": 1,
-    "failed_cases": 0,
-    "pass_rate": 1.0,
-    "pass_percentage": "100%",
-    "avg_score": 1.0,
+    "passed_cases": 0,
+    "failed_cases": 1,
+    "pass_rate": 0.0,
+    "pass_percentage": "0%",
+    "avg_score": 0.6667,
     "accuracy": 1.0,
     "macro_f1": 1.0
   },
@@ -46,8 +46,8 @@
   "cases": [
     {
       "case_id": "proc_case_025",
-      "passed": true,
-      "avg_score": 1.0,
+      "passed": false,
+      "avg_score": 0.6667,
       "expected": {
         "expected_tools": [],
         "expected_keywords": [
@@ -59,29 +59,38 @@
         "reference_answer": "Dạ, tôi đã ghi nhận tiêu đề là 'Mua bàn ghế văn phòng'. Anh Bảo vui lòng cho biết Tổng số tiền đề xuất dự kiến và Kế hoạch ngân sách liên kết là gì để tôi tạo tờ trình nháp nhé!"
       },
       "actual": {
-        "final_answer": "Tôi đã ghi nhận yêu cầu tạo tờ trình \"Mua bàn ghế văn phòng\". Vui lòng cung cấp tổng số tiền đề xuất dự kiến (ví dụ: 15 triệu VNĐ) để tiếp tục xử lý.",
-        "tool_calls": []
+        "final_answer": "Cám ơn anh đã cung cấp thông tin. Vui lòng cung cấp số tiền đề xuất cụ thể (ví dụ: 5000000 VNĐ) và mã kế hoạch ngân sách liên kết (nếu có) để tôi tạo tờ trình.",
+        "tool_calls": [
+          {
+            "name": "create_request_doc",
+            "args": {
+              "tieu_de": "Mua bàn ghế văn phòng",
+              "tong_tien": 0,
+              "ma_ke_hoach": null
+            }
+          }
+        ]
       },
       "user_query": "Tạo tờ trình Mua bàn ghế văn phòng cho tôi",
       "reasoning": null,
       "metrics": [
         {
           "name": "tool_call_match",
-          "score": 1.0,
-          "passed": true,
-          "detail": "Không có tool call nào (khớp kỳ vọng)"
+          "score": 0.0,
+          "passed": false,
+          "detail": "Kỳ vọng không gọi tool nhưng actual gọi: ['create_request_doc']"
         },
         {
           "name": "llm_judge:relevance",
           "score": 1.0,
           "passed": true,
-          "detail": "Câu trả lời phù hợp với tiêu chí 'relevance' vì đã ghi nhận tiêu đề và yêu cầu thông tin cần thiết để tạo tờ trình, đáp ứng đúng yêu cầu của người dùng."
+          "detail": "Câu trả lời đúng đắn và đầy đủ thông tin cần thiết để tạo tờ trình, đáp ứng đầy đủ tiêu chí relevancy."
         },
         {
           "name": "latency",
           "score": 1.0,
           "passed": true,
-          "detail": "latency=17.027211099997658s (threshold=35.0s)"
+          "detail": "latency=11.903670499999862s (threshold=35.0s)"
         }
       ]
     }

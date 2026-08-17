@@ -1,0 +1,111 @@
+{
+  "metadata": {
+    "agent_name": "procurement",
+    "timestamp_utc": "2026-08-17T06:58:25.517914+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 29.98,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": false
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 0,
+    "failed_cases": 1,
+    "pass_rate": 0.0,
+    "pass_percentage": "0%",
+    "avg_score": 0.6333,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 1
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "proc_demo_016",
+      "passed": false,
+      "avg_score": 0.6333,
+      "expected": {
+        "expected_tools": [],
+        "expected_keywords": [
+          "Gửi phê duyệt",
+          "gAMSPro",
+          "Phiếu yêu cầu mua sắm",
+          "Lưu Nháp"
+        ],
+        "reference_answer": "Để gửi phê duyệt Tờ trình đang Lưu Nháp, anh Bảo thao tác theo các bước sau trên gAMSPro:\n1. Truy cập phân hệ Quản lý Mua sắm ➔ Phiếu yêu cầu mua sắm.\n2. Mở tờ trình Lưu Nháp và kiểm tra đầy đủ danh mục hàng hóa, chủng loại, đơn giá.\n3. Nhấn nút 'Gửi phê duyệt' ở thanh công cụ phía trên để chuyển hồ sơ đến cấp quản lý ký duyệt số."
+      },
+      "actual": {
+        "final_answer": "📌 **Hướng dẫn gửi phê duyệt Tờ trình mua sắm (Lưu Nháp):**  \n1. **Hoàn thiện chi tiết Tờ trình**  \n   - Truy cập phân hệ **Quản lý Mua sắm ➔ Phiếu yêu cầu mua sắm**  \n   - Chọn mã tờ trình (ví dụ: `PUR/2025/000052`) và cập nhật thông tin:  \n     - **Nội dung**: \"Chu trương mua sắm\"  \n     - **Lý do**: \"Mua sắm thiết bị\"  \n     - **Giá trị**: 50,000,000 VNĐ  \n     - **Kế hoạch liên kết**: `0049/2025/TTr-0690905`  \n\n2. **Gửi phê duyệt**  \n   - Nhấn nút **Gửi phê duyệt** trên màn hình.  \n   - Tờ trình sẽ chuyển sang trạng thái **Chờ đầu mối mua sắm xử lý**.  \n\n3. **Theo dõi tiến độ**  \n   - Truy cập **AI chatbot** để kiểm tra trạng thái và phản hồi từ đơn vị mua sắm.  \n\n✅ **Kết quả kiểm tra ngân sách**:  \n- **Tổng hạn mức**: 156,750,000 VNĐ  \n- **Ngân sách đã sử dụng**: 31,350,000 VNĐ  \n- **Ngân sách còn lại**: 125,400,000 VNĐ (hoàn toàn đủ để cover Tờ trình).  \n\n👉 **Lưu ý**: Đảm bảo Tờ trình đã được **xác nhận ngân sách** trước khi gửi phê duyệt.",
+        "tool_calls": [
+          {
+            "name": "get_po_master_status",
+            "args": {
+              "ma_po": "PO069/26/0006",
+              "user_name": "baotq"
+            }
+          },
+          {
+            "name": "get_request_doc_detail",
+            "args": {
+              "doc_identifier": "PUR/2025/000052",
+              "user_name": "baotq"
+            }
+          },
+          {
+            "name": "check_plan_budget_detail",
+            "args": {
+              "ma_ke_hoach": "0049/2025/TTr-0690905",
+              "user_name": "baotq"
+            }
+          }
+        ]
+      },
+      "user_query": "Làm thế nào để gửi phê duyệt một tờ trình đang ở trạng thái Lưu Nháp trên gAMSPro?",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 0.0,
+          "passed": false,
+          "detail": "Kỳ vọng không gọi tool nhưng actual gọi: ['get_po_master_status', 'get_request_doc_detail', 'check_plan_budget_detail']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.9,
+          "passed": true,
+          "detail": "Câu trả lời đáp ứng đầy đủ các bước cần thiết để gửi phê duyệt tờ trình (hoàn thiện thông tin, nhấn nút gửi phê duyệt, theo dõi tiến độ) và thêm thông tin về kiểm tra ngân sách, nhưng không bao gồm thông tin cụ thể về mã tờ trình hoặc các bước chi tiết hơn liên quan đến gAMSPro. Tuy nhiên, nội dung vẫn phù hợp với tiêu chí 'relevance' và đáp ứng yêu cầu chính xác."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=24.550315799999225s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

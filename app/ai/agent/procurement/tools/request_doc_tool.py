@@ -38,7 +38,7 @@ async def search_request_docs(
     try:
         uname = (user_name or "").strip() or "baotq"
         payload = {
-            "maxResultCount": 10,
+            "maxResultCount": 5,
             "skipCount": 0,
             "reQ_CODE": so_to_trinh.strip() if so_to_trinh else "",
             "type": type_job or "DVKD",
@@ -47,7 +47,7 @@ async def search_request_docs(
 
         data = await post_backend_api("/api/RequestDoc/TR_REQUEST_DOC_Search", payload=payload)
         result = data.get("result", {})
-        items = result.get("items", [])
+        items = result.get("items", [])[:5]
         total = result.get("totalCount", 0)
 
         if not items:

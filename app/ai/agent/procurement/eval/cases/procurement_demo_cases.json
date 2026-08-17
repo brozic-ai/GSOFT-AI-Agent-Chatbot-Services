@@ -1,6 +1,6 @@
 [
   {
-    "id": "proc_demo_001",
+    "id": "proc_case_001",
     "module": "procurement",
     "category": "request_doc_list",
     "difficulty": "easy",
@@ -10,173 +10,852 @@
       "user_name": "baotq"
     },
     "expected": {
-      "expected_tools": [
-        "search_request_docs"
-      ],
-      "expected_keywords": [
-        "PUR/2025/000052",
-        "50,000,000",
-        "PUR/2026/000065"
-      ],
-      "reference_answer": "Xin chào anh Bảo! Tôi đã tra cứu trên hệ thống gAMSPro. Dưới đây là các tờ trình mua sắm gần đây nhất của anh:\n1. 📄 PUR/2025/000052 — Trạng thái: Đã duyệt (Chờ đầu mối mua sắm xử lý) — 50,000,000 VND\n2. 📄 PUR/2026/000065 — Trạng thái: ⚠️ Lưu Nháp — 7,000,000 VND\n\nAnh muốn xem thông tin chi tiết của tờ trình nào?"
+      "expected_tools": ["search_request_docs"],
+      "expected_keywords": ["PUR/2025/000052", "PUR/2026/000065", "Lưu Nháp", "Đã duyệt"],
+      "reference_answer": "Xin chào anh Bảo! Dưới đây là các tờ trình mua sắm gần đây nhất của anh trên hệ thống gAMSPro:\n1. 📄 PUR/2025/000052 — Trạng thái: Đã duyệt — 50,000,000 VND\n2. 📄 PUR/2026/000065 — Trạng thái: ⚠️ Lưu Nháp — 7,000,000 VND\n\nAnh muốn xem chi tiết tờ trình nào ạ?"
     },
-    "tags": [
-      "procurement",
-      "demo",
-      "turn1",
-      "search_request_docs"
-    ]
+    "tags": ["procurement", "list", "search_request_docs"]
   },
   {
-    "id": "proc_demo_002",
+    "id": "proc_case_002",
+    "module": "procurement",
+    "category": "request_doc_list",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Liệt kê các phiếu yêu cầu mua sắm của tôi.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["search_request_docs"],
+      "expected_keywords": ["PUR/2025/000052", "PUR/2026/000065", "VND"],
+      "reference_answer": "Danh sách các Phiếu yêu cầu mua sắm (Tờ trình) của anh Bảo trên gAMSPro:\n1. 📄 PUR/2025/000052 — 50,000,000 VND (Đã duyệt)\n2. 📄 PUR/2026/000065 — 7,000,000 VND (Lưu Nháp)"
+    },
+    "tags": ["procurement", "list", "search_request_docs"]
+  },
+  {
+    "id": "proc_case_003",
+    "module": "procurement",
+    "category": "request_doc_list",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Tìm kiếm tờ trình mua sắm số hiệu PUR/2025/000052.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["search_request_docs"],
+      "expected_keywords": ["PUR/2025/000052", "50,000,000", "Đã duyệt"],
+      "reference_answer": "Kết quả tìm kiếm tờ trình PUR/2025/000052: Tờ trình có số tiền 50,000,000 VND, trạng thái Đã duyệt."
+    },
+    "tags": ["procurement", "search", "search_request_docs"]
+  },
+  {
+    "id": "proc_case_004",
+    "module": "procurement",
+    "category": "request_doc_list",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Tôi có những tờ trình nào đang ở trạng thái Lưu Nháp?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["search_request_docs"],
+      "expected_keywords": ["PUR/2026/000065", "Lưu Nháp", "7,000,000"],
+      "reference_answer": "Hiện tại anh có tờ trình PUR/2026/000065 đang ở trạng thái ⚠️ Lưu Nháp với số tiền 7,000,000 VND."
+    },
+    "tags": ["procurement", "list", "draft_filter"]
+  },
+  {
+    "id": "proc_case_005",
+    "module": "procurement",
+    "category": "request_doc_list",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Kiểm tra danh sách tờ trình mua sắm của Phòng Hỗ trợ.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["search_request_docs"],
+      "expected_keywords": ["PUR/2025/000052", "PUR/2026/000065"],
+      "reference_answer": "Danh sách các tờ trình mua sắm thuộc Phòng Hỗ trợ bao gồm PUR/2025/000052 và PUR/2026/000065."
+    },
+    "tags": ["procurement", "list", "dept_filter"]
+  },
+  {
+    "id": "proc_case_006",
     "module": "procurement",
     "category": "request_doc_detail",
     "difficulty": "easy",
     "input": {
       "user_query": "Cho tôi xem chi tiết tờ trình PUR/2025/000052 đi.",
-      "chat_history": [
-        {
-          "role": "user",
-          "content": "Cho tôi xem danh sách các Tờ trình mua sắm tôi đã lập gần đây."
-        },
-        {
-          "role": "assistant",
-          "content": "Dưới đây là các tờ trình gần đây nhất của anh: 1. PUR/2025/000052 (50M)..."
-        }
-      ],
+      "chat_history": [],
       "user_name": "baotq"
     },
     "expected": {
-      "expected_tools": [
-        "get_request_doc_detail"
-      ],
-      "expected_keywords": [
-        "PUR/2025/000052",
-        "TRRD00000269630",
-        "Trương Quang Bảo",
-        "Phòng Hỗ trợ",
-        "50,000,000",
-        "0049/2025/TTr-0690905"
-      ],
-      "reference_answer": "Đây là thông tin chi tiết Tờ trình số PUR/2025/000052:\n- Mã hệ thống: TRRD00000269630\n- Người lập: Trương Quang Bảo (Phòng Hỗ trợ — Hội sở)\n- Đơn vị chịu chi phí: Hội sở BVBank — Phòng Hỗ trợ\n- Tổng tiền đề xuất: 50,000,000 VND\n- Ngày tạo: 22/12/2025\n- Trạng thái: Đã duyệt (Chờ đầu mối mua sắm xử lý)\n- Kế hoạch liên kết: 📌 0049/2025/TTr-0690905\n\nAnh có muốn tôi kiểm tra Hạn mức Ngân sách của Kế hoạch liên kết 0049/2025/TTr-0690905 không?"
+      "expected_tools": ["get_request_doc_detail"],
+      "expected_keywords": ["PUR/2025/000052", "TRRD00000269630", "50,000,000", "0049/2025/TTr-0690905"],
+      "reference_answer": "Thông tin chi tiết Tờ trình PUR/2025/000052:\n- Mã hệ thống: TRRD00000269630\n- Người lập: Trương Quang Bảo (Phòng Hỗ trợ)\n- Tổng tiền đề xuất: 50,000,000 VND\n- Trạng thái: Đã duyệt\n- Kế hoạch liên kết: 0049/2025/TTr-0690905"
     },
-    "tags": [
-      "procurement",
-      "demo",
-      "turn2",
-      "get_request_doc_detail"
-    ]
+    "tags": ["procurement", "detail", "get_request_doc_detail"]
   },
   {
-    "id": "proc_demo_003",
+    "id": "proc_case_007",
+    "module": "procurement",
+    "category": "request_doc_detail",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Xem cho tôi chi tiết tờ trình PUR/2026/000065.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail"],
+      "expected_keywords": ["PUR/2026/000065", "TRRD00000269696", "Lưu Nháp", "7,000,000", "0030/2025/TTr-0690905"],
+      "reference_answer": "Chi tiết Tờ trình Mua sắm PUR/2026/000065:\n- Mã hệ thống: TRRD00000269696\n- Tổng tiền đề xuất: 7,000,000 VNĐ\n- Trạng thái: ⚠️ Lưu Nháp\n- Kế hoạch liên kết: 0030/2025/TTr-0690905"
+    },
+    "tags": ["procurement", "detail", "draft"]
+  },
+  {
+    "id": "proc_case_008",
+    "module": "procurement",
+    "category": "request_doc_detail",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Chi tiết tờ trình mua sắm PUR/2025/000051.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail"],
+      "expected_keywords": ["PUR/2025/000051", "1,000,000,000", "Chờ đơn vị chuyên môn xác nhận", "Chưa liên kết"],
+      "reference_answer": "Chi tiết Tờ trình Mua sắm PUR/2025/000051:\n- Mã hệ thống: TRRD00000269629\n- Tổng tiền: 1,000,000,000 VNĐ (1 Tỷ đồng)\n- Trạng thái: Đã duyệt (Chờ đơn vị chuyên môn xác nhận)\n- Kế hoạch liên kết: Chưa liên kết Kế hoạch ngân sách"
+    },
+    "tags": ["procurement", "detail", "high_value"]
+  },
+  {
+    "id": "proc_case_009",
+    "module": "procurement",
+    "category": "request_doc_detail",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Tờ trình PUR/2025/000039 trạng thái hiện tại là gì?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail"],
+      "expected_keywords": ["PUR/2025/000039", "Hoàn tất", "150,000", "0043/2025/TTr-0690905"],
+      "reference_answer": "Tờ trình PUR/2025/000039 hiện đang ở trạng thái: 🟩 Đã duyệt (Hoàn tất) với số tiền 150,000 VNĐ."
+    },
+    "tags": ["procurement", "detail", "completed"]
+  },
+  {
+    "id": "proc_case_010",
+    "module": "procurement",
+    "category": "request_doc_detail",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Tra cứu tờ trình PUR/2025/000047.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail"],
+      "expected_keywords": ["PUR/2025/000047", "100,000,000", "0001/2025/TTr-0690604"],
+      "reference_answer": "Chi tiết Tờ trình PUR/2025/000047:\n- Tổng tiền đề xuất: 100,000,000 VNĐ\n- Trạng thái: Đã duyệt\n- Kế hoạch liên kết: 0001/2025/TTr-0690604"
+    },
+    "tags": ["procurement", "detail"]
+  },
+  {
+    "id": "proc_case_011",
+    "module": "procurement",
+    "category": "request_doc_detail",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Tờ trình 52 của tôi tình trạng thế nào rồi?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail"],
+      "expected_keywords": ["PUR/2025/000052", "Đã duyệt", "50,000,000"],
+      "reference_answer": "Tờ trình số PUR/2025/000052 của anh Bảo đang ở trạng thái: 🟩 Đã duyệt với số tiền 50,000,000 VNĐ."
+    },
+    "tags": ["procurement", "natural_query", "shortcut"]
+  },
+  {
+    "id": "proc_case_012",
+    "module": "procurement",
+    "category": "request_doc_detail",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Tờ trình PUR/2026/000065 trị giá bao nhiêu và đã duyệt chưa?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail"],
+      "expected_keywords": ["PUR/2026/000065", "7,000,000", "Lưu Nháp"],
+      "reference_answer": "Tờ trình PUR/2026/000065 có tổng tiền đề xuất là 7,000,000 VNĐ và hiện đang ở trạng thái Lưu Nháp (chưa duyệt)."
+    },
+    "tags": ["procurement", "natural_query"]
+  },
+  {
+    "id": "proc_case_013",
     "module": "procurement",
     "category": "budget_plan_check",
     "difficulty": "medium",
     "input": {
       "user_query": "Kiểm tra luôn Kế hoạch liên kết giúp tôi.",
       "chat_history": [
-        {
-          "role": "user",
-          "content": "Cho tôi xem chi tiết tờ trình PUR/2025/000052 đi."
-        },
-        {
-          "role": "assistant",
-          "content": "Tờ trình PUR/2025/000052 có Kế hoạch liên kết là 0049/2025/TTr-0690905 với số tiền đề xuất 50,000,000 VND."
-        }
+        { "role": "user", "content": "Cho tôi xem chi tiết tờ trình PUR/2025/000052 đi." },
+        { "role": "assistant", "content": "Tờ trình PUR/2025/000052 có Kế hoạch liên kết là 0049/2025/TTr-0690905 với số tiền đề xuất 50,000,000 VND." }
       ],
       "user_name": "baotq"
     },
     "expected": {
-      "expected_tools": [
-        "check_plan_budget_detail"
-      ],
-      "expected_keywords": [
-        "0049/2025/TTr-0690905",
-        "156,750,000",
-        "125,400,000",
-        "ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH"
-      ],
-      "reference_answer": "Tôi đã tra cứu Kế hoạch Ngân sách liên kết 0049/2025/TTr-0690905 trên gAMSPro. Kết quả đối soát như sau:\n- Mã Kế hoạch: 0049/2025/TTr-0690905\n- Tên Kế hoạch: chu trương mua sắm\n- Trạng thái Kế hoạch: ✅ Đã duyệt\n- Tổng hạn mức ngân sách: 156,750,000 VND\n- Ngân sách đã thực hiện: 31,350,000 VND\n- Ngân sách còn lại khả dụng: 🟩 125,400,000 VND\n\n🟢 ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH:\nKế hoạch đã được phê duyệt hợp lệ. Ngân sách còn lại khả dụng (125,400,000 VND) hoàn toàn đủ để cover khoản đề xuất 50,000,000 VND của Tờ trình PUR/2025/000052.\n\nAnh có muốn kiểm tra tiến độ các Đơn đặt hàng PO (Phiếu gọi hàng) đã phát hành thuộc đơn vị mình không?"
+      "expected_tools": ["check_plan_budget_detail"],
+      "expected_keywords": ["0049/2025/TTr-0690905", "156,750,000", "125,400,000", "ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH"],
+      "reference_answer": "Thông tin Kế hoạch Ngân sách 0049/2025/TTr-0690905:\n- Tổng hạn mức: 156,750,000 VND\n- Ngân sách đã dùng: 31,350,000 VND\n- Ngân sách còn lại khả dụng: 125,400,000 VND\n🟢 ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH: Đủ để cover khoản 50,000,000 VND."
     },
-    "tags": [
-      "procurement",
-      "demo",
-      "turn3",
-      "check_plan_budget_detail"
-    ]
+    "tags": ["procurement", "budget_plan_check"]
   },
   {
-    "id": "proc_demo_004",
+    "id": "proc_case_014",
+    "module": "procurement",
+    "category": "budget_plan_check",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Tra cứu hạn mức ngân sách của Kế hoạch 0030/2025/TTr-0690905.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["check_plan_budget_detail"],
+      "expected_keywords": ["0030/2025/TTr-0690905", "182,200,590", "157,188,480"],
+      "reference_answer": "Kế hoạch Ngân sách 0030/2025/TTr-0690905 có tổng hạn mức là 182,200,590 VNĐ, đã thực hiện 25,012,110 VNĐ, số dư khả dụng còn 157,188,480 VNĐ."
+    },
+    "tags": ["procurement", "budget_plan_check"]
+  },
+  {
+    "id": "proc_case_015",
+    "module": "procurement",
+    "category": "budget_plan_check",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Kế hoạch 0049/2025/TTr-0690905 còn bao nhiêu tiền khả dụng?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["check_plan_budget_detail"],
+      "expected_keywords": ["0049/2025/TTr-0690905", "125,400,000", "khả dụng"],
+      "reference_answer": "Kế hoạch 0049/2025/TTr-0690905 hiện còn 125,400,000 VNĐ khả dụng trên hệ thống gAMSPro."
+    },
+    "tags": ["procurement", "budget_plan_check"]
+  },
+  {
+    "id": "proc_case_016",
+    "module": "procurement",
+    "category": "budget_plan_check",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Kiểm tra kế hoạch ngân sách mã PLRD00001117972.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["check_plan_budget_detail"],
+      "expected_keywords": ["0049/2025/TTr-0690905", "156,750,000", "125,400,000"],
+      "reference_answer": "Kế hoạch PLRD00001117972 (0049/2025/TTr-0690905) có tổng hạn mức 156,750,000 VNĐ, số dư khả dụng 125,400,000 VNĐ."
+    },
+    "tags": ["procurement", "budget_plan_check", "id_search"]
+  },
+  {
+    "id": "proc_case_017",
+    "module": "procurement",
+    "category": "budget_plan_check",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Kế hoạch 0030/2025/TTr-0690905 đã giải ngân bao nhiêu phần trăm?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["check_plan_budget_detail"],
+      "expected_keywords": ["0030/2025/TTr-0690905", "182,200,590", "25,012,110"],
+      "reference_answer": "Kế hoạch 0030/2025/TTr-0690905 có tổng hạn mức 182,200,590 VNĐ và đã thực hiện 25,012,110 VNĐ."
+    },
+    "tags": ["procurement", "budget_plan_check"]
+  },
+  {
+    "id": "proc_case_018",
+    "module": "procurement",
+    "category": "budget_plan_check",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Đối soát ngân sách kế hoạch 0049 có đủ chi cho khoản 200 triệu không?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["check_plan_budget_detail"],
+      "expected_keywords": ["0049/2025/TTr-0690905", "125,400,000", "không đủ", "vượt"],
+      "reference_answer": "Kế hoạch 0049/2025/TTr-0690905 chỉ còn 125,400,000 VNĐ khả dụng, KHÔNG ĐỦ để cover khoản chi 200,000,000 VNĐ (vượt 74,600,000 VNĐ)."
+    },
+    "tags": ["procurement", "budget_compliance", "over_budget"]
+  },
+  {
+    "id": "proc_case_019",
     "module": "procurement",
     "category": "po_master_status",
     "difficulty": "medium",
     "input": {
-      "user_query": "Có PO nào được tạo từ tờ trình này chưa?",
-      "chat_history": [
-        {
-          "role": "user",
-          "content": "Kiểm tra luôn Kế hoạch liên kết giúp tôi."
-        },
-        {
-          "role": "assistant",
-          "content": "Ngân sách khả dụng (125,400,000 VND) hoàn toàn đủ để cover khoản đề xuất 50,000,000 VND của Tờ trình PUR/2025/000052."
-        }
-      ],
+      "user_query": "Có PO nào được tạo từ tờ trình PUR/2025/000052 chưa?",
+      "chat_history": [],
       "user_name": "baotq"
     },
     "expected": {
-      "expected_tools": [
-        "get_po_master_status"
-      ],
-      "expected_keywords": [
-        "chưa có Đơn đặt hàng PO nào",
-        "PUR/2025/000052",
-        "PO069/26/0006"
-      ],
-      "reference_answer": "Hiện tại chưa có Đơn đặt hàng PO nào được khởi tạo trực tiếp từ Tờ trình PUR/2025/000052 vì tờ trình vẫn đang trong luồng xử lý phê duyệt.\n\n🚚 Tuy nhiên, dưới đây là các Đơn hàng PO (Phiếu gọi hàng) khác đang triển khai tại đơn vị:\n1. 🔹 PO069/26/0006 — Nhà cung cấp: testzzzzz — 12,765 VND (Đã duyệt PO | Hạn giao hàng: 30/05/2025)"
+      "expected_tools": ["get_po_master_status"],
+      "expected_keywords": ["chưa có Đơn đặt hàng PO nào", "PUR/2025/000052"],
+      "reference_answer": "Hiện tại chưa có Đơn đặt hàng PO nào được khởi tạo trực tiếp từ Tờ trình PUR/2025/000052."
     },
-    "tags": [
-      "procurement",
-      "demo",
-      "turn4",
-      "get_po_master_status"
-    ]
+    "tags": ["procurement", "po_master_status"]
   },
   {
-    "id": "proc_demo_005",
+    "id": "proc_case_020",
     "module": "procurement",
-    "category": "actionable_guidance",
+    "category": "po_master_status",
     "difficulty": "easy",
     "input": {
-      "user_query": "Bây giờ tôi cần làm gì để Tờ trình PUR/2025/000052 được duyệt?",
-      "chat_history": [
-        {
-          "role": "user",
-          "content": "Có PO nào được tạo từ tờ trình này chưa?"
-        },
-        {
-          "role": "assistant",
-          "content": "Chưa có PO nào trực tiếp từ PUR/2025/000052 do tờ trình đang chờ xử lý."
-        }
-      ],
+      "user_query": "Tra cứu thông tin đơn đặt hàng PO PO069/26/0006.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_po_master_status"],
+      "expected_keywords": ["PO069/26/0006", "testzzzzz", "12,765", "Đã duyệt"],
+      "reference_answer": "Đơn đặt hàng PO PO069/26/0006:\n- Nhà cung cấp: testzzzzz\n- Tổng giá trị: 12,765 VNĐ\n- Trạng thái: Đã duyệt"
+    },
+    "tags": ["procurement", "po_master_status", "direct_po"]
+  },
+  {
+    "id": "proc_case_021",
+    "module": "procurement",
+    "category": "po_master_status",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Kiểm tra hạn giao hàng của đơn hàng PO PO069/26/0006.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_po_master_status"],
+      "expected_keywords": ["PO069/26/0006", "2025-05-30", "testzzzzz"],
+      "reference_answer": "Đơn hàng PO069/26/0006 có hạn giao hàng là ngày 30/05/2025 từ nhà cung cấp testzzzzz."
+    },
+    "tags": ["procurement", "po_master_status"]
+  },
+  {
+    "id": "proc_case_022",
+    "module": "procurement",
+    "category": "po_master_status",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Đơn hàng PO PO069/26/0006 là của nhà cung cấp nào?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_po_master_status"],
+      "expected_keywords": ["PO069/26/0006", "testzzzzz"],
+      "reference_answer": "Đơn đặt hàng PO069/26/0006 được phát hành cho nhà cung cấp: testzzzzz."
+    },
+    "tags": ["procurement", "po_master_status"]
+  },
+  {
+    "id": "proc_case_023",
+    "module": "procurement",
+    "category": "po_master_status",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Danh sách các đơn hàng PO đang triển khai tại đơn vị.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_po_master_status"],
+      "expected_keywords": ["PO069/26/0006", "testzzzzz", "Đơn hàng PO"],
+      "reference_answer": "Các đơn hàng PO đang triển khai tại đơn vị gồm: PO069/26/0006 (Nhà cung cấp testzzzzz, giá trị 12,765 VNĐ)."
+    },
+    "tags": ["procurement", "po_master_status"]
+  },
+  {
+    "id": "proc_case_024",
+    "module": "procurement",
+    "category": "po_master_status",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Phiếu gọi hàng PO069/26/0006 đã được duyệt chưa?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_po_master_status"],
+      "expected_keywords": ["PO069/26/0006", "Đã duyệt"],
+      "reference_answer": "Phiếu gọi hàng PO069/26/0006 hiện đã ở trạng thái: ✅ Đã duyệt."
+    },
+    "tags": ["procurement", "po_master_status"]
+  },
+  {
+    "id": "proc_case_025",
+    "module": "procurement",
+    "category": "slot_filling",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Tạo tờ trình Mua bàn ghế văn phòng cho tôi",
+      "chat_history": [],
       "user_name": "baotq"
     },
     "expected": {
       "expected_tools": [],
-      "expected_keywords": [
-        "Bước 1",
-        "Bước 2",
-        "Bước 3",
-        "gAMSPro",
-        "PUR/2025/000052"
-      ],
-      "reference_answer": "Để Tờ trình PUR/2025/000052 sớm được phê duyệt và chuyển sang giai đoạn tạo đơn hàng PO, anh Bảo thực hiện theo 3 bước chuẩn sau trên hệ thống gAMSPro:\n\n1️⃣ Bước 1 — Hoàn thiện chi tiết Tờ trình trên gAMSPro:\nAnh truy cập phân hệ Quản lý Mua sắm ➔ Phiếu yêu cầu mua sắm trên giao diện gAMSPro, chọn mã PUR/2025/000052 để bổ sung danh mục hàng hóa, chủng loại và đơn giá thực tế.\n\n2️⃣ Bước 2 — Trình duyệt Tờ trình:\nNhấn nút 'Gửi phê duyệt' ở góc trên màn hình. Hệ thống sẽ tự động chuyển Tờ trình đến Trưởng phòng Hỗ trợ và Đơn vị Chuyên môn để ký duyệt số.\n\n3️⃣ Bước 3 — Theo dõi tiến độ phê duyệt qua AI Chatbot:\nBất kỳ lúc nào, anh chỉ cần nhắn cho tôi: 'Tờ trình PUR/2025/000052 đến cấp nào rồi?' — Tôi sẽ tra cứu nhật ký xử lý và báo cáo ngay cấp đang giữ hồ sơ.\n\n💡 Lưu ý nghiệp vụ: Ngay khi Tờ trình hoàn tất phê duyệt, Đơn vị Mua sắm (ĐMMS) sẽ chọn Nhà cung cấp, lập Biên bản xét giá và phát hành Đơn đặt hàng PO."
+      "expected_keywords": ["Mua bàn ghế văn phòng", "tiền đề xuất", "Kế hoạch ngân sách", "bổ sung"],
+      "reference_answer": "Dạ, tôi đã ghi nhận tiêu đề là 'Mua bàn ghế văn phòng'. Anh Bảo vui lòng cho biết Tổng số tiền đề xuất dự kiến và Kế hoạch ngân sách liên kết là gì để tôi tạo tờ trình nháp nhé!"
     },
-    "tags": [
-      "procurement",
-      "demo",
-      "turn5",
-      "guidance"
-    ]
+    "tags": ["procurement", "slot_filling", "missing_info"]
+  },
+  {
+    "id": "proc_case_026",
+    "module": "procurement",
+    "category": "slot_filling",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Lập tờ trình mua máy in mới cho phòng Hỗ trợ",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [],
+      "expected_keywords": ["mua máy in", "số tiền", "kế hoạch"],
+      "reference_answer": "Tôi đã ghi nhận yêu cầu lập tờ trình mua máy in cho Phòng Hỗ trợ. Anh vui lòng cung cấp thêm Tổng số tiền đề xuất và Mã kế hoạch liên kết để hoàn thiện hồ sơ."
+    },
+    "tags": ["procurement", "slot_filling", "missing_info"]
+  },
+  {
+    "id": "proc_case_027",
+    "module": "procurement",
+    "category": "slot_filling",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Tạo tờ trình chi phí 50 triệu",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [],
+      "expected_keywords": ["50 triệu", "tiêu đề", "mục đích", "kế hoạch"],
+      "reference_answer": "Tôi đã ghi nhận số tiền đề xuất là 50,000,000 VNĐ. Anh vui lòng cho biết thêm Tiêu đề / Mục đích mua sắm và Kế hoạch ngân sách liên kết để lập tờ trình."
+    },
+    "tags": ["procurement", "slot_filling", "missing_title"]
+  },
+  {
+    "id": "proc_case_028",
+    "module": "procurement",
+    "category": "slot_filling",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Tôi muốn lập tờ trình mua sắm thiết bị IT",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [],
+      "expected_keywords": ["thiết bị IT", "số tiền", "kế hoạch"],
+      "reference_answer": "Dạ, anh Bảo vui lòng cho biết Tổng số tiền dự kiến và Kế hoạch liên kết để tôi tiến hành tạo tờ trình Mua sắm thiết bị IT."
+    },
+    "tags": ["procurement", "slot_filling"]
+  },
+  {
+    "id": "proc_case_029",
+    "module": "procurement",
+    "category": "slot_filling",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Tạo tờ trình liên kết kế hoạch 0049/2025/TTr-0690905",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [],
+      "expected_keywords": ["0049/2025/TTr-0690905", "tiêu đề", "số tiền"],
+      "reference_answer": "Tôi đã ghi nhận Kế hoạch liên kết 0049/2025/TTr-0690905. Anh vui lòng cho biết Tiêu đề tờ trình và Tổng số tiền đề xuất dự kiến."
+    },
+    "tags": ["procurement", "slot_filling"]
+  },
+  {
+    "id": "proc_case_030",
+    "module": "procurement",
+    "category": "slot_filling",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Tạo tờ trình mua văn phòng phẩm",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [],
+      "expected_keywords": ["văn phòng phẩm", "số tiền", "kế hoạch"],
+      "reference_answer": "Dạ, để tạo tờ trình Mua văn phòng phẩm, anh Bảo vui lòng cung cấp Tổng số tiền đề xuất và Kế hoạch ngân sách liên kết."
+    },
+    "tags": ["procurement", "slot_filling"]
+  },
+  {
+    "id": "proc_case_031",
+    "module": "procurement",
+    "category": "create_request_doc",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Tạo tờ trình Mua máy in văn phòng 15 triệu liên kết kế hoạch 0049/2025/TTr-0690905",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["create_request_doc"],
+      "expected_keywords": ["TẠO TỜ TRÌNH THÀNH CÔNG", "15,000,000", "Lưu Nháp", "PUR/2026/"],
+      "reference_answer": "Đã tạo thành công Tờ trình Mua sắm Mua máy in văn phòng (15,000,000 VNĐ) ở trạng thái Lưu Nháp liên kết Kế hoạch 0049/2025/TTr-0690905."
+    },
+    "tags": ["procurement", "create_request_doc", "full_info"]
+  },
+  {
+    "id": "proc_case_032",
+    "module": "procurement",
+    "category": "create_request_doc",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Dự kiến 20 triệu, liên kết kế hoạch 0030/2025/TTr-0690905",
+      "chat_history": [
+        { "role": "user", "content": "Tạo tờ trình Mua bảng mica thông báo cho tôi" },
+        { "role": "assistant", "content": "Tôi đã ghi nhận tiêu đề Mua bảng mica. Anh vui lòng cho biết số tiền và kế hoạch liên kết?" }
+      ],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["create_request_doc"],
+      "expected_keywords": ["TẠO TỜ TRÌNH THÀNH CÔNG", "20,000,000", "Lưu Nháp", "0030/2025/TTr-0690905"],
+      "reference_answer": "Đã tạo thành công Tờ trình Mua bảng mica thông báo trị giá 20,000,000 VNĐ ở trạng thái Lưu Nháp."
+    },
+    "tags": ["procurement", "create_request_doc", "multi_turn"]
+  },
+  {
+    "id": "proc_case_033",
+    "module": "procurement",
+    "category": "create_request_doc",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Lập tờ trình Mua sắm máy chấm công số tiền 8000000 VNĐ kế hoạch 0049/2025/TTr-0690905",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["create_request_doc"],
+      "expected_keywords": ["TẠO TỜ TRÌNH THÀNH CÔNG", "8,000,000", "Lưu Nháp"],
+      "reference_answer": "Đã tạo thành công Tờ trình Mua sắm máy chấm công (8,000,000 VNĐ) ở trạng thái Lưu Nháp."
+    },
+    "tags": ["procurement", "create_request_doc"]
+  },
+  {
+    "id": "proc_case_034",
+    "module": "procurement",
+    "category": "create_request_doc",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Tạo tờ trình Sửa chữa điều hòa phòng giao dịch 5 triệu kế hoạch 0030/2025/TTr-0690905",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["create_request_doc"],
+      "expected_keywords": ["TẠO TỜ TRÌNH THÀNH CÔNG", "5,000,000", "Lưu Nháp"],
+      "reference_answer": "Đã tạo thành công Tờ trình Sửa chữa điều hòa phòng giao dịch (5,000,000 VNĐ) ở trạng thái Lưu Nháp."
+    },
+    "tags": ["procurement", "create_request_doc"]
+  },
+  {
+    "id": "proc_case_035",
+    "module": "procurement",
+    "category": "create_request_doc",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Lập tờ trình Thuê bao đường truyền mạng 12 triệu liên kết kế hoạch 0049/2025/TTr-0690905",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["create_request_doc"],
+      "expected_keywords": ["TẠO TỜ TRÌNH THÀNH CÔNG", "12,000,000", "Lưu Nháp"],
+      "reference_answer": "Đã tạo thành công Tờ trình Thuê bao đường truyền mạng (12,000,000 VNĐ) ở trạng thái Lưu Nháp."
+    },
+    "tags": ["procurement", "create_request_doc"]
+  },
+  {
+    "id": "proc_case_036",
+    "module": "procurement",
+    "category": "create_request_doc",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Tạo tờ trình Trang bị biển tên chức danh 3 triệu kế hoạch 0030/2025/TTr-0690905",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["create_request_doc"],
+      "expected_keywords": ["TẠO TỜ TRÌNH THÀNH CÔNG", "3,000,000", "Lưu Nháp"],
+      "reference_answer": "Đã tạo thành công Tờ trình Trang bị biển tên chức danh (3,000,000 VNĐ) ở trạng thái Lưu Nháp."
+    },
+    "tags": ["procurement", "create_request_doc"]
+  },
+  {
+    "id": "proc_case_037",
+    "module": "procurement",
+    "category": "submit_approval",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Gửi phê duyệt tờ trình PUR/2026/000065 giúp tôi",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["submit_request_doc_approval"],
+      "expected_keywords": ["PUR/2026/000065", "phê duyệt", "gAMSPro"],
+      "reference_answer": "Đã xử lý gửi phê duyệt Tờ trình PUR/2026/000065 lên hệ thống gAMSPro."
+    },
+    "tags": ["procurement", "submit_approval"]
+  },
+  {
+    "id": "proc_case_038",
+    "module": "procurement",
+    "category": "submit_approval",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Trình duyệt tờ trình PUR/2026/000086",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["submit_request_doc_approval"],
+      "expected_keywords": ["PUR/2026/000086", "gAMSPro"],
+      "reference_answer": "Đã thực hiện gửi trình duyệt Tờ trình PUR/2026/000086 trên hệ thống."
+    },
+    "tags": ["procurement", "submit_approval"]
+  },
+  {
+    "id": "proc_case_039",
+    "module": "procurement",
+    "category": "submit_approval",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Gửi duyệt tờ trình vừa tạo giúp tôi",
+      "chat_history": [
+        { "role": "user", "content": "Tạo tờ trình Mua máy in 15 triệu" },
+        { "role": "assistant", "content": "Đã tạo thành công Tờ trình PUR/2026/000086 ở trạng thái Lưu Nháp." }
+      ],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["submit_request_doc_approval"],
+      "expected_keywords": ["PUR/2026/000086", "phê duyệt"],
+      "reference_answer": "Đã tiến hành gửi phê duyệt Tờ trình PUR/2026/000086 lên cấp quản lý."
+    },
+    "tags": ["procurement", "submit_approval", "contextual"]
+  },
+  {
+    "id": "proc_case_040",
+    "module": "procurement",
+    "category": "submit_approval",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Gửi phê duyệt tờ trình mã TRRD00000269696",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["submit_request_doc_approval"],
+      "expected_keywords": ["TRRD00000269696", "phê duyệt"],
+      "reference_answer": "Đã gửi phê duyệt Tờ trình TRRD00000269696 trên hệ thống gAMSPro."
+    },
+    "tags": ["procurement", "submit_approval", "id_submit"]
+  },
+  {
+    "id": "proc_case_041",
+    "module": "procurement",
+    "category": "approval_advisor",
+    "difficulty": "hard",
+    "input": {
+      "user_query": "Duyệt tờ trình PUR/2025/000052 cho tôi",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail"],
+      "expected_keywords": ["PUR/2025/000052", "Đã duyệt", "TRRD00000269630", "request-doc-view"],
+      "reference_answer": "Tờ trình PUR/2025/000052 hiện tại đã ở trạng thái ✅ Đã duyệt (Chờ đầu mối mua sắm xử lý) trên hệ thống gAMSPro. Anh có thể xem chi tiết tại: /app/admin/request-doc-view;id=TRRD00000269630"
+    },
+    "tags": ["procurement", "approval_advisor", "already_approved"]
+  },
+  {
+    "id": "proc_case_042",
+    "module": "procurement",
+    "category": "approval_advisor",
+    "difficulty": "hard",
+    "input": {
+      "user_query": "Tôi có nên duyệt tờ trình PUR/2026/000065 không? Phân tích lợi hại giúp tôi.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail", "check_plan_budget_detail"],
+      "expected_keywords": ["THẨM ĐỊNH", "7,000,000", "157,188,480", "request-doc-view", "Lợi ích"],
+      "reference_answer": "Báo cáo thẩm định Tờ trình PUR/2026/000065: Số tiền đề xuất 7,000,000 VNĐ nằm trong hạn mức khả dụng 157,188,480 VNĐ của Kế hoạch 0030/2025/TTr-0690905. Lợi ích đảm bảo trang thiết bị làm việc, không có rủi ro vượt ngân sách. Khuyến nghị: ĐỦ ĐIỀU KIỆN PHÊ DUYỆT. 👉 Anh vui lòng truy cập đường dẫn sau để trực tiếp xem và ký duyệt: /app/admin/request-doc-view;id=TRRD00000269696"
+    },
+    "tags": ["procurement", "approval_advisor", "draft_risk_analysis"]
+  },
+  {
+    "id": "proc_case_043",
+    "module": "procurement",
+    "category": "approval_advisor",
+    "difficulty": "hard",
+    "input": {
+      "user_query": "Approve tờ trình PUR/2026/000065 giúp tôi",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail", "check_plan_budget_detail"],
+      "expected_keywords": ["THẨM ĐỊNH", "7,000,000", "157,188,480", "request-doc-view", "không tự ý"],
+      "reference_answer": "AI không tự ký duyệt hồ sơ. Thẩm định PUR/2026/000065: Số tiền 7 triệu thuộc hạn mức khả dụng 157.1 triệu của Kế hoạch 0030. Khuyến nghị phê duyệt. Link ký duyệt: /app/admin/request-doc-view;id=TRRD00000269696"
+    },
+    "tags": ["procurement", "approval_advisor"]
+  },
+  {
+    "id": "proc_case_044",
+    "module": "procurement",
+    "category": "approval_advisor",
+    "difficulty": "hard",
+    "input": {
+      "user_query": "Đánh giá tờ trình PUR/2025/000047 xem có nên ký duyệt không.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail"],
+      "expected_keywords": ["THẨM ĐỊNH", "100,000,000", "request-doc-view"],
+      "reference_answer": "Đánh giá Tờ trình PUR/2025/000047: Số tiền đề xuất 100,000,000 VNĐ liên kết Kế hoạch 0001/2025/TTr-0690604. Link xem xét ký duyệt: /app/admin/request-doc-view;id=TRRD00000269625"
+    },
+    "tags": ["procurement", "approval_advisor"]
+  },
+  {
+    "id": "proc_case_045",
+    "module": "procurement",
+    "category": "not_found",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Tra cứu tờ trình số PUR/2099/999999.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_request_doc_detail"],
+      "expected_keywords": ["Không tìm thấy", "PUR/2099/999999", "gAMSPro"],
+      "reference_answer": "Không tìm thấy thông tin Tờ trình số 'PUR/2099/999999' trên hệ thống gAMSPro."
+    },
+    "tags": ["procurement", "not_found", "edge_case"]
+  },
+  {
+    "id": "proc_case_046",
+    "module": "procurement",
+    "category": "not_found",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Kiểm tra ngân sách kế hoạch 9999/2099/TTr-9999999.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["check_plan_budget_detail"],
+      "expected_keywords": ["Không tìm thấy", "9999/2099/TTr-9999999", "gAMSPro"],
+      "reference_answer": "Không tìm thấy Kế hoạch Ngân sách nào khớp với mã '9999/2099/TTr-9999999' trên hệ thống gAMSPro."
+    },
+    "tags": ["procurement", "not_found", "plan_edge_case"]
+  },
+  {
+    "id": "proc_case_047",
+    "module": "procurement",
+    "category": "not_found",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Kiểm tra đơn hàng PO mã PO999/99/9999.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["get_po_master_status"],
+      "expected_keywords": ["Không tìm thấy", "PO999/99/9999", "gAMSPro"],
+      "reference_answer": "Không tìm thấy Đơn đặt hàng PO nào khớp với mã 'PO999/99/9999' trên hệ thống gAMSPro."
+    },
+    "tags": ["procurement", "not_found", "po_edge_case"]
+  },
+  {
+    "id": "proc_case_048",
+    "module": "procurement",
+    "category": "not_found",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Gửi phê duyệt tờ trình PUR/2099/888888",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": ["submit_request_doc_approval"],
+      "expected_keywords": ["Không tìm thấy", "PUR/2099/888888"],
+      "reference_answer": "Không tìm thấy Tờ trình PUR/2099/888888 trên hệ thống gAMSPro để gửi phê duyệt."
+    },
+    "tags": ["procurement", "not_found", "submit_not_found"]
+  },
+  {
+    "id": "proc_case_049",
+    "module": "procurement",
+    "category": "actionable_guidance",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Quy trình phê duyệt một tờ trình mua sắm tại BVBank gồm những bước nào?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [],
+      "expected_keywords": ["Hoàn thiện", "Trình duyệt", "Đơn vị Chuyên môn", "Ký duyệt"],
+      "reference_answer": "Quy trình phê duyệt Tờ trình Mua sắm trên gAMSPro gồm các bước: 1. Hoàn thiện chi tiết hàng hóa, đơn giá ➔ 2. Nhấn Gửi phê duyệt ➔ 3. Trưởng đơn vị và Đơn vị Chuyên môn ký duyệt số ➔ 4. Phát hành PO."
+    },
+    "tags": ["procurement", "guidance"]
+  },
+  {
+    "id": "proc_case_050",
+    "module": "procurement",
+    "category": "agent_capability",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Trợ lý Mua sắm gAMSPro có thể hỗ trợ tôi những nghiệp vụ gì?",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [],
+      "expected_keywords": ["Tra cứu Tờ trình", "Đối soát", "Kế hoạch Ngân sách", "Đơn đặt hàng PO", "Tạo mới"],
+      "reference_answer": "Tôi là Trợ lý Mua sắm Doanh nghiệp (gAMSPro) của BVBank, sẵn sàng hỗ trợ anh các nghiệp vụ:\n1. 📄 Tra cứu danh sách & chi tiết Tờ trình Mua sắm\n2. 📊 Đối soát Hạn mức Ngân sách Kế hoạch liên kết\n3. 🚚 Theo dõi Đơn đặt hàng PO (Phiếu gọi hàng)\n4. 📝 Thu thập thông tin & Tạo mới Tờ trình Lưu Nháp\n5. 📤 Hỗ trợ Gửi phê duyệt và Thẩm định hồ sơ cho Lãnh đạo."
+    },
+    "tags": ["procurement", "agent_capability", "intro"]
   }
 ]

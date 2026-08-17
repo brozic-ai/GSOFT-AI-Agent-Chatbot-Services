@@ -66,10 +66,15 @@ async def get_request_doc_detail(
                 search_item = items[0]
                 resolved_req_id = search_item.get("reQ_ID", clean_id)
                 doc_code = search_item.get("reQ_CODE", clean_id)
+            else:
+                return f"Không tìm thấy thông tin chi tiết cho Tờ trình '{target_id}' trên hệ thống gAMSPro."
 
         # Gọi API ById để lấy chi tiết đầy đủ
-        params = {"id": resolved_req_id, "userLogin": uname}
-        item = await post_backend_api("/api/RequestDoc/TR_REQUEST_DOC_ById", params=params)
+        try:
+            params = {"id": resolved_req_id, "userLogin": uname}
+            item = await post_backend_api("/api/RequestDoc/TR_REQUEST_DOC_ById", params=params)
+        except Exception:
+            item = None
 
         # Fallback nếu ById trả về rỗng nhưng search_item có dữ liệu
         if (not item or not item.get("reQ_ID")) and search_item:
@@ -101,7 +106,8 @@ async def get_request_doc_detail(
             f"- Ngày tạo tờ trình: {create_dt}\n"
             f"- Trạng thái: {status_display}\n"
             f"- Nội dung / Lý do: {reason}\n"
-            f"- Kế hoạch liên kết: 📌 `{plan_code}`"
+            f"- Kế hoạch liên kết: 📌 `{plan_code}`\n"
+            f"- Đường dẫn xem và ký duyệt trên web: `/app/admin/request-doc-view;id={req_sys_id}`"
         )
         return detail_info
 

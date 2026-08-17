@@ -164,7 +164,7 @@ class LLMJudgeMetric(Metric):
                 [
                     (
                         "system",
-                        "Bạn là giám khảo chuyên nghiệp đánh giá chất lượng câu trả lời của chatbot AI.",
+                        "Bạn là giám khảo chuyên nghiệp đánh giá chất lượng câu trả lời của chatbot AI. Hãy trả về kết quả đúng cấu trúc JSON gồm 2 trường 'score' (float 0.0 - 1.0) và 'reason' (string).",
                     ),
                     ("user", judge_prompt),
                 ]
@@ -172,8 +172,27 @@ class LLMJudgeMetric(Metric):
             score = float(getattr(res, "score", 0.0))
             detail = getattr(res, "reason", "")
         except Exception as ex:
-            score = 0.0
-            detail = f"Lỗi gọi LLM Judge ({self.judge_provider}): {ex}"
+            # Fallback 1: Thử gọi llm trực tiếp và parse regex JSON nếu structured output lỗi
+            try:
+                import json
+                import re
+
+                raw_msg = await llm.ainvoke([
+                    ("system", "Bạn là giám khảo chấm điểm. Trả về DUY NHẤT một JSON hợp lệ dạng: {\"score\": 0.9, \"reason\": \"...\"}"),
+                    ("user", judge_prompt),
+                ])
+                raw_text = raw_msg.content if hasattr(raw_msg, "content") else str(raw_msg)
+                match = re.search(r"\{.*?\}", raw_text, re.DOTALL)
+                if match:
+                    parsed = json.loads(match.group(0))
+                    score = float(parsed.get("score", 0.0))
+                    detail = str(parsed.get("reason", ""))
+                else:
+                    score = 0.0
+                    detail = f"Lỗi gọi LLM Judge ({self.judge_provider}): {ex}"
+            except Exception as inner_ex:
+                score = 0.0
+                detail = f"Lỗi gọi LLM Judge ({self.judge_provider}): {ex} (Fallback error: {inner_ex})"
 
         return MetricResult(
             metric_name=self.name,

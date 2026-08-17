@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "agent_name": "procurement",
+    "timestamp_utc": "2026-08-17T07:03:17.093207+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 22.34,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": true
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 1,
+    "failed_cases": 0,
+    "pass_rate": 1.0,
+    "pass_percentage": "100%",
+    "avg_score": 0.9833,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 1
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "proc_demo_019",
+      "passed": true,
+      "avg_score": 0.9833,
+      "expected": {
+        "expected_tools": [],
+        "expected_keywords": [
+          "Tờ trình Mua sắm",
+          "Kế hoạch Ngân sách",
+          "Đơn đặt hàng PO",
+          "đối soát",
+          "hướng dẫn"
+        ],
+        "reference_answer": "Tôi là Trợ lý AI Mua sắm Doanh nghiệp (gAMSPro) của BVBank, sẵn sàng hỗ trợ anh các nghiệp vụ:\n1. 📄 Tra cứu danh sách & chi tiết Tờ trình Mua sắm (tiến độ, trạng thái duyệt, số tiền).\n2. 📊 Đối soát Hạn mức Ngân sách Kế hoạch liên kết (ngân sách còn lại khả dụng).\n3. 🚚 Theo dõi Đơn đặt hàng PO / Phiếu gọi hàng (nhà cung cấp, hạn giao hàng).\n4. 💡 Hướng dẫn các bước thao tác nghiệp vụ và quy trình phê duyệt trên hệ thống gAMSPro."
+      },
+      "actual": {
+        "final_answer": "Trợ lý Mua sắm gAMSPro có thể hỗ trợ các nghiệp vụ sau:\n\n1. **Tra cứu Tờ trình Mua sắm**  \n   - Tìm kiếm các tờ trình theo mã số (ví dụ: \"PUR/2025/000052\")  \n   - Xem thông tin chi tiết về tờ trình (người lập, số tiền đề xuất, trạng thái phê duyệt)  \n\n2. **Kiểm soát Ngân sách & Hạn mức**  \n   - Tra cứu hạn mức ngân sách và số dư còn lại của Kế hoạch mua sắm  \n   - Đánh giá xem ngân sách có đủ để đáp ứng Tờ trình hay không  \n\n3. **Tra cứu Đơn đặt hàng PO (Phiếu gọi hàng)**  \n   - Xem trạng thái đơn hàng PO (đã gửi, đang triển khai, đã giao hàng)  \n   - Kiểm tra xem Tờ trình đã được phát hành PO nào chưa  \n\n4. **Hướng dẫn quy trình mua sắm**  \n   - Hướng dẫn cán bộ hoàn thiện chi tiết Tờ trình (danh mục hàng hóa, đơn giá)  \n   - Trình duyệt Tờ trình để chuyển đến phê duyệt  \n\n5. **Truy vết liên thông**  \n   - Gợi ý kiểm tra Hạn mức Ngân sách của Kế hoạch liên kết với Tờ trình  \n\nTrợ lý hỗ trợ trực tiếp các bước nghiệp vụ mua sắm mà không cần gọi tool kỹ thuật. Nếu cần hỗ trợ cụ thể, hãy cho biết mã số Tờ trình, Mã PO hoặc Kế hoạch! 📄✨",
+        "tool_calls": []
+      },
+      "user_query": "Trợ lý Mua sắm gAMSPro có thể hỗ trợ tôi những nghiệp vụ gì?",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "Không có tool call nào (khớp kỳ vọng)"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.95,
+          "passed": true,
+          "detail": "Câu trả lời đáp ứng đầy đủ các nghiệp vụ chính (tra cứu Tờ trình, kiểm soát ngân sách, tra cứu PO, hướng dẫn quy trình) và bổ sung thêm điểm mới (truy vết liên thông, hướng dẫn chi tiết), nhưng vẫn giữ nguyên cấu trúc và nội dung chính của câu trả lời tham chiếu."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=13.942471099999239s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}
