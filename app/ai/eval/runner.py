@@ -25,6 +25,7 @@ from app.ai.eval.metrics import (
     LLMJudgeMetric,
     Metric,
     MinValueMetric,
+    ToolCallMatchMetric,
 )
 from app.ai.eval.scorer import CaseResult, EvalCase, Scorer
 
@@ -37,6 +38,7 @@ _METRIC_REGISTRY: dict[str, type[Metric]] = {
     "min_value": MinValueMetric,
     "latency": LatencyMetric,
     "llm_judge": LLMJudgeMetric,
+    "tool_call_match": ToolCallMatchMetric,
 }
 
 

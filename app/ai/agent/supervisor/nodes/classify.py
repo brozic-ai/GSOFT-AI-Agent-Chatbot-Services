@@ -6,12 +6,13 @@ from app.ai.agent.supervisor.state import SupervisorState
 from app.llmops.factory import get_chat_model
 
 
-def classify_intent_node(state: SupervisorState) -> dict:
+async def classify_intent_node(state: SupervisorState) -> dict:
     """
-    Node phân loại Intent của người dùng (FAQ, RAG hoặc GENERAL)
+    Node phân loại Intent của người dùng (FAQ, RAG, PROCUREMENT hoặc FALLBACK)
     sử dụng LLM ép kiểu Structured Output (RouterOutput Pydantic Schema).
+    Đảm bảo các truy vấn Tờ trình, Kế hoạch, PO, Mua sắm được định tuyến chính xác đến 'procurement'.
     """
-    # 1. Khởi tạo LLM từ factory kèm Pydantic Output Schema (dùng json_mode để tương thích với Ollama / vLLM local model)
+    # 1. Khởi tạo LLM từ factory kèm Pydantic Output Schema
     llm = get_chat_model()
     structured_llm = llm.with_structured_output(RouterOutput)
 
@@ -26,7 +27,7 @@ def classify_intent_node(state: SupervisorState) -> dict:
     user_prompt = get_user_prompt(query=user_query, chat_history=chat_history)
 
     # 3. Gọi LLM suy luận phân loại Intent
-    route_result: RouterOutput = structured_llm.invoke(
+    route_result: RouterOutput = await structured_llm.ainvoke(
         [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),

@@ -18,10 +18,55 @@
         }
     },
     {
+        "query": "Cho tôi xem danh sách các Tờ trình mua sắm tôi đã lập gần đây.",
+        "output": {
+            "reasoning": "Câu hỏi tra cứu danh sách tờ trình mua sắm trực tiếp trên hệ thống gAMSPro.",
+            "intent": "procurement",
+            "query": "Danh sách tờ trình mua sắm gần đây",
+            "confidence": 0.98
+        }
+    },
+    {
+        "query": "Cho tôi xem chi tiết tờ trình PUR/2025/000052 đi.",
+        "output": {
+            "reasoning": "Câu hỏi tra cứu chi tiết tờ trình mua sắm cụ thể qua mã PUR trên hệ thống gAMSPro.",
+            "intent": "procurement",
+            "query": "Chi tiết tờ trình PUR/2025/000052",
+            "confidence": 0.98
+        }
+    },
+    {
+        "query": "Kiểm tra hạn mức Kế hoạch liên kết của tờ trình giúp tôi.",
+        "output": {
+            "reasoning": "Câu hỏi tra cứu và đối soát hạn mức ngân sách kế hoạch mua sắm trên gAMSPro.",
+            "intent": "procurement",
+            "query": "Kiểm tra hạn mức kế hoạch ngân sách liên kết",
+            "confidence": 0.95
+        }
+    },
+    {
+        "query": "Có PO nào được tạo từ tờ trình PUR/2025/000052 chưa?",
+        "output": {
+            "reasoning": "Câu hỏi tra cứu đơn đặt hàng PO liên kết với tờ trình mua sắm trên gAMSPro.",
+            "intent": "procurement",
+            "query": "Kiểm tra đơn hàng PO tờ trình PUR/2025/000052",
+            "confidence": 0.95
+        }
+    },
+    {
+        "query": "Bây giờ tôi cần làm gì để Tờ trình PUR/2025/000052 được duyệt?",
+        "output": {
+            "reasoning": "Câu hỏi tư vấn hướng dẫn các bước xử lý và phê duyệt tờ trình mua sắm gAMSPro.",
+            "intent": "procurement",
+            "query": "Hướng dẫn các bước phê duyệt tờ trình PUR/2025/000052",
+            "confidence": 0.95
+        }
+    },
+    {
         "query": "Quy trình điều chuyển tài sản cố định từ chi nhánh A sang chi nhánh B trên Phân hệ TSCĐ & CCLD gồm những bước nào?",
         "output": {
             "reasoning": "Câu hỏi thao tác chuyên sâu trên phân hệ Quản lý Tài sản cố định của hệ thống.",
-            "intent": "gamspro",
+            "intent": "procurement",
             "query": "Quy trình điều chuyển tài sản cố định Phân hệ TSCĐ & CCLD",
             "confidence": 0.95
         }
@@ -30,7 +75,7 @@
         "query": "Làm thế nào để tạo Phiếu yêu cầu xe đi công tác tỉnh trên Phân hệ Fleet?",
         "output": {
             "reasoning": "Câu hỏi thao tác nghiệp vụ cụ thể trên phân hệ Yêu cầu xe/Vận hành xe.",
-            "intent": "gamspro",
+            "intent": "procurement",
             "query": "Tạo Phiếu yêu cầu xe đi công tác Phân hệ Fleet",
             "confidence": 0.95
         }

@@ -111,7 +111,7 @@ class LatencyMetric(Metric):
 class LLMJudgeMetric(Metric):
     """Chấm điểm chất lượng câu trả lời tự do (relevance/faithfulness) bằng
     LLM-as-judge. Dùng cho agent trả lời văn bản dài (faq, agentic_rag).
-    Mặc định sử dụng Gemini API làm Judge (provider="gemini").
+    Mặc định sử dụng AI_PROVIDER từ settings làm Judge.
     """
 
     def __init__(
@@ -119,13 +119,13 @@ class LLMJudgeMetric(Metric):
         criterion: str,
         min_score: float = 0.7,
         name: str | None = None,
-        judge_provider: str = "gemini",
+        judge_provider: str | None = None,
         judge_model: str | None = None,
     ) -> None:
         self.criterion = criterion  # vd: "faithfulness", "relevance"
         self.min_score = min_score
         self.name = name or f"llm_judge:{criterion}"
-        self.judge_provider = judge_provider
+        self.judge_provider = judge_provider  # None = dùng settings.AI_PROVIDER
         self.judge_model = judge_model
 
     async def evaluate_async(
@@ -143,7 +143,7 @@ class LLMJudgeMetric(Metric):
         if self.judge_model:
             kwargs["model"] = self.judge_model
 
-        # Dùng provider="gemini" (Gemini API) làm Judge độc lập với model đang test (qwen3.5:2b)
+        # Dùng provider từ config (hoặc settings.AI_PROVIDER mặc định) làm Judge
         llm = get_chat_model(provider=self.judge_provider, **kwargs)
         structured_llm = llm.with_structured_output(JudgeSchema)
 
@@ -187,4 +187,65 @@ class LLMJudgeMetric(Metric):
     ) -> MetricResult:
         raise NotImplementedError(
             "LLMJudgeMetric là async — runner phải gọi evaluate_async cho metric này."
+        )
+
+
+class ToolCallMatchMetric(Metric):
+    """Đánh giá sự trùng khớp của các tool calls được Agent gọi so với kỳ vọng.
+    Kiểm tra danh sách expected_tools (tên công cụ) trong actual.get('tool_calls').
+    """
+
+    def __init__(self, name: str = "tool_call_match") -> None:
+        self.name = name
+
+    def evaluate(
+        self, expected: dict[str, Any], actual: dict[str, Any], **context: Any
+    ) -> MetricResult:
+        expected_tools = expected.get("expected_tools") or expected.get("expected_tool_calls") or []
+        actual_tools = actual.get("tool_calls") or []
+
+        def _extract_name(t: Any) -> str:
+            if isinstance(t, str):
+                return t
+            if isinstance(t, dict):
+                return t.get("name") or t.get("tool") or str(t)
+            return getattr(t, "name", str(t))
+
+        exp_names = [_extract_name(t) for t in expected_tools]
+        act_names = [_extract_name(t) for t in actual_tools]
+
+        if not exp_names and not act_names:
+            return MetricResult(
+                metric_name=self.name,
+                score=1.0,
+                passed=True,
+                detail="Không có tool call nào (khớp kỳ vọng)",
+            )
+
+        if not exp_names and act_names:
+            return MetricResult(
+                metric_name=self.name,
+                score=0.0,
+                passed=False,
+                detail=f"Kỳ vọng không gọi tool nhưng actual gọi: {act_names}",
+            )
+
+        if exp_names and not act_names:
+            return MetricResult(
+                metric_name=self.name,
+                score=0.0,
+                passed=False,
+                detail=f"Kỳ vọng gọi {exp_names} nhưng actual không gọi tool nào",
+            )
+
+        matched = [name for name in exp_names if name in act_names]
+        score = len(matched) / len(exp_names) if exp_names else 1.0
+        passed = score >= 1.0
+
+        detail = f"expected={exp_names} actual={act_names} matched={matched}"
+        return MetricResult(
+            metric_name=self.name,
+            score=score,
+            passed=passed,
+            detail=detail,
         )

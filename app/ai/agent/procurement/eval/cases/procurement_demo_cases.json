@@ -1,0 +1,182 @@
+[
+  {
+    "id": "proc_demo_001",
+    "module": "procurement",
+    "category": "request_doc_list",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Cho tôi xem danh sách các Tờ trình mua sắm tôi đã lập gần đây.",
+      "chat_history": [],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [
+        "search_request_docs"
+      ],
+      "expected_keywords": [
+        "PUR/2025/000052",
+        "50,000,000",
+        "PUR/2026/000065"
+      ],
+      "reference_answer": "Xin chào anh Bảo! Tôi đã tra cứu trên hệ thống gAMSPro. Dưới đây là các tờ trình mua sắm gần đây nhất của anh:\n1. 📄 PUR/2025/000052 — Trạng thái: Đã duyệt (Chờ đầu mối mua sắm xử lý) — 50,000,000 VND\n2. 📄 PUR/2026/000065 — Trạng thái: ⚠️ Lưu Nháp — 7,000,000 VND\n\nAnh muốn xem thông tin chi tiết của tờ trình nào?"
+    },
+    "tags": [
+      "procurement",
+      "demo",
+      "turn1",
+      "search_request_docs"
+    ]
+  },
+  {
+    "id": "proc_demo_002",
+    "module": "procurement",
+    "category": "request_doc_detail",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Cho tôi xem chi tiết tờ trình PUR/2025/000052 đi.",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Cho tôi xem danh sách các Tờ trình mua sắm tôi đã lập gần đây."
+        },
+        {
+          "role": "assistant",
+          "content": "Dưới đây là các tờ trình gần đây nhất của anh: 1. PUR/2025/000052 (50M)..."
+        }
+      ],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [
+        "get_request_doc_detail"
+      ],
+      "expected_keywords": [
+        "PUR/2025/000052",
+        "TRRD00000269630",
+        "Trương Quang Bảo",
+        "Phòng Hỗ trợ",
+        "50,000,000",
+        "0049/2025/TTr-0690905"
+      ],
+      "reference_answer": "Đây là thông tin chi tiết Tờ trình số PUR/2025/000052:\n- Mã hệ thống: TRRD00000269630\n- Người lập: Trương Quang Bảo (Phòng Hỗ trợ — Hội sở)\n- Đơn vị chịu chi phí: Hội sở BVBank — Phòng Hỗ trợ\n- Tổng tiền đề xuất: 50,000,000 VND\n- Ngày tạo: 22/12/2025\n- Trạng thái: Đã duyệt (Chờ đầu mối mua sắm xử lý)\n- Kế hoạch liên kết: 📌 0049/2025/TTr-0690905\n\nAnh có muốn tôi kiểm tra Hạn mức Ngân sách của Kế hoạch liên kết 0049/2025/TTr-0690905 không?"
+    },
+    "tags": [
+      "procurement",
+      "demo",
+      "turn2",
+      "get_request_doc_detail"
+    ]
+  },
+  {
+    "id": "proc_demo_003",
+    "module": "procurement",
+    "category": "budget_plan_check",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Kiểm tra luôn Kế hoạch liên kết giúp tôi.",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Cho tôi xem chi tiết tờ trình PUR/2025/000052 đi."
+        },
+        {
+          "role": "assistant",
+          "content": "Tờ trình PUR/2025/000052 có Kế hoạch liên kết là 0049/2025/TTr-0690905 với số tiền đề xuất 50,000,000 VND."
+        }
+      ],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [
+        "check_plan_budget_detail"
+      ],
+      "expected_keywords": [
+        "0049/2025/TTr-0690905",
+        "156,750,000",
+        "125,400,000",
+        "ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH"
+      ],
+      "reference_answer": "Tôi đã tra cứu Kế hoạch Ngân sách liên kết 0049/2025/TTr-0690905 trên gAMSPro. Kết quả đối soát như sau:\n- Mã Kế hoạch: 0049/2025/TTr-0690905\n- Tên Kế hoạch: chu trương mua sắm\n- Trạng thái Kế hoạch: ✅ Đã duyệt\n- Tổng hạn mức ngân sách: 156,750,000 VND\n- Ngân sách đã thực hiện: 31,350,000 VND\n- Ngân sách còn lại khả dụng: 🟩 125,400,000 VND\n\n🟢 ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH:\nKế hoạch đã được phê duyệt hợp lệ. Ngân sách còn lại khả dụng (125,400,000 VND) hoàn toàn đủ để cover khoản đề xuất 50,000,000 VND của Tờ trình PUR/2025/000052.\n\nAnh có muốn kiểm tra tiến độ các Đơn đặt hàng PO (Phiếu gọi hàng) đã phát hành thuộc đơn vị mình không?"
+    },
+    "tags": [
+      "procurement",
+      "demo",
+      "turn3",
+      "check_plan_budget_detail"
+    ]
+  },
+  {
+    "id": "proc_demo_004",
+    "module": "procurement",
+    "category": "po_master_status",
+    "difficulty": "medium",
+    "input": {
+      "user_query": "Có PO nào được tạo từ tờ trình này chưa?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Kiểm tra luôn Kế hoạch liên kết giúp tôi."
+        },
+        {
+          "role": "assistant",
+          "content": "Ngân sách khả dụng (125,400,000 VND) hoàn toàn đủ để cover khoản đề xuất 50,000,000 VND của Tờ trình PUR/2025/000052."
+        }
+      ],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [
+        "get_po_master_status"
+      ],
+      "expected_keywords": [
+        "chưa có Đơn đặt hàng PO nào",
+        "PUR/2025/000052",
+        "PO069/26/0006"
+      ],
+      "reference_answer": "Hiện tại chưa có Đơn đặt hàng PO nào được khởi tạo trực tiếp từ Tờ trình PUR/2025/000052 vì tờ trình vẫn đang trong luồng xử lý phê duyệt.\n\n🚚 Tuy nhiên, dưới đây là các Đơn hàng PO (Phiếu gọi hàng) khác đang triển khai tại đơn vị:\n1. 🔹 PO069/26/0006 — Nhà cung cấp: testzzzzz — 12,765 VND (Đã duyệt PO | Hạn giao hàng: 30/05/2025)"
+    },
+    "tags": [
+      "procurement",
+      "demo",
+      "turn4",
+      "get_po_master_status"
+    ]
+  },
+  {
+    "id": "proc_demo_005",
+    "module": "procurement",
+    "category": "actionable_guidance",
+    "difficulty": "easy",
+    "input": {
+      "user_query": "Bây giờ tôi cần làm gì để Tờ trình PUR/2025/000052 được duyệt?",
+      "chat_history": [
+        {
+          "role": "user",
+          "content": "Có PO nào được tạo từ tờ trình này chưa?"
+        },
+        {
+          "role": "assistant",
+          "content": "Chưa có PO nào trực tiếp từ PUR/2025/000052 do tờ trình đang chờ xử lý."
+        }
+      ],
+      "user_name": "baotq"
+    },
+    "expected": {
+      "expected_tools": [],
+      "expected_keywords": [
+        "Bước 1",
+        "Bước 2",
+        "Bước 3",
+        "gAMSPro",
+        "PUR/2025/000052"
+      ],
+      "reference_answer": "Để Tờ trình PUR/2025/000052 sớm được phê duyệt và chuyển sang giai đoạn tạo đơn hàng PO, anh Bảo thực hiện theo 3 bước chuẩn sau trên hệ thống gAMSPro:\n\n1️⃣ Bước 1 — Hoàn thiện chi tiết Tờ trình trên gAMSPro:\nAnh truy cập phân hệ Quản lý Mua sắm ➔ Phiếu yêu cầu mua sắm trên giao diện gAMSPro, chọn mã PUR/2025/000052 để bổ sung danh mục hàng hóa, chủng loại và đơn giá thực tế.\n\n2️⃣ Bước 2 — Trình duyệt Tờ trình:\nNhấn nút 'Gửi phê duyệt' ở góc trên màn hình. Hệ thống sẽ tự động chuyển Tờ trình đến Trưởng phòng Hỗ trợ và Đơn vị Chuyên môn để ký duyệt số.\n\n3️⃣ Bước 3 — Theo dõi tiến độ phê duyệt qua AI Chatbot:\nBất kỳ lúc nào, anh chỉ cần nhắn cho tôi: 'Tờ trình PUR/2025/000052 đến cấp nào rồi?' — Tôi sẽ tra cứu nhật ký xử lý và báo cáo ngay cấp đang giữ hồ sơ.\n\n💡 Lưu ý nghiệp vụ: Ngay khi Tờ trình hoàn tất phê duyệt, Đơn vị Mua sắm (ĐMMS) sẽ chọn Nhà cung cấp, lập Biên bản xét giá và phát hành Đơn đặt hàng PO."
+    },
+    "tags": [
+      "procurement",
+      "demo",
+      "turn5",
+      "guidance"
+    ]
+  }
+]

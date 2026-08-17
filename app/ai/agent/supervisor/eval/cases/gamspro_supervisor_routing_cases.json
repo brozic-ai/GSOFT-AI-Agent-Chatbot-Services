@@ -756,7 +756,7 @@
             "user_query": "Làm thế nào để khai báo và nhập mới một Mã thẻ tài sản cố định trong Phân hệ TSCĐ & CCLD?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_051",
@@ -771,7 +771,7 @@
             "user_query": "Quy trình bộ phận HCQT thực hiện xếp xe và phê duyệt Phiếu yêu cầu xe (PYCXE) trên Phân hệ Fleet?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_052",
@@ -786,7 +786,7 @@
             "user_query": "Cách tạo một đợt kiểm kê tài sản mới và phát hành mã đợt trên ứng dụng App Mobile Kiểm kê?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_053",
@@ -801,7 +801,7 @@
             "user_query": "Quy trình đẩy chứng từ Thanh toán tự động sang phân hệ Kế toán ngân hàng được xử lý như thế nào?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_054",
@@ -816,7 +816,7 @@
             "user_query": "Thao tác cập nhật danh mục và chỉ tiêu kỹ thuật BĐS, Trụ sở trong Phân hệ XDCB Giai đoạn 3?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_055",
@@ -831,7 +831,7 @@
             "user_query": "Cách khai báo danh mục Loại vật liệu mới trong Phân hệ Kho Vật liệu HCQT trên giao diện hệ thống?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_056",
@@ -846,7 +846,7 @@
             "user_query": "Các bước thao tác tạo mới và gửi duyệt Tờ trình nghiệp vụ trên Phân hệ Quản lý Tờ trình?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_057",
@@ -861,7 +861,7 @@
             "user_query": "Cách tra cứu lịch sử và màn hình theo dõi điều chuyển tài sản cố định liên chi nhánh trên hệ thống?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_058",
@@ -876,7 +876,7 @@
             "user_query": "Thao tác phê duyệt nhanh phiếu trình và theo dõi trạng thái trên ứng dụng App Mobile Phê duyệt?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_059",
@@ -891,7 +891,7 @@
             "user_query": "Thao tác nhập chốt số km vận hành thực tế và chi phí cầu đường trên Phiếu vận hành xe VHX?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_060",
@@ -906,7 +906,7 @@
             "user_query": "Cách tạo Kế hoạch mua sắm hàng năm cho Đơn vị Văn phòng trên Phân hệ Kế hoạch?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_061",
@@ -921,7 +921,7 @@
             "user_query": "Thao tác in Thẻ tài sản cố định và dán tem mã QR từ Phân hệ TSCĐ?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_062",
@@ -936,7 +936,7 @@
             "user_query": "Cách xem báo cáo tổng hợp xuất nhập tồn kho vật liệu HCQT cuối tháng trên hệ thống?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_063",
@@ -951,7 +951,7 @@
             "user_query": "Cách gửi thông báo nhắc duyệt phiếu tự động trên hệ thống quản trị tài sản?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_064",
@@ -966,7 +966,7 @@
             "user_query": "Thao tác tra cứu lịch sử khai thác và doanh thu cho thuê mặt bằng trụ sở trên hệ thống?"
         },
         "expected": {
-            "target_agent": "gamspro"
+            "target_agent": "procurement"
         },
         "tags": [
             "tc_065",

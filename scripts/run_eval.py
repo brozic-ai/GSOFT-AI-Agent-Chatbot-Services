@@ -2,6 +2,8 @@
 
 Cách dùng:
     uv run python scripts/run_eval.py supervisor
+    uv run python scripts/run_eval.py procurement
+    uv run python scripts/run_eval.py gamspro
     uv run python scripts/run_eval.py faq
     uv run python scripts/run_eval.py --all
 
@@ -76,9 +78,65 @@ async def _faq_entrypoint(input_: dict[str, Any]) -> dict[str, Any]:
     return {"final_answer": result.get("final_answer", "")}
 
 
+async def _procurement_entrypoint(input_: dict[str, Any]) -> dict[str, Any]:
+    """Entrypoint thực thi Procurement Agent (gAMSPro) từ graph thật."""
+    from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+    from app.ai.agent.procurement.graph.graph import procurement_graph
+
+    # 1. Chuyển đổi chat_history sang danh sách BaseMessage
+    messages: list[BaseMessage] = []
+    chat_history = input_.get("chat_history", [])
+    for msg in chat_history:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if role in ("user", "human"):
+            messages.append(HumanMessage(content=content))
+        elif role in ("assistant", "ai"):
+            messages.append(AIMessage(content=content))
+
+    # 2. Thêm tin nhắn câu hỏi hiện tại
+    user_query = input_.get("user_query", "")
+    if user_query:
+        messages.append(HumanMessage(content=user_query))
+
+    state = {
+        "messages": messages,
+        "user_name": input_.get("user_name", "baotq"),
+        "session_id": input_.get("session_id", "eval-procurement"),
+    }
+
+    # 3. Thực thi graph thật
+    result = await procurement_graph.ainvoke(state)
+    result_messages = result.get("messages", [])
+
+    # 4. Trích xuất final_answer và tất cả các tool_calls đã sinh ra
+    final_answer = ""
+    tool_calls: list[dict[str, Any]] = []
+
+    for msg in result_messages:
+        if isinstance(msg, AIMessage) or hasattr(msg, "tool_calls"):
+            tcs = getattr(msg, "tool_calls", None)
+            if tcs:
+                for tc in tcs:
+                    # Chuyển tool_call thành dict thuần (JSON serializable)
+                    tool_calls.append({
+                        "name": tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", ""),
+                        "args": tc.get("args", {}) if isinstance(tc, dict) else getattr(tc, "args", {}),
+                    })
+            if msg.content and isinstance(msg.content, str):
+                final_answer = msg.content
+
+    return {
+        "final_answer": final_answer,
+        "tool_calls": tool_calls,
+    }
+
+
 _AGENT_ENTRYPOINTS: dict[str, Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]] = {
     "supervisor": _supervisor_entrypoint,
     "faq": _faq_entrypoint,
+    "procurement": _procurement_entrypoint,
+    "gamspro": _procurement_entrypoint,  # gamspro chính là procurement agent
 }
 
 
@@ -89,6 +147,9 @@ async def _run_one(
     min_threshold: float = 0.90,
 ) -> bool:
     agent_eval_dir = _AGENTS_ROOT / agent_name / "eval"
+    if not agent_eval_dir.exists() and agent_name == "gamspro":
+        agent_eval_dir = _AGENTS_ROOT / "procurement" / "eval"
+
     agent_fn = _AGENT_ENTRYPOINTS[agent_name]
 
     report = await run_eval(
@@ -113,13 +174,16 @@ async def main() -> None:
         description="Chạy eval cho agent chỉ định (hỗ trợ eval 1 test case cụ thể, chỉ chạy lại các test case bị lỗi, và kiểm tra ngưỡng benchmark)."
     )
     parser.add_argument(
-        "agent", nargs="?", choices=list(_AGENT_ENTRYPOINTS), help="Tên agent (supervisor, faq, ...)"
+        "agent",
+        nargs="?",
+        choices=list(_AGENT_ENTRYPOINTS),
+        help="Tên agent (supervisor, procurement, gamspro, faq, ...)",
     )
     parser.add_argument(
         "index",
         nargs="?",
         default=None,
-        help="Index hoặc ID/tag của test case cần eval (ví dụ: 31 hoặc TC_031)",
+        help="Index hoặc ID/tag của test case cần eval (ví dụ: 1 hoặc proc_demo_001)",
     )
     parser.add_argument("--all", action="store_true", help="Chạy eval cho tất cả agent")
     parser.add_argument(
@@ -141,7 +205,7 @@ async def main() -> None:
         dest="opt_index",
         type=str,
         default=None,
-        help="Index test case cần eval (ví dụ: 31)",
+        help="Index test case cần eval (ví dụ: 1)",
     )
     args = parser.parse_args()
 
