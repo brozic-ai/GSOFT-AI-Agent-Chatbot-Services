@@ -7,6 +7,8 @@ vào các route handler một cách nhất quán, dễ duy trì và dễ test (C
 
 import logging
 
+from typing import Optional
+from fastapi import Header, HTTPException, status
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from app.ai.rag.embedding.service import TeiEmbeddingService
@@ -19,6 +21,18 @@ from app.modules.document.repository import DocumentRepository
 from app.modules.document.service import DocumentService
 
 logger = logging.getLogger(__name__)
+
+
+# 0. User Identity Dependency
+def require_user_id(x_user_id: Optional[str] = Header(None, alias="X-User-Id")) -> str:
+    """Dependency bắt buộc có X-User-Id hợp lệ từ Gateway, trả 401 Unauthorized nếu thiếu."""
+    clean_id = str(x_user_id or "").strip()
+    if not clean_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unauthorized: Missing or empty X-User-Id header.",
+        )
+    return clean_id
 
 
 # 1. Settings Dependency

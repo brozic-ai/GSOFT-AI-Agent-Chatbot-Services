@@ -16,9 +16,21 @@ class ChatImageInput(BaseModel):
 class ChatRequest(BaseModel):
     message: str = ""
     images: List[ChatImageInput] = Field(default_factory=list)
-    user_roles: Optional[str] = Field(default=None, description="Danh sách Vai trò của user, phân cách bằng dấu phẩy")
-    user_department: Optional[str] = Field(default=None, description="Phòng ban của user")
-    user_id: Optional[str] = Field(default=None, description="ID người dùng (fallback nếu không có header)")
+    user_roles: Optional[str] = Field(
+        default=None,
+        description="[DEPRECATED] Danh sách Vai trò của user. Runtime xác thực ưu tiên header X-User-Roles.",
+        json_schema_extra={"deprecated": True},
+    )
+    user_department: Optional[str] = Field(
+        default=None,
+        description="[DEPRECATED] Phòng ban của user. Runtime xác thực ưu tiên header X-User-Department.",
+        json_schema_extra={"deprecated": True},
+    )
+    user_id: Optional[str] = Field(
+        default=None,
+        description="[DEPRECATED] ID người dùng. Runtime bắt buộc truyền qua header X-User-Id.",
+        json_schema_extra={"deprecated": True},
+    )
     conversation_id: Optional[Union[str, int]] = Field(default=None, description="ID phiên hội thoại. Nếu None, bot sẽ trả lời không lưu lịch sử.")
 
     model_config = {

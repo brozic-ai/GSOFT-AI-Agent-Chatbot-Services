@@ -21,8 +21,30 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Chatbot BVBank AI Service"
     API_V1_STR: str = "/api/v1"
 
-    # API Key để xác thực request nội bộ (rỗng = tắt auth, dùng cho dev mode)
-    REQUIRED_API_KEY: str = ""
+    # API Key để xác thực request nội bộ (mặc định đồng bộ với C# Gateway)
+    REQUIRED_API_KEY: str = "rag-internal-key-change-me"
+
+    @field_validator("REQUIRED_API_KEY", mode="after")
+    @classmethod
+    def validate_api_key_security(cls, v: str, info) -> str:
+        # Cảnh báo và chặn việc dùng key mặc định ở môi trường Production/UAT
+        env = (info.data.get("ENVIRONMENT") or "local").lower()
+        insecure_keys = {"", "rag-internal-key-change-me", "change-me", "default"}
+        if env in ("production", "prod", "staging", "uat") and v.lower() in insecure_keys:
+            raise ValueError(
+                f"[SECURITY ALERT] Insecure default REQUIRED_API_KEY detected in '{env}' environment! "
+                "Vui lòng cấu hình secret key an toàn riêng biệt trong .env hoặc hệ thống quản trị bí mật."
+            )
+        return v
+
+    # --- Enterprise Rate Limiting & Concurrency Config ---
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_STAFF_RPM: int = 30
+    RATE_LIMIT_MANAGER_RPM: int = 60
+    RATE_LIMIT_ADMIN_RPM: int = 120
+    CHAT_CONCURRENCY_STAFF: int = 1
+    CHAT_CONCURRENCY_MANAGER: int = 2
+    CHAT_CONCURRENCY_ADMIN: int = 0  # 0 = Bypass / Không giới hạn
 
     # CORS Origins (Hỗ trợ string phân cách bằng phẩy hoặc list)
     BACKEND_CORS_ORIGINS: list[str] | str = [

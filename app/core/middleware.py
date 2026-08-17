@@ -67,13 +67,14 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 # 2. API Key Authentication Middleware
 
 # Danh sách các path được phép truy cập không cần API Key
-_PUBLIC_PATHS: list[str] = [
+_PUBLIC_PATHS: set[str] = {
     "/",
     "/docs",
     "/redoc",
     "/openapi.json",
+    "/health",
     f"{settings.API_V1_STR}/health",
-]
+}
 
 
 class APIKeyAuthMiddleware(BaseHTTPMiddleware):

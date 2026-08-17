@@ -20,7 +20,6 @@ from fastapi import (
     HTTPException,
     UploadFile,
     status,
-    BackgroundTasks,
 )
 
 from app.ai.rag.retrieval.retriever import VectorRetriever
@@ -42,6 +41,7 @@ from app.routers.dependencies import (
     get_document_service,
     get_vector_retriever,
     get_embedding_service,
+    require_user_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -304,14 +304,24 @@ async def get_upload_status(
 @router.post("/search", response_model=SearchResponse)
 async def search_documents(
     request: SearchRequest,
+    x_user_id: str = Depends(require_user_id),
     x_user_roles: Optional[str] = Header(None, alias="X-User-Roles"),
     x_user_department: Optional[str] = Header(None, alias="X-User-Department"),
     retriever: VectorRetriever = Depends(get_vector_retriever),
 ):
     """Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (RBAC User Roles + Department)."""
     try:
-        roles = request.user_roles or x_user_roles
-        department = request.user_department or x_user_department
+        # Runtime bắt buộc đọc identity từ headers do Gateway xác thực
+        roles = x_user_roles
+        department = x_user_department
+
+        logger.info(
+            "[SEARCH] Executing vector search with RBAC | user_id='%s' | roles='%s' | dept='%s' | query='%s'",
+            x_user_id,
+            roles or "",
+            department or "",
+            request.query,
+        )
 
         response = await retriever.retrieve_context(
             query=request.query,

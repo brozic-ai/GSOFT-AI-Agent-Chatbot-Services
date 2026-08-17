@@ -91,12 +91,14 @@ class SearchRequest(BaseModel):
     user_roles: str | None = Field(
         default=None,
         alias="user_roles",
-        description="Chuỗi chứa các vai trò của user, phân cách bằng phẩy",
+        description="[DEPRECATED] Danh sách Vai trò của user. Runtime xác thực ưu tiên header X-User-Roles.",
+        json_schema_extra={"deprecated": True},
     )
     user_department: str | None = Field(
         default=None,
         alias="user_department",
-        description="Tên phòng ban của user",
+        description="[DEPRECATED] Phòng ban của user. Runtime xác thực ưu tiên header X-User-Department.",
+        json_schema_extra={"deprecated": True},
     )
 
     model_config = {"populate_by_name": True}

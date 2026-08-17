@@ -23,7 +23,8 @@ from app.modules.chat.api.v1.schemas import (
     ConversationUpdateRequest,
 )
 from app.modules.chat.service import ChatService
-from app.routers.dependencies import get_chat_service
+from app.routers.dependencies import get_chat_service, require_user_id
+from app.security import rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ router = APIRouter()
 
 @router.post("/conversations", response_model=ConversationCreateResponse, status_code=status.HTTP_201_CREATED)
 def create_conversation(
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    x_user_id: str = Depends(require_user_id),
     service: ChatService = Depends(get_chat_service),
 ):
     """
@@ -43,10 +44,10 @@ def create_conversation(
     Trả về `conversation_id` để dùng trong các request chat tiếp theo.
     """
     try:
-        conv_id = service.create_conversation(user_id=x_user_id, title="\u0110o\u1ea1n chat m\u1edbi")
+        conv_id = service.create_conversation(user_id=x_user_id, title="Đoạn chat mới")
         return ConversationCreateResponse(
             conversation_id=conv_id,
-            title="\u0110o\u1ea1n chat m\u1edbi",
+            title="Đoạn chat mới",
         )
     except Exception as ex:
         logger.error("[FAIL] Error creating conversation for user='%s': %s", x_user_id, ex, exc_info=True)
@@ -55,7 +56,7 @@ def create_conversation(
 
 @router.get("/conversations", response_model=List[ConversationResponse])
 def list_conversations(
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    x_user_id: str = Depends(require_user_id),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     service: ChatService = Depends(get_chat_service),
@@ -75,7 +76,7 @@ def list_conversations(
 def update_conversation(
     conversation_id: str,
     request: ConversationUpdateRequest,
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    x_user_id: str = Depends(require_user_id),
     service: ChatService = Depends(get_chat_service),
 ):
     """Rename and/or pin a conversation owned by the current user."""
@@ -98,7 +99,7 @@ def update_conversation(
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_conversation(
     conversation_id: str,
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    x_user_id: str = Depends(require_user_id),
     service: ChatService = Depends(get_chat_service),
 ):
     """
@@ -116,7 +117,7 @@ def delete_conversation(
 @router.get("/conversations/{conversation_id}/messages", response_model=List[ChatMessageResponse])
 def get_messages(
     conversation_id: str,
-    x_user_id: str = Header(..., alias="X-User-Id"),
+    x_user_id: str = Depends(require_user_id),
     service: ChatService = Depends(get_chat_service),
 ):
     """
@@ -134,7 +135,7 @@ def get_messages(
         # Lấy toàn bộ tin nhắn (limit=1000 cho trang xem lại lịch sử)
         return service.get_chat_history(conversation_id=conversation_id, limit=1000)
     except Exception as ex:
-        logger.error("[FAIL] Error fetching messages for conversation_id=%d: %s", conversation_id, ex, exc_info=True)
+        logger.error("[FAIL] Error fetching messages for conversation_id=%s: %s", conversation_id, ex, exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex))
 
 
@@ -144,23 +145,26 @@ def get_messages(
 async def chat_stream(
     request: ChatRequest,
     http_request: Request,
-    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    x_user_id: str = Depends(require_user_id),
     x_user_roles: Optional[str] = Header(None, alias="X-User-Roles"),
     x_user_department: Optional[str] = Header(None, alias="X-User-Department"),
+    x_request_id: Optional[str] = Header(None, alias="X-Request-Id"),
     service: ChatService = Depends(get_chat_service),
 ):
     """
     Endpoint RAG Chat Streaming bằng Server-Sent Events (SSE).
 
-    - Nhận `conversation_id` trong body để load/lưu lịch sử hội thoại.
-    - Nhận vai trò từ Body hoặc Header `X-User-Roles` để thực thi RBAC Vector Search.
-    - Nếu không có `conversation_id`, bot vẫn hoạt động nhưng không lưu lịch sử.
+    - Bắt buộc xác thực danh tính người dùng qua Header `X-User-Id` (401 nếu thiếu).
+    - Nhận danh sách vai trò từ Header `X-User-Roles` để thực thi RBAC Vector Search và kiểm tra Quota.
+    - Áp dụng Concurrency Limiter & Sliding Window Rate Limiter trước khi tạo stream.
     """
-    # Kiểm tra quyền sở hữu conversation nếu có truyền conversation_id
-    if request.conversation_id and x_user_id:
+    clean_user_id = x_user_id
+
+    # 1. Kiểm tra quyền sở hữu conversation nếu client truyền conversation_id
+    if request.conversation_id:
         conv = service.get_conversation(
             conversation_id=request.conversation_id,
-            user_id=x_user_id,
+            user_id=clean_user_id,
         )
         if not conv:
             raise HTTPException(
@@ -168,23 +172,45 @@ async def chat_stream(
                 detail=f"Conversation ID={request.conversation_id} không tồn tại hoặc bạn không có quyền truy cập.",
             )
 
-    roles = request.user_roles or x_user_roles
-    department = request.user_department or x_user_department
-    user_id = request.user_id or x_user_id
+    trace_id = x_request_id or http_request.headers.get("X-Request-Id") or ""
+
+    # 2. Kiểm tra và chiếm Slot Quota (Concurrency + RPM)
+    tier = await rate_limiter.check_and_acquire(
+        user_id=clean_user_id,
+        roles=x_user_roles,
+        request_id=trace_id,
+    )
+
     logger.info(
-        "[CHAT] Received POST /stream request | query='%s' | roles='%s' | dept='%s' | user_id='%s'",
-        request.message,
-        roles,
-        department,
-        user_id,
+        "[CHAT] Starting POST /stream | user_id='%s' | tier=%s | roles='%s' | dept='%s' | traceId='%s'",
+        clean_user_id,
+        tier.value,
+        x_user_roles or "",
+        x_user_department or "",
+        trace_id,
     )
 
-    generator = service.generate_rag_response_stream(
-        message=request.message,
-        conversation_id=request.conversation_id,
-        user_id=x_user_id,
-        user_roles=roles,
-        request=http_request,
-    )
+    # 3. Stream Generator có bảo đảm giải phóng slot trong block finally
+    async def stream_with_limiter_cleanup():
+        try:
+            async for chunk in service.generate_rag_response_stream(
+                message=request.message,
+                conversation_id=request.conversation_id,
+                user_id=clean_user_id,
+                user_roles=x_user_roles,
+                user_department=x_user_department,
+                request=http_request,
+            ):
+                yield chunk
+        finally:
+            await rate_limiter.release(user_id=clean_user_id, request_id=trace_id)
 
-    return StreamingResponse(generator, media_type="text/event-stream")
+    return StreamingResponse(
+        stream_with_limiter_cleanup(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-User-Tier": tier.value,
+        },
+    )

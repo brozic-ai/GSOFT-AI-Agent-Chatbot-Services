@@ -599,13 +599,17 @@ class DocumentRepository:
                   )
                   AND (
                       ? = 1
-                      OR ? IS NULL OR ? = ''
                       OR (
                           ISNULL(JSON_VALUE(metadata, '$.owner_department'), '') = ''
                           AND ISNULL(JSON_VALUE(metadata, '$.ownerDepartment'), '') = ''
                       )
-                      OR LOWER(JSON_VALUE(metadata, '$.owner_department')) = LOWER(?)
-                      OR LOWER(JSON_VALUE(metadata, '$.ownerDepartment')) = LOWER(?)
+                      OR (
+                          ? IS NOT NULL AND ? <> ''
+                          AND (
+                              LOWER(JSON_VALUE(metadata, '$.owner_department')) = LOWER(?)
+                              OR LOWER(JSON_VALUE(metadata, '$.ownerDepartment')) = LOWER(?)
+                          )
+                      )
                   )
             ),
             VectorBase AS (
