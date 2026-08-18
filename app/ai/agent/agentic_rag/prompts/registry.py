@@ -1,17 +1,45 @@
 from pathlib import Path
 
-PROMPTS_DIR = Path(__file__).parent
+_DIR = Path(__file__).parent / "v1"
 
 
-class PromptLoader:
-    def __init__(self, task: str, version: str = "v1"):
-        self.task_dir = PROMPTS_DIR / task / version
-        if not self.task_dir.exists():
-            raise FileNotFoundError(f"Không tìm thấy prompt: {task}/{version}")
+def get_system_prompt() -> str:
+    """Nạp System Prompt cho RAG Knowledge Agent."""
+    return (_DIR / "system.md").read_text(encoding="utf-8")
 
-    def load_system(self) -> str:
-        return (self.task_dir / "system.md").read_text(encoding="utf-8")
 
-    def load_user(self, **kwargs) -> str:
-        template = (self.task_dir / "user.md").read_text(encoding="utf-8")
-        return template.format(**kwargs)  # cho phép user.md có {placeholder}
+def get_grader_prompt() -> str:
+    """Nạp Prompt cho Document Grader Node."""
+    return (_DIR / "grader.md").read_text(encoding="utf-8")
+
+
+def get_generator_prompt() -> str:
+    """Nạp Prompt cho Generator Node."""
+    return (_DIR / "generator.md").read_text(encoding="utf-8")
+
+
+def get_examples() -> str:
+    """Nạp các ví dụ mẫu Few-shot từ file example.json."""
+    return (_DIR / "example.json").read_text(encoding="utf-8")
+
+
+def get_user_prompt(
+    query: str,
+    chat_history: list[dict] | None = None,
+    few_shot_examples: str | None = None,
+) -> str:
+    """Nạp và format User Prompt kèm lịch sử hội thoại và ví dụ mẫu."""
+    if few_shot_examples is None:
+        few_shot_examples = get_examples()
+    template = (_DIR / "user.md").read_text(encoding="utf-8")
+    history_text = (
+        "\n".join(
+            f"{h['role']}: {h['content']}" for h in (chat_history or [])[-6:]
+        )
+        or "(không có)"
+    )
+    return template.format(
+        few_shot_examples=few_shot_examples,
+        chat_history=history_text,
+        query=query,
+    )

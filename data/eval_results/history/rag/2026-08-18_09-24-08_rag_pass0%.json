@@ -1,0 +1,149 @@
+{
+  "metadata": {
+    "agent_name": "rag",
+    "timestamp_utc": "2026-08-18T09:24:08.827507+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen2.5:3b",
+    "execution_time_seconds": 131.92,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": false
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 0,
+    "failed_cases": 1,
+    "pass_rate": 0.0,
+    "pass_percentage": "0%",
+    "avg_score": 0.4,
+    "accuracy": 0.0,
+    "macro_f1": 0.0
+  },
+  "classification_metrics": {
+    "agentic_rag": {
+      "support": 1,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0
+    },
+    "unknown": {
+      "support": 0,
+      "tp": 0,
+      "fp": 1,
+      "fn": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0
+    }
+  },
+  "confusion_matrix": {
+    "agentic_rag": {
+      "agentic_rag": 0,
+      "unknown": 1
+    },
+    "unknown": {
+      "agentic_rag": 0,
+      "unknown": 0
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 0.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 0.0,
+    "mean_confidence_incorrect": 1.0,
+    "calibration_gap": 1.0,
+    "calibration_verdict": "Overconfident (LLM tự tin quá mức khi đoán sai)"
+  },
+  "cases": [
+    {
+      "case_id": "gamspro_sys_001",
+      "passed": false,
+      "avg_score": 0.4,
+      "expected": {
+        "target_agent": "agentic_rag",
+        "reference_answer": "Phần hệ Danh mục & Hệ thống quản lý các danh mục chung (danh mục tài sản, vật liệu, đơn vị, phòng ban, nhà cung cấp) và cấu hình phân quyền người dùng, vai trò trên hệ thống gAMSPro.",
+        "expected_keywords": [
+          "Danh mục",
+          "Hệ thống",
+          "gAMSPro",
+          "phân quyền",
+          "danh mục chung"
+        ],
+        "retrieval_sources": [
+          "HDSD Phan mem QLTS GD 1-2-3 - DANH MUC - HE THONG.docx"
+        ],
+        "expected_tools": [
+          "search_policy_and_manual_docs"
+        ]
+      },
+      "actual": {
+        "final_answer": "Dựa trên ngữ cảnh tài liệu cung cấp, hệ thống gAMSPro quản lý những nhóm thông tin cơ bản sau:\n\n1. **Thông tin đăng ký bao gồm Thời gian đăng ký và Định mức**:\n   - Quản lý thông tin về thời gian và định mức sử dụng văn phòng phẩm.\n\n2. **Nhóm hàng hóa và Loại hàng hóa để phân cấp hàng hóa tại phân hệ**:\n   - Hệ thống phân loại các nhóm hàng hóa và loại hàng hóa để quản lý hiệu quả hơn.\n   - Phân cấp hàng hóa riêng biệt với phân cấp tại Ngân hàng giá, cho phép cấu trúc tổ chức phù hợp.\n\n3. **Các nghiệp vụ chính gồm Quản lý phiếu yêu cầu đăng ký và Bảng tổng hợp và phân bổ**:\n   - Quản lý các nghiệp vụ liên quan đến việc yêu cầu và đăng ký văn phòng phẩm.\n   - Thực hiện việc tổng hợp và phân bổ thông tin theo quy trình từ Đơn vị/phòng ban HO đến Phòng Hành chính.\n\n### Lưu ý:\n- **Thời gian đăng ký và Định mức**: Cần cập nhật thông tin về thời gian và định mức sử dụng văn phòng phẩm cho các đơn vị/phòng ban.\n- **Nhóm hàng hóa và Loại hàng hóa**: Phân loại các nhóm hàng hóa và loại hàng hóa để quản lý hiệu quả hơn.\n- **Quản lý phiếu yêu cầu đăng ký và Bảng tổng hợp và phân bổ**: Thực hiện việc tổng hợp và phân bổ thông tin về văn phòng phẩm theo quy trình từ Đơn vị/phòng ban HO đến Phòng Hành chính.\n\n### Quyết định:\nHệ thống gAMSPro quản lý các nhóm thông tin cơ bản như đã nêu trong tài liệu.",
+        "tool_calls": [
+          {
+            "name": "search_policy_and_manual_docs",
+            "args": {
+              "query": "Hệ thống Danh mục gAMSPro"
+            }
+          }
+        ],
+        "citations": [
+          {
+            "source": "gAMSPro_BVBANK_V4_SRD_QLVPPv1.5.docx",
+            "page": 1,
+            "chunk_id": "75_1_0",
+            "score": 0.01639344262295082
+          },
+          {
+            "source": "gAMSPro_BVBANK_V4_SRD_QLVPPv1.5.docx",
+            "page": 1,
+            "chunk_id": "75_1_16",
+            "score": 0.016129032258064516
+          },
+          {
+            "source": "Slide+dao+tao+Phan+mem+QLTS+GD+3+-+T%E1%BB%9D+tr%C3%ACnh+nghi%E1%BB%87p+v%E1%BB%A5.pptx",
+            "page": 1,
+            "chunk_id": "76_1_0",
+            "score": 0.015873015873015872
+          },
+          {
+            "source": "18.6+Ph%C3%A2n+t%C3%ADch+m%C3%B4+h%C3%ACnh.docx",
+            "page": 1,
+            "chunk_id": "77_1_15",
+            "score": 0.015625
+          },
+          {
+            "source": "gAMSPro_BVBANK_V4_SRD_QLVPPv1.5.docx",
+            "page": 1,
+            "chunk_id": "75_1_18",
+            "score": 0.015384615384615385
+          }
+        ]
+      },
+      "user_query": "Phần hệ Danh mục và Hệ thống trên gAMSPro quản lý những nhóm thông tin cơ bản nào?",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected=['search_policy_and_manual_docs'] actual=['search_policy_and_manual_docs'] matched=['search_policy_and_manual_docs']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.2,
+          "passed": false,
+          "detail": "Câu trả lời của chatbot không liên quan đến nội dung câu hỏi ban đầu về nhóm thông tin cơ bản mà hệ thống gAMSPro quản lý. Câu trả lời tập trung vào các nghiệp vụ cụ thể và nhóm thông tin không được đề cập trong tài liệu tham chiếu."
+        },
+        {
+          "name": "latency",
+          "score": 0.0,
+          "passed": false,
+          "detail": "latency=114.32389320000038s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

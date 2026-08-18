@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     TEST_PROVIDER: str = "vllm"
 
     # --- Local / vLLM API Config ---
-    LLM_MODEL: str = "qwen3.5:0.8b"
+    LLM_MODEL: str = "qwen2.5:3b"
     LLM_BASE_URL: str = "http://localhost:11434/v1"
     LLM_TEMPERATURE: float = 0.2
     LLM_MAX_TOKENS: int = 2048
@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     LANGCHAIN_TRACING_V2: str = "true"
     LANGCHAIN_API_KEY: str = ""
     LANGCHAIN_PROJECT: str = "ai-agent-bvbank"
-    LANGCHAIN_ENDPOINT: str = "https://apac.api.smith.langchain.com"
+    LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
 
     LANGSMITH_TRACING: str | None = None
     LANGSMITH_API_KEY: str | None = None
@@ -132,7 +132,7 @@ tracing_enabled = (
 )
 api_key = settings.LANGCHAIN_API_KEY or settings.LANGSMITH_API_KEY or os.getenv("LANGCHAIN_API_KEY", "")
 project = settings.LANGCHAIN_PROJECT or settings.LANGSMITH_PROJECT or os.getenv("LANGCHAIN_PROJECT", "ai-agent-bvbank")
-endpoint = settings.LANGCHAIN_ENDPOINT or settings.LANGSMITH_ENDPOINT or os.getenv("LANGCHAIN_ENDPOINT", "https://apac.api.smith.langchain.com")
+endpoint = settings.LANGCHAIN_ENDPOINT or settings.LANGSMITH_ENDPOINT or "https://api.smith.langchain.com"
 
 if tracing_enabled:
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
@@ -146,5 +146,10 @@ if tracing_enabled:
     if endpoint:
         os.environ["LANGCHAIN_ENDPOINT"] = endpoint
         os.environ["LANGSMITH_ENDPOINT"] = endpoint
+else:
+    os.environ["LANGCHAIN_TRACING_V2"] = "false"
+    os.environ["LANGSMITH_TRACING"] = "false"
+    os.environ.pop("LANGCHAIN_API_KEY", None)
+    os.environ.pop("LANGSMITH_API_KEY", None)
 
 

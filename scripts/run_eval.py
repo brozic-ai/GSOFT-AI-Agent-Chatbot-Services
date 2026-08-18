@@ -17,6 +17,12 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
@@ -150,9 +156,87 @@ async def _procurement_entrypoint(input_: dict[str, Any]) -> dict[str, Any]:
             if msg.content and isinstance(msg.content, str):
                 final_answer = msg.content
 
+async def _agentic_rag_entrypoint(input_: dict[str, Any]) -> dict[str, Any]:
+    """Entrypoint thực thi RAG Knowledge Agent từ graph thật."""
+    from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+
+    from app.ai.agent.agentic_rag.graph.graph import agentic_rag_graph
+    from app.ai.agent.agentic_rag.tools.search_policy_docs_tool import set_rbac_context
+
+    # 1. Chuyển đổi chat_history sang danh sách BaseMessage
+    messages: list[BaseMessage] = []
+    chat_history = input_.get("chat_history", [])
+    for msg in chat_history:
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if role in ("user", "human"):
+            messages.append(HumanMessage(content=content))
+        elif role in ("assistant", "ai"):
+            messages.append(AIMessage(content=content))
+
+    # 2. Thêm câu hỏi hiện tại
+    user_query = input_.get("user_query", "")
+    if user_query:
+        messages.append(HumanMessage(content=user_query))
+
+    # 3. Set RBAC context cho tool
+    user_roles = input_.get("user_roles", "Admin,Employee")
+    user_department = input_.get("user_department")
+    set_rbac_context(user_roles=user_roles, user_department=user_department)
+
+    state = {
+        "messages": messages,
+        "user_query": user_query,
+        "session_id": input_.get("session_id", "eval-rag"),
+        "user_roles": user_roles,
+        "user_department": user_department,
+        "documents": [],
+        "citations": [],
+        "is_relevant": False,
+        "retry_count": 0,
+        "final_answer": "",
+    }
+
+    # 4. Tracing config cho LangSmith
+    case_id = input_.get("_eval_case_id") or input_.get("case_id") or "eval"
+    case_idx = input_.get("_eval_case_index")
+    run_name = (
+        f"RAG Test #{case_idx:02d} ({case_id})"
+        if case_idx
+        else f"RAG Agent [{case_id}]"
+    )
+    config = {
+        "run_name": run_name,
+        "tags": ["eval", "agentic_rag", f"case:{case_id}"],
+        "metadata": {
+            "case_id": case_id,
+            "case_index": case_idx,
+            "user_roles": user_roles,
+        },
+    }
+
+    result = await agentic_rag_graph.ainvoke(state, config=config)
+    result_messages = result.get("messages", [])
+
+    final_answer = result.get("final_answer", "")
+    tool_calls: list[dict[str, Any]] = []
+
+    for msg in result_messages:
+        if isinstance(msg, AIMessage) or hasattr(msg, "tool_calls"):
+            tcs = getattr(msg, "tool_calls", None)
+            if tcs:
+                for tc in tcs:
+                    tool_calls.append({
+                        "name": tc.get("name", "") if isinstance(tc, dict) else getattr(tc, "name", ""),
+                        "args": tc.get("args", {}) if isinstance(tc, dict) else getattr(tc, "args", {}),
+                    })
+            if not final_answer and msg.content and isinstance(msg.content, str):
+                final_answer = msg.content
+
     return {
         "final_answer": final_answer,
         "tool_calls": tool_calls,
+        "citations": result.get("citations", []),
     }
 
 
@@ -161,6 +245,8 @@ _AGENT_ENTRYPOINTS: dict[str, Callable[[dict[str, Any]], Awaitable[dict[str, Any
     "faq": _faq_entrypoint,
     "procurement": _procurement_entrypoint,
     "gamspro": _procurement_entrypoint,  # gamspro chính là procurement agent
+    "agentic_rag": _agentic_rag_entrypoint,
+    "rag": _agentic_rag_entrypoint,
 }
 
 
@@ -171,8 +257,11 @@ async def _run_one(
     min_threshold: float = 0.90,
 ) -> bool:
     agent_eval_dir = _AGENTS_ROOT / agent_name / "eval"
-    if not agent_eval_dir.exists() and agent_name == "gamspro":
-        agent_eval_dir = _AGENTS_ROOT / "procurement" / "eval"
+    if not agent_eval_dir.exists():
+        if agent_name == "gamspro":
+            agent_eval_dir = _AGENTS_ROOT / "procurement" / "eval"
+        elif agent_name == "rag":
+            agent_eval_dir = _AGENTS_ROOT / "agentic_rag" / "eval"
 
     agent_fn = _AGENT_ENTRYPOINTS[agent_name]
 
@@ -221,7 +310,7 @@ async def main() -> None:
         "-t",
         type=float,
         default=0.90,
-        help="Ngưỡng Pass Rate tối thiểu để duyệt Prompt (mặc định: 0.90 tức 90%)",
+        help="Ngưỡng Pass Rate tối thiểu để duyệt Prompt (mặc định: 0.90 tức 90%%)",
     )
     parser.add_argument(
         "--index",
