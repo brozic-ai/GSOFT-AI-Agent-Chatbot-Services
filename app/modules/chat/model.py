@@ -20,7 +20,7 @@ class Conversation(Base):
     """Bảng lưu phiên hội thoại của người dùng (Chat Session)."""
     __tablename__ = "Conversations"
 
-    id = Column("Id", Unicode(100), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column("Id", Integer, primary_key=True, autoincrement=True)
     user_id = Column("UserId", Unicode(200), nullable=True, index=True)
     user_roles = Column("UserRoles", Unicode(500), nullable=True)
     user_department = Column("UserDepartment", Unicode(100), nullable=True)
@@ -43,7 +43,7 @@ class ChatMessage(Base):
 
     id = Column("Id", Integer, primary_key=True, autoincrement=True)
     conversation_id = Column(
-        "ConversationId", Unicode(100),
+        "ConversationId", Integer,
         ForeignKey("Conversations.Id", ondelete="CASCADE"),
         nullable=True,
         index=True,

@@ -18,6 +18,15 @@
         }
     },
     {
+        "query": "Hướng dẫn quy trình thao tác phê duyệt trên phần mềm giúp tôi.",
+        "output": {
+            "reasoning": "Câu hỏi tra cứu tài liệu hướng dẫn sử dụng và quy trình thao tác trên phần mềm.",
+            "intent": "rag",
+            "query": "Hướng dẫn quy trình thao tác phê duyệt trên phần mềm",
+            "confidence": 0.95
+        }
+    },
+    {
         "query": "Cho tôi xem danh sách các Tờ trình mua sắm tôi đã lập gần đây.",
         "output": {
             "reasoning": "Câu hỏi tra cứu danh sách tờ trình mua sắm trực tiếp trên hệ thống gAMSPro.",

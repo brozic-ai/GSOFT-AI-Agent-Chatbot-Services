@@ -23,17 +23,16 @@ class ChatRepository:
 
     # ── Conversation Operations ──
 
-    def create_conversation(self, user_id: str, title: str = "Cuộc hội thoại mới") -> str:
-        """Tạo phiên hội thoại mới và trả về conversation_id (str)."""
+    def create_conversation(self, user_id: str, title: str = "Cuộc hội thoại mới") -> int:
+        """Tạo phiên hội thoại mới và trả về conversation_id (int auto-increment)."""
         db: Session = SessionLocal()
         try:
-            conv_id = str(uuid.uuid4())
-            conv = Conversation(id=conv_id, user_id=user_id, title=title)
+            conv = Conversation(user_id=user_id, title=title)
             db.add(conv)
             db.commit()
             db.refresh(conv)
-            logger.info("[OK] Created Conversation ID=%s for user_id='%s'", conv.id, user_id)
-            return str(conv.id)
+            logger.info("[OK] Created Conversation ID=%d for user_id='%s'", conv.id, user_id)
+            return int(conv.id)
         except Exception as ex:
             db.rollback()
             logger.error("[FAIL] Error creating Conversation: %s", ex, exc_info=True)
@@ -41,14 +40,14 @@ class ChatRepository:
         finally:
             db.close()
 
-    def get_conversation(self, conversation_id: Any, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_conversation(self, conversation_id: int, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Lấy thông tin chi tiết của một phiên hội thoại.
         Nếu truyền user_id thì sẽ kiểm tra quyền sở hữu (authorization check).
         """
         db: Session = SessionLocal()
         try:
-            query = db.query(Conversation).filter(Conversation.id == str(conversation_id))
+            query = db.query(Conversation).filter(Conversation.id == int(conversation_id))
             if user_id:
                 query = query.filter(Conversation.user_id == user_id)
             conv = query.first()
@@ -58,6 +57,7 @@ class ChatRepository:
                 "id": conv.id,
                 "user_id": conv.user_id,
                 "title": conv.title,
+                "is_pinned": bool(conv.is_pinned),
                 "created_at": conv.created_at.isoformat() if conv.created_at else None,
                 "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
             }
@@ -114,11 +114,11 @@ class ChatRepository:
         finally:
             db.close()
 
-    def update_conversation_title(self, conversation_id: Any, title: str, source: str = "llm") -> None:
+    def update_conversation_title(self, conversation_id: int, title: str, source: str = "llm") -> None:
         """Cập nhật tiêu đề phiên hội thoại (thường dùng từ câu hỏi đầu tiên)."""
         db: Session = SessionLocal()
         try:
-            conv = db.query(Conversation).filter(Conversation.id == str(conversation_id)).first()
+            conv = db.query(Conversation).filter(Conversation.id == int(conversation_id)).first()
             if conv:
                 # Giới hạn tiêu đề 80 ký tự
                 if source == "llm" and conv.title_source == "manual":
@@ -127,7 +127,7 @@ class ChatRepository:
                 conv.title_source = source
                 conv.updated_at = datetime.utcnow()
                 db.commit()
-                logger.info("[OK] Updated title for Conversation ID=%s", conversation_id)
+                logger.info("[OK] Updated title for Conversation ID=%d", int(conversation_id))
         except Exception as ex:
             db.rollback()
             logger.error("[FAIL] Error updating conversation title ID=%s: %s", conversation_id, ex, exc_info=True)
@@ -137,7 +137,7 @@ class ChatRepository:
 
     def update_conversation(
         self,
-        conversation_id: Any,
+        conversation_id: int,
         user_id: str,
         title: Optional[str] = None,
         is_pinned: Optional[bool] = None,
@@ -145,7 +145,7 @@ class ChatRepository:
         db: Session = SessionLocal()
         try:
             conv = db.query(Conversation).filter(
-                Conversation.id == str(conversation_id),
+                Conversation.id == int(conversation_id),
                 Conversation.user_id == user_id,
             ).first()
             if not conv:
@@ -166,11 +166,11 @@ class ChatRepository:
         finally:
             db.close()
 
-    def touch_conversation(self, conversation_id: Any) -> None:
+    def touch_conversation(self, conversation_id: int) -> None:
         """Cập nhật updated_at của phiên chat để sắp xếp lịch sử chính xác."""
         db: Session = SessionLocal()
         try:
-            conv = db.query(Conversation).filter(Conversation.id == str(conversation_id)).first()
+            conv = db.query(Conversation).filter(Conversation.id == int(conversation_id)).first()
             if conv:
                 conv.updated_at = datetime.utcnow()
                 db.commit()
@@ -180,20 +180,20 @@ class ChatRepository:
         finally:
             db.close()
 
-    def delete_conversation(self, conversation_id: Any, user_id: str) -> bool:
+    def delete_conversation(self, conversation_id: int, user_id: str) -> bool:
         """Xóa phiên hội thoại và toàn bộ tin nhắn liên quan (Cascade)."""
         db: Session = SessionLocal()
         try:
             conv = (
                 db.query(Conversation)
-                .filter(Conversation.id == str(conversation_id), Conversation.user_id == user_id)
+                .filter(Conversation.id == int(conversation_id), Conversation.user_id == user_id)
                 .first()
             )
             if not conv:
                 return False
             db.delete(conv)
             db.commit()
-            logger.info("[OK] Deleted Conversation ID=%s for user_id='%s'", conversation_id, user_id)
+            logger.info("[OK] Deleted Conversation ID=%d for user_id='%s'", int(conversation_id), user_id)
             return True
         except Exception as ex:
             db.rollback()
@@ -204,12 +204,13 @@ class ChatRepository:
 
     # ── ChatMessage Operations ──
 
-    def save_message(self, conversation_id: Any, role: str, content: str) -> int:
+    def save_message(self, conversation_id: Optional[int], role: str, content: str) -> int:
         """Lưu một tin nhắn mới vào phiên hội thoại. Trả về message_id."""
         db: Session = SessionLocal()
         try:
+            cid = int(conversation_id) if conversation_id is not None else None
             msg = ChatMessage(
-                conversation_id=str(conversation_id),
+                conversation_id=cid,
                 role=role,
                 content=content,
             )
@@ -225,7 +226,7 @@ class ChatRepository:
         finally:
             db.close()
 
-    def get_chat_history(self, conversation_id: Any, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_chat_history(self, conversation_id: int, limit: int = 20) -> List[Dict[str, Any]]:
         """
         Lấy N tin nhắn gần nhất trong phiên hội thoại (để làm ngữ cảnh cho LLM).
         Trả về đúng thứ tự thời gian tăng dần (cũ -> mới).
@@ -234,7 +235,7 @@ class ChatRepository:
         try:
             msgs = (
                 db.query(ChatMessage)
-                .filter(ChatMessage.conversation_id == conversation_id)
+                .filter(ChatMessage.conversation_id == int(conversation_id))
                 .order_by(ChatMessage.id.asc())
                 .limit(limit)
                 .all()
@@ -252,11 +253,10 @@ class ChatRepository:
         finally:
             db.close()
 
-    def get_message_count(self, conversation_id: Any) -> int:
+    def get_message_count(self, conversation_id: int) -> int:
         """Đếm số tin nhắn trong phiên hội thoại (dùng để detect tin nhắn đầu tiên)."""
         db: Session = SessionLocal()
         try:
-            return db.query(ChatMessage).filter(ChatMessage.conversation_id == str(conversation_id)).count()
+            return db.query(ChatMessage).filter(ChatMessage.conversation_id == int(conversation_id)).count()
         finally:
-            db.close()
             db.close()

@@ -112,5 +112,5 @@ async def get_request_doc_detail(
         return detail_info
 
     except Exception as e:
-        logger.exception("Error executing get_request_doc_detail tool")
-        return f"Lỗi kết nối gAMSPro khi tra cứu chi tiết tờ trình: {str(e)}"
+        from app.ai.agent.procurement.tools.error_handler import format_procurement_tool_error
+        return format_procurement_tool_error("tra cứu chi tiết tờ trình", e)

@@ -56,5 +56,16 @@
       }
     ],
     "response": "Xin chào anh Bảo! Dưới đây là danh sách các tờ trình mua sắm gần đây nhất của anh trên gAMSPro:\n\n1. 📄 **PUR/2025/000052** — Trạng thái: ✅ **Đã duyệt** — **50,000,000 VND**\n2. 📄 **PUR/2026/000065** — Trạng thái: ⚠️ **Lưu Nháp** — **7,000,000 VND**\n\nAnh muốn xem chi tiết hoặc thao tác với tờ trình nào ạ?"
+  },
+  {
+    "query": "Kiểm tra tình trạng các đơn hàng PO mua sắm gần đây",
+    "tool_calls": [
+      {
+        "tool": "get_po_master_status",
+        "args": { "ma_po": "", "user_name": "baotq" }
+      }
+    ],
+    "response": "Dạ, dưới đây là danh sách và tình trạng các Đơn đặt hàng PO mua sắm đang triển khai trên hệ thống gAMSPro:\n\n1. 📦 **PO069/26/0006** — Gói mua sắm máy chủ — NCC: Công ty TNHH CMC — Trị giá: 120,000,000 VNĐ — Trạng thái: ✅ Đã duyệt (Hạn giao: 2026-03-15)\n2. 📦 **PO069/26/0007** — Mua sắm thiết bị mạng — NCC: FPT Telecom — Trị giá: 45,000,000 VNĐ — Trạng thái: ⏳ Chờ giao hàng\n\nAnh cần kiểm tra chi tiết thêm đơn hàng PO nào không ạ?"
   }
 ]
+

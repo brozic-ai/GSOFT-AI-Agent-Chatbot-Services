@@ -22,11 +22,18 @@ class TestRagImprovements(unittest.TestCase):
         self.assertEqual(normalized, "hòa")
 
     def test_vietnamese_normalizer_acronyms(self):
-        text = "Chuyển tiền qua STK và TK cá nhân của KH"
+        text = "Chuyển tiền qua STK và TK cá nhân của KH, lập TTr mua sắm VPP"
         res = VietnameseNormalizer.normalize(text, expand_acronyms=True)
-        self.assertEqual(
-            res, "Chuyển tiền qua Số tài khoản và Tài khoản cá nhân của Khách hàng"
-        )
+        self.assertIn("Số tài khoản", res)
+        self.assertIn("Tài khoản cá nhân", res)
+        self.assertIn("Khách hàng", res)
+        self.assertIn("Tờ trình", res)
+        self.assertIn("Văn phòng phẩm", res)
+
+    def test_vietnamese_normalizer_noise_and_deduplication(self):
+        text = "@#!#! Hello    Xin chào Anhhhhhh. khanh@ggroup.vn/"
+        res = VietnameseNormalizer.normalize(text, expand_acronyms=True)
+        self.assertEqual(res, "Hello Xin chào Anh. khanh@ggroup.vn")
 
     def test_vietnamese_normalizer_zero_width(self):
         text = "Xin\u200bchào\ufeffthế giới"

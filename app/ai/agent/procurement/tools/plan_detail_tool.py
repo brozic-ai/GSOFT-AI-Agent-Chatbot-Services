@@ -171,5 +171,5 @@ async def check_plan_budget_detail(
         )
 
     except Exception as e:
-        logger.exception("Error executing check_plan_budget_detail tool")
-        return f"Lỗi kết nối gAMSPro khi tra cứu kế hoạch mua sắm: {str(e)}"
+        from app.ai.agent.procurement.tools.error_handler import format_procurement_tool_error
+        return format_procurement_tool_error("tra cứu kế hoạch mua sắm", e)

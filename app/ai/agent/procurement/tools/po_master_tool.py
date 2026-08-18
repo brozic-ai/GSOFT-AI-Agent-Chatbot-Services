@@ -10,11 +10,11 @@ logger = logging.getLogger(__name__)
 class GetPoMasterStatusInput(BaseModel):
     ma_po: Optional[str] = Field(
         default=None,
-        description="Mã Đơn đặt hàng PO (ví dụ: 'PO069/26/0006') HOẶC Mã Tờ trình mua sắm (ví dụ: 'PUR/2025/000052').",
+        description="Mã Đơn đặt hàng PO (ví dụ: 'PO069/26/0006') HOẶC Mã Tờ trình mua sắm (ví dụ: 'PUR/2025/000052'). Nếu người dùng muốn xem danh sách/tình trạng các đơn hàng PO gần đây hoặc không có mã cụ thể, hãy để trống hoặc None.",
     )
     po_code: Optional[str] = Field(
         default=None,
-        description="Mã Đơn hàng PO (alias của ma_po).",
+        description="Mã Đơn hàng PO (alias của ma_po). Để trống nếu tra cứu danh sách PO gần đây.",
     )
     po_no: Optional[str] = Field(
         default=None,
@@ -28,6 +28,7 @@ class GetPoMasterStatusInput(BaseModel):
         default=None,
         description="Username cán bộ đang tra cứu (nếu không truyền sẽ dùng tài khoản đăng nhập hiện tại 'baotq').",
     )
+
 
 
 @tool("get_po_master_status", args_schema=GetPoMasterStatusInput)
@@ -106,5 +107,5 @@ async def get_po_master_status(
         return summary
 
     except Exception as e:
-        logger.exception("Error executing get_po_master_status tool")
-        return f"Lỗi kết nối gAMSPro khi tra cứu đơn hàng PO: {str(e)}"
+        from app.ai.agent.procurement.tools.error_handler import format_procurement_tool_error
+        return format_procurement_tool_error("tra cứu đơn hàng PO", e)

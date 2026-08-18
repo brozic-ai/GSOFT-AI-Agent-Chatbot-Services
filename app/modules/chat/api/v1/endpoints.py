@@ -73,7 +73,7 @@ def list_conversations(
 
 @router.patch("/conversations/{conversation_id}", response_model=ConversationResponse)
 def update_conversation(
-    conversation_id: str,
+    conversation_id: int,
     request: ConversationUpdateRequest,
     x_user_id: str = Header(..., alias="X-User-Id"),
     service: ChatService = Depends(get_chat_service),
@@ -97,7 +97,7 @@ def update_conversation(
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_conversation(
-    conversation_id: str,
+    conversation_id: int,
     x_user_id: str = Header(..., alias="X-User-Id"),
     service: ChatService = Depends(get_chat_service),
 ):
@@ -115,7 +115,7 @@ def delete_conversation(
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[ChatMessageResponse])
 def get_messages(
-    conversation_id: str,
+    conversation_id: int,
     x_user_id: str = Header(..., alias="X-User-Id"),
     service: ChatService = Depends(get_chat_service),
 ):
