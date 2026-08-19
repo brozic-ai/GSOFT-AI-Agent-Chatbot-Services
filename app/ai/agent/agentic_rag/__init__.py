@@ -1,4 +1,3 @@
-"""Agentic RAG Module."""
-from app.ai.agent.agentic_rag.nodes.rag_node import rag_node
+from app.ai.agent.agentic_rag.graph.graph import agentic_rag_graph
 
-__all__ = ["rag_node"]
+__all__ = ["agentic_rag_graph"]

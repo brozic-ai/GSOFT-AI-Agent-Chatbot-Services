@@ -63,6 +63,9 @@ def get_repository() -> DocumentRepository:
     return _document_repository_cache
 
 
+get_document_repository = get_repository
+
+
 # 5. TEI Embedding Service Dependency
 _tei_embedding_cache: TeiEmbeddingService | None = None
 

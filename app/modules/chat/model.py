@@ -28,8 +28,6 @@ class Conversation(Base):
     pinned_at = Column("PinnedAt", DateTime, nullable=True)
     title_source = Column("TitleSource", String(20), nullable=False, default="default", server_default="default")
     title = Column("Title", Unicode(255), nullable=True, default="Cuộc hội thoại mới")
-    creation_time = Column("CreationTime", DateTime, nullable=True, default=datetime.utcnow)
-    updated_time = Column("UpdatedTime", DateTime, nullable=True, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_at = Column("CreatedAt", DateTime, nullable=True, default=datetime.utcnow)
     updated_at = Column("UpdatedAt", DateTime, nullable=True, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -50,8 +48,6 @@ class ChatMessage(Base):
     )
     role = Column("Role", String(20), nullable=True)   # 'user' | 'assistant' | 'system'
     content = Column("Content", UnicodeText, nullable=True)
-    # Hỗ trợ cả cột CreationTime (schema cũ) lẫn CreatedAt (schema mới)
-    creation_time = Column("CreationTime", DateTime, nullable=True, default=datetime.utcnow)
     created_at = Column("CreatedAt", DateTime, nullable=True, default=datetime.utcnow)
 
     # Quan hệ N-1 ngược lại tới phiên hội thoại cha
