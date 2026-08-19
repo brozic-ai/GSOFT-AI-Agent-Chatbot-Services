@@ -59,11 +59,23 @@ class ChatService:
         """Generate a short title; title generation failure must not fail the chat."""
         fallback = question.strip()[:80]
         try:
+            from app.llmops.langfuse import get_langfuse_callback
+
+            lf_cb = get_langfuse_callback(
+                session_id=str(conversation_id),
+                tags=["title-generation", "background"],
+                trace_name=f"Generate-Title: cid={conversation_id}",
+            )
+            title_config = {"callbacks": [lf_cb]} if lf_cb else {}
+
             response = await asyncio.wait_for(
-                self.llm_provider.ainvoke([
-                    ("system", "Create a concise Vietnamese chat title, 3-8 words, no quotes or markdown."),
-                    ("user", question.strip()),
-                ]),
+                self.llm_provider.ainvoke(
+                    [
+                        ("system", "Create a concise Vietnamese chat title, 3-8 words, no quotes or markdown."),
+                        ("user", question.strip()),
+                    ],
+                    config=title_config,
+                ),
                 timeout=5,
             )
             title = response.content if hasattr(response, "content") else str(response)
@@ -207,9 +219,28 @@ class ChatService:
             logger.info("[CHAT] Calling LLM streaming for query='%s', history_count=%d...", base_query, len(history))
             full_response_chunks = []
 
+            from app.core.config import settings
+            from app.llmops.langfuse import get_langfuse_callback
+
+            langfuse_cb = get_langfuse_callback(
+                user_id=user_id,
+                session_id=str(conversation_id) if conversation_id else None,
+                tags=["rag", "chat", "streaming", getattr(settings, "AI_PROVIDER", "llm")],
+                metadata={
+                    "conversation_id": str(conversation_id) if conversation_id else None,
+                    "user_roles": user_roles,
+                    "user_department": user_department,
+                    "top_k": top_k,
+                    "documents_count": len(documents),
+                },
+                trace_name=f"Chatbot-RAG: {base_query[:35]}",
+            )
+            callbacks = [langfuse_cb] if langfuse_cb else []
+
             stream_config = {
                 "run_name": f"Chatbot-RAG: {base_query[:35]}",
                 "tags": ["rag", "chat", "streaming"],
+                "callbacks": callbacks,
                 "metadata": {
                     "conversation_id": str(conversation_id) if conversation_id else None,
                     "user_roles": user_roles,

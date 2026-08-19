@@ -56,6 +56,13 @@ async def _startup() -> None:
             os.getenv("LANGCHAIN_ENDPOINT", "default"),
             bool(os.getenv("LANGCHAIN_API_KEY")),
         )
+        from app.llmops.langfuse import is_langfuse_configured
+        logger.info(
+            "[LANGFUSE] Tracing enabled=%s | Host='%s' | KeyConfigured=%s",
+            getattr(settings, "LANGFUSE_ENABLED", False),
+            getattr(settings, "LANGFUSE_HOST", "http://localhost:3000"),
+            is_langfuse_configured(),
+        )
     except Exception as ex:
         logger.error("[FAIL] Failed to initialize LLM Provider: %s", ex, exc_info=True)
         # Không crash app — cho phép health check vẫn hoạt động
@@ -120,5 +127,13 @@ async def _shutdown() -> None:
         logger.error(
             "[FAIL] Failed to close database connection: %s", ex, exc_info=True
         )
+
+    # 3. Flush Langfuse traces
+    try:
+        from app.llmops.langfuse import flush_langfuse
+
+        flush_langfuse()
+    except Exception as ex:
+        logger.debug("[LANGFUSE] Flush on shutdown: %s", ex)
 
     logger.info("[DONE] All resources released.")

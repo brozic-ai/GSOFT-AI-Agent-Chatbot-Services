@@ -112,6 +112,13 @@ class Settings(BaseSettings):
     LANGSMITH_PROJECT: str | None = None
     LANGSMITH_ENDPOINT: str | None = None
 
+    # --- Langfuse LLMOps Tracing Config ---
+    LANGFUSE_ENABLED: bool = True
+    LANGFUSE_PUBLIC_KEY: str = ""
+    LANGFUSE_SECRET_KEY: str = ""
+    LANGFUSE_HOST: str = "http://localhost:3000"
+    LANGFUSE_BASE_URL: str | None = None
+
     # --- Net Backend URL ---
     NET_BACKEND_URL: str = "http://localhost:5000"
 
@@ -151,5 +158,19 @@ else:
     os.environ["LANGSMITH_TRACING"] = "false"
     os.environ.pop("LANGCHAIN_API_KEY", None)
     os.environ.pop("LANGSMITH_API_KEY", None)
+
+# Đồng bộ biến môi trường cho Langfuse SDK
+if settings.LANGFUSE_ENABLED:
+    lf_host = settings.LANGFUSE_BASE_URL or settings.LANGFUSE_HOST or os.getenv("LANGFUSE_HOST", "http://localhost:3000")
+    lf_public_key = settings.LANGFUSE_PUBLIC_KEY or os.getenv("LANGFUSE_PUBLIC_KEY", "")
+    lf_secret_key = settings.LANGFUSE_SECRET_KEY or os.getenv("LANGFUSE_SECRET_KEY", "")
+
+    os.environ["LANGFUSE_HOST"] = lf_host
+    os.environ["LANGFUSE_BASE_URL"] = lf_host
+    if lf_public_key:
+        os.environ["LANGFUSE_PUBLIC_KEY"] = lf_public_key
+    if lf_secret_key:
+        os.environ["LANGFUSE_SECRET_KEY"] = lf_secret_key
+
 
 

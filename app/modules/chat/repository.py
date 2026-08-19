@@ -68,11 +68,17 @@ class ChatRepository:
                 "user_id": conv.user_id,
                 "title": conv.title,
                 "is_pinned": bool(conv.is_pinned),
-                "created_at": conv.created_at.isoformat() if conv.created_at else None,
-                "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
+                "created_at": self._to_iso(conv.created_at),
+                "updated_at": self._to_iso(conv.updated_at),
             }
         finally:
             db.close()
+
+    @staticmethod
+    def _to_iso(value: Optional[datetime]) -> Optional[str]:
+        if not value:
+            return None
+        return value.isoformat() + ("Z" if value.tzinfo is None else "")
 
     @staticmethod
     def _time_label(value: Optional[datetime]) -> Optional[str]:
@@ -94,17 +100,14 @@ class ChatRepository:
 
     @classmethod
     def _serialize_conversation(cls, conv: Conversation) -> Dict[str, Any]:
-        def iso(value: Optional[datetime]) -> Optional[str]:
-            return value.isoformat() + ("Z" if value and value.tzinfo is None else "") if value else None
-
         created = conv.created_at
         updated = conv.updated_at
         return {
             "id": conv.id,
             "title": conv.title or "Cuộc hội thoại mới",
             "is_pinned": bool(conv.is_pinned),
-            "created_at": iso(created),
-            "updated_at": iso(updated),
+            "created_at": cls._to_iso(created),
+            "updated_at": cls._to_iso(updated),
             "time_label": cls._time_label(updated),
         }
 
@@ -270,8 +273,7 @@ class ChatRepository:
                     "id": msg.id,
                     "role": msg.role,
                     "content": msg.content,
-                    "created_at": msg.created_at.isoformat()
-                        if msg.created_at else None,
+                    "created_at": self._to_iso(msg.created_at),
                 }
                 for msg in msgs
             ]
