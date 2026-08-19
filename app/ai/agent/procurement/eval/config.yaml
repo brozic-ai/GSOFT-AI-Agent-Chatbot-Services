@@ -1,0 +1,12 @@
+# Procurement Agent Eval Configuration for gAMSPro Enterprise Chatbot
+metrics:
+  - type: tool_call_match
+
+  - type: llm_judge
+    params:
+      criterion: relevance
+      min_score: 0.7
+
+  - type: latency
+    params:
+      max_seconds: 35.0

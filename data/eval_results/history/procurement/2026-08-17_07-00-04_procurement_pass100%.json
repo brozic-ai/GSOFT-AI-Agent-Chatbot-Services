@@ -1,0 +1,89 @@
+{
+  "metadata": {
+    "agent_name": "procurement",
+    "timestamp_utc": "2026-08-17T07:00:04.099206+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 19.55,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": true
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 1,
+    "failed_cases": 0,
+    "pass_rate": 1.0,
+    "pass_percentage": "100%",
+    "avg_score": 0.9333,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 1
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "proc_demo_016",
+      "passed": true,
+      "avg_score": 0.9333,
+      "expected": {
+        "expected_tools": [],
+        "expected_keywords": [
+          "Gửi phê duyệt",
+          "gAMSPro",
+          "Phiếu yêu cầu mua sắm",
+          "Lưu Nháp"
+        ],
+        "reference_answer": "Để gửi phê duyệt Tờ trình đang Lưu Nháp, anh Bảo thao tác theo các bước sau trên gAMSPro:\n1. Truy cập phân hệ Quản lý Mua sắm ➔ Phiếu yêu cầu mua sắm.\n2. Mở tờ trình Lưu Nháp và kiểm tra đầy đủ danh mục hàng hóa, chủng loại, đơn giá.\n3. Nhấn nút 'Gửi phê duyệt' ở thanh công cụ phía trên để chuyển hồ sơ đến cấp quản lý ký duyệt số."
+      },
+      "actual": {
+        "final_answer": "| Chỉ tiêu | Dữ liệu gAMSPro |\n| --- | --- |\n| **Bước 1 — Hoàn thiện chi tiết Tờ trình** | Truy cập phân hệ **Quản lý Mua sắm ➔ Phiếu yêu cầu mua sắm**, chọn mã tờ trình để bổ sung danh mục hàng hóa, chủng loại và đơn giá thực tế. |\n| **Bước 2 — Trình duyệt Tờ trình** | Nhấn nút **'Gửi phê duyệt'** ở góc trên màn hình để chuyển hồ sơ đến Trưởng đơn vị và Đơn vị Chuyên môn (DVCM / DMMS) ký duyệt số. |\n| **Bước 3 — Theo dõi tiến độ qua AI Chatbot** | Cán bộ có thể nhắn hỏi tiến độ xử lý hồ sơ bất kỳ lúc nào qua chatbot. |\n\n💡 **Lưu ý nghiệp vụ:**  \n- Sau khi duyệt, ĐMMS sẽ chọn NCC, lập biên bản xét giá và phát hành đơn hàng PO.  \n- Trạng thái \"Lưu Nháp\" chỉ là bước chuẩn bị, sau đó sẽ được chuyển sang trạng thái \"Đã phê duyệt\" khi có quyết định từ cấp trên.  \n\n📞 **Ghi chú:**  \n- Nếu cần hỗ trợ thêm, hãy nhắn tin qua chatbot để kiểm tra trạng thái hồ sơ cụ thể.",
+        "tool_calls": []
+      },
+      "user_query": "Làm thế nào để gửi phê duyệt một tờ trình đang ở trạng thái Lưu Nháp trên gAMSPro?",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "Không có tool call nào (khớp kỳ vọng)"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.8,
+          "passed": true,
+          "detail": "Câu trả lời có 3 bước đúng (hoàn thiện, gửi phê duyệt, theo dõi tiến độ) nhưng thêm bước 'Kiểm tra trạng thái hồ sơ' không nằm trong tiêu chí đánh giá. Bước này không liên quan trực tiếp đến hành động gửi phê duyệt, nên gây nhiễu."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=14.729292799998802s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

@@ -100,12 +100,105 @@ def init_db() -> None:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         logger.info("[OK] Database connection established successfully.")
+        # Import models để SQLAlchemy Base nhận diện tất cả ORM models (RagDocument, RagDocumentRole, IngestionTask, Conversation, ChatMessage)
+        import app.modules.document.model  # noqa: F401
+        import app.modules.chat.model  # noqa: F401
         Base.metadata.create_all(bind=engine)
+        _ensure_chat_conversation_columns()
+        _ensure_chat_message_columns()
     except Exception as ex:
         logger.error(
             "[FAIL] Failed to initialize database connection: %s", ex, exc_info=True
         )
         raise ex
+
+
+def _ensure_chat_conversation_columns() -> None:
+    """Add conversation-management columns for databases created by older releases."""
+    statements = [
+        """
+        IF COL_LENGTH('dbo.Conversations', 'IsPinned') IS NULL
+        ALTER TABLE dbo.Conversations ADD IsPinned BIT NOT NULL
+            CONSTRAINT DF_Conversations_IsPinned DEFAULT 0
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'PinnedAt') IS NULL
+        ALTER TABLE dbo.Conversations ADD PinnedAt DATETIME2 NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'TitleSource') IS NULL
+        ALTER TABLE dbo.Conversations ADD TitleSource NVARCHAR(20) NOT NULL
+            CONSTRAINT DF_Conversations_TitleSource DEFAULT 'default'
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'CreatedAt') IS NULL
+        ALTER TABLE dbo.Conversations ADD CreatedAt DATETIME2 NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'UpdatedAt') IS NULL
+        ALTER TABLE dbo.Conversations ADD UpdatedAt DATETIME2 NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'CreationTime') IS NOT NULL
+        ALTER TABLE dbo.Conversations ALTER COLUMN CreationTime DATETIME2 NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'UpdatedTime') IS NOT NULL
+        ALTER TABLE dbo.Conversations ALTER COLUMN UpdatedTime DATETIME2 NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'UpdatedTime') IS NOT NULL AND COL_LENGTH('dbo.Conversations', 'UpdatedAt') IS NOT NULL
+        EXEC('UPDATE dbo.Conversations SET UpdatedAt = UpdatedTime WHERE UpdatedAt IS NULL')
+        """,
+        """
+        IF COL_LENGTH('dbo.Conversations', 'CreationTime') IS NOT NULL AND COL_LENGTH('dbo.Conversations', 'CreatedAt') IS NOT NULL
+        EXEC('UPDATE dbo.Conversations SET CreatedAt = CreationTime WHERE CreatedAt IS NULL')
+        """,
+        """
+        IF NOT EXISTS (
+            SELECT 1 FROM sys.indexes
+            WHERE name = 'IX_Conversations_User_Pinned_Updated'
+              AND object_id = OBJECT_ID('dbo.Conversations')
+        )
+        CREATE INDEX IX_Conversations_User_Pinned_Updated
+            ON dbo.Conversations(UserId, IsPinned, UpdatedAt)
+        """,
+    ]
+    try:
+        with engine.begin() as conn:
+            for statement in statements:
+                conn.execute(text(statement))
+        logger.info("[OK] Conversation schema is up to date.")
+    except Exception as ex:
+        logger.error("[FAIL] Failed to migrate conversation schema: %s", ex, exc_info=True)
+        raise
+
+
+def _ensure_chat_message_columns() -> None:
+    """Ensure ChatMessages table columns are compatible with both old and new schema."""
+    statements = [
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'CreationTime') IS NOT NULL
+        ALTER TABLE dbo.ChatMessages ALTER COLUMN CreationTime DATETIME2 NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'CreatedAt') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD CreatedAt DATETIME2 NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'CreationTime') IS NOT NULL
+          AND COL_LENGTH('dbo.ChatMessages', 'CreatedAt') IS NOT NULL
+        EXEC('UPDATE dbo.ChatMessages SET CreatedAt = CreationTime WHERE CreatedAt IS NULL')
+        """,
+    ]
+    try:
+        with engine.begin() as conn:
+            for statement in statements:
+                conn.execute(text(statement))
+        logger.info("[OK] ChatMessages schema is up to date.")
+    except Exception as ex:
+        logger.error("[FAIL] Failed to migrate ChatMessages schema: %s", ex, exc_info=True)
+        raise
 
 
 def close_db() -> None:

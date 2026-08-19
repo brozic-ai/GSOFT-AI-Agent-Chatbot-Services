@@ -1,0 +1,100 @@
+{
+  "metadata": {
+    "agent_name": "procurement",
+    "timestamp_utc": "2026-08-17T07:29:21.284308+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 20.03,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": false
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 0,
+    "failed_cases": 1,
+    "pass_rate": 0.0,
+    "pass_percentage": "0%",
+    "avg_score": 0.5667,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 1
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "proc_case_025",
+      "passed": false,
+      "avg_score": 0.5667,
+      "expected": {
+        "expected_tools": [],
+        "expected_keywords": [
+          "Mua bàn ghế văn phòng",
+          "tiền đề xuất",
+          "Kế hoạch ngân sách",
+          "bổ sung"
+        ],
+        "reference_answer": "Dạ, tôi đã ghi nhận tiêu đề là 'Mua bàn ghế văn phòng'. Anh Bảo vui lòng cho biết Tổng số tiền đề xuất dự kiến và Kế hoạch ngân sách liên kết là gì để tôi tạo tờ trình nháp nhé!"
+      },
+      "actual": {
+        "final_answer": "Anh có muốn gửi phê duyệt tờ trình này ngay bây giờ không ạ?  \n👉 **Đường dẫn xem chi tiết và ký duyệt:** [PUR/2026/000088](/app/admin/request-doc-view;id=TRRD00000269719)  \n\nNếu anh muốn gửi phê duyệt, có thể nhấn **[Gửi phê duyệt]** ở đây để hệ thống xử lý. Nếu chưa sẵn sàng, anh có thể lưu nháp và tiếp tục khi có thời gian. 😊",
+        "tool_calls": [
+          {
+            "name": "create_request_doc",
+            "args": {
+              "tieu_de": "Mua bàn ghế văn phòng",
+              "tong_tien": 15000000,
+              "ma_ke_hoach": null,
+              "noi_dung": "Mua sắm bàn ghế văn phòng phục vụ Phòng Hỗ trợ",
+              "user_name": "baotq"
+            }
+          }
+        ]
+      },
+      "user_query": "Tạo tờ trình Mua bàn ghế văn phòng cho tôi",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 0.0,
+          "passed": false,
+          "detail": "Kỳ vọng không gọi tool nhưng actual gọi: ['create_request_doc']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.7,
+          "passed": true,
+          "detail": "Câu trả lời liên quan đến quá trình phê duyệt tờ trình nhưng không trực tiếp tạo nội dung tờ trình (thiếu thông tin về tổng số tiền đề xuất và kế hoạch ngân sách)."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=14.686381899999105s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+[
+  {
+    "query": "Tạo tờ trình Mua sắm máy in văn phòng cho tôi",
+    "tool_calls": [],
+    "response": "Dạ, tôi đã ghi nhận tiêu đề tờ trình là **'Mua sắm máy in văn phòng'**.\n\nĐể hoàn tất việc tạo tờ trình Lưu Nháp trên hệ thống gAMSPro, anh Bảo vui lòng cho biết thêm:\n1. 💰 **Tổng số tiền đề xuất dự kiến** (VNĐ) là bao nhiêu?\n2. 📌 **Mã Kế hoạch ngân sách liên kết** (nếu có, ví dụ: `0049/2025/TTr-0690905`)?\n\nSau khi có đủ thông tin, tôi sẽ tiến hành tạo tờ trình ngay cho anh nhé!"
+  },
+  {
+    "query": "Dự kiến 15 triệu, liên kết kế hoạch 0049/2025/TTr-0690905",
+    "tool_calls": [
+      {
+        "tool": "create_request_doc",
+        "args": {
+          "tieu_de": "Mua sắm máy in văn phòng",
+          "tong_tien": 15000000,
+          "ma_ke_hoach": "0049/2025/TTr-0690905",
+          "noi_dung": "Mua sắm máy in văn phòng phục vụ công tác",
+          "user_name": "baotq"
+        }
+      }
+    ],
+    "response": "✅ **TẠO TỜ TRÌNH THÀNH CÔNG TRÊN GAMS PRO!**\n\n- **Số Tờ trình:** 📄 `PUR/2026/000086`\n- **Mã hệ thống (REQ_ID):** `TRRD00000269717`\n- **Tiêu đề:** Mua sắm máy in văn phòng\n- **Tổng tiền đề xuất:** 15,000,000 VNĐ\n- **Trạng thái:** ⚠️ **Lưu Nháp** (Chờ gửi phê duyệt)\n- **Kế hoạch liên kết:** 📌 `0049/2025/TTr-0690905`\n\n👉 **Đường dẫn xem hồ sơ:** [Xem chi tiết Tờ trình](/app/admin/request-doc-view;id=TRRD00000269717)\n\nAnh có muốn gửi phê duyệt tờ trình này ngay bây giờ không ạ?"
+  },
+  {
+    "query": "Gửi phê duyệt tờ trình PUR/2026/000086 giúp tôi",
+    "tool_calls": [
+      {
+        "tool": "submit_request_doc_approval",
+        "args": {
+          "doc_identifier": "PUR/2026/000086",
+          "user_name": "baotq"
+        }
+      }
+    ],
+    "response": "✅ **GỬI PHÊ DUYỆT TỜ TRÌNH THÀNH CÔNG!**\n\n- **Số Tờ trình:** 📄 `PUR/2026/000086`\n- **Trạng thái mới:** ⏳ **Đã gửi phê duyệt** (Đang chờ cấp quản lý ký duyệt số)\n\n👉 **Theo dõi hồ sơ:** [Xem Tờ trình](/app/admin/request-doc-view;id=TRRD00000269717)\n\nHồ sơ đã được chuyển tiếp đến cấp thẩm quyền. Bất kỳ lúc nào, anh có thể nhắn tôi để kiểm tra tiến độ phê duyệt nhé!"
+  },
+  {
+    "query": "Duyệt tờ trình PUR/2025/000052 cho tôi",
+    "tool_calls": [
+      {
+        "tool": "get_request_doc_detail",
+        "args": { "doc_identifier": "PUR/2025/000052", "user_name": "baotq" }
+      },
+      {
+        "tool": "check_plan_budget_detail",
+        "args": { "ma_ke_hoach": "0049/2025/TTr-0690905", "user_name": "baotq" }
+      }
+    ],
+    "response": "Chào anh! Theo quy định phân quyền bảo mật ngân hàng, **Trợ lý AI không được phép tự ý thay mặt Lãnh đạo ký duyệt hồ sơ**. Tôi xin gửi Báo cáo Thẩm định Chuyên môn để anh xem xét phê duyệt:\n\n📊 **BÁO CÁO THẨM ĐỊNH TỜ TRÌNH PUR/2025/000052:**\n- **Mã hệ thống:** `TRRD00000269630`\n- **Người lập:** Trương Quang Bảo (Phòng Hỗ trợ — Hội sở)\n- **Tổng tiền đề xuất:** 50,000,000 VNĐ\n- **Kế hoạch liên kết:** `0049/2025/TTr-0690905` (Hạn mức: 156,750,000 VNĐ | Đã dùng: 31,350,000 VNĐ | Khả dụng: **125,400,000 VNĐ**)\n\n⚖️ **PHÂN TÍCH LỢI ÍCH & RỦI RO:**\n- **Lợi ích:** Đảm bảo trang thiết bị phục vụ kịp thời hoạt động của đơn vị, đúng chủ trương kế hoạch đã duyệt.\n- **Kiểm soát Ngân sách:** 🟢 **ĐỦ ĐIỀU KIỆN**. Ngân sách còn lại khả dụng (125,400,000 VNĐ) hoàn toàn đủ để cover khoản 50,000,000 VNĐ, không có rủi ro vượt hạn mức.\n- **Khuyến nghị:** 🟢 **ĐỦ ĐIỀU KIỆN ĐỂ PHÊ DUYỆT**.\n\n👉 **Anh vui lòng nhấn vào đường dẫn dưới đây để trực tiếp xem chi tiết và bấm Ký duyệt trên hệ thống gAMSPro:**\n🔗 [Ký duyệt Tờ trình PUR/2025/000052](/app/admin/request-doc-view;id=TRRD00000269630)"
+  },
+  {
+    "query": "Cho tôi xem danh sách các Tờ trình mua sắm tôi đã lập gần đây.",
+    "tool_calls": [
+      {
+        "tool": "search_request_docs",
+        "args": { "so_to_trinh": "", "user_name": "baotq" }
+      }
+    ],
+    "response": "Xin chào anh Bảo! Dưới đây là danh sách các tờ trình mua sắm gần đây nhất của anh trên gAMSPro:\n\n1. 📄 **PUR/2025/000052** — Trạng thái: ✅ **Đã duyệt** — **50,000,000 VND**\n2. 📄 **PUR/2026/000065** — Trạng thái: ⚠️ **Lưu Nháp** — **7,000,000 VND**\n\nAnh muốn xem chi tiết hoặc thao tác với tờ trình nào ạ?"
+  },
+  {
+    "query": "Kiểm tra tình trạng các đơn hàng PO mua sắm gần đây",
+    "tool_calls": [
+      {
+        "tool": "get_po_master_status",
+        "args": { "ma_po": "", "user_name": "baotq" }
+      }
+    ],
+    "response": "Dạ, dưới đây là danh sách và tình trạng các Đơn đặt hàng PO mua sắm đang triển khai trên hệ thống gAMSPro:\n\n1. 📦 **PO069/26/0006** — Gói mua sắm máy chủ — NCC: Công ty TNHH CMC — Trị giá: 120,000,000 VNĐ — Trạng thái: ✅ Đã duyệt (Hạn giao: 2026-03-15)\n2. 📦 **PO069/26/0007** — Mua sắm thiết bị mạng — NCC: FPT Telecom — Trị giá: 45,000,000 VNĐ — Trạng thái: ⏳ Chờ giao hàng\n\nAnh cần kiểm tra chi tiết thêm đơn hàng PO nào không ạ?"
+  }
+]
+

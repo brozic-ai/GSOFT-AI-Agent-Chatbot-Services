@@ -10,14 +10,15 @@ Cơ chế RBAC Filtering trong SQL Vector Search:
 import json
 import logging
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
+import pyodbc
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import SessionLocal, engine
-from app.modules.document.model import RagDocument, RagDocumentRole
+from app.modules.document.model import IngestionTask, RagDocument, RagDocumentRole
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ class DocumentRepository:
                 uploaded_by=uploaded_by,
                 tenant_id=tenant_id,
                 ingest_status="Pending",
-                creation_time=datetime.utcnow(),
+                creation_time=datetime.now(UTC),
             )
             db.add(doc)
             db.flush()  # Lấy doc.id tự sinh
@@ -90,12 +91,10 @@ class DocumentRepository:
                 allowed_roles,
             )
             return doc.id
-        except Exception as ex:
+        except Exception:
             db.rollback()
-            logger.error(
-                "[FAIL] Error creating RagDocument via ORM: %s", ex, exc_info=True
-            )
-            raise ex
+            logger.exception("[FAIL] Error creating RagDocument via ORM")
+            raise
         finally:
             db.close()
 
@@ -107,6 +106,17 @@ class DocumentRepository:
             results = []
             for doc in docs:
                 roles_list = [r.role_name for r in doc.roles]
+                task = (
+                    db.query(IngestionTask)
+                    .filter(IngestionTask.backend_document_id == doc.id)
+                    .order_by(IngestionTask.id.desc())
+                    .first()
+                )
+                progress = (
+                    task.progress_percent
+                    if task
+                    else (100 if doc.ingest_status == "Completed" else 0)
+                )
                 results.append(
                     {
                         "id": doc.id,
@@ -115,9 +125,12 @@ class DocumentRepository:
                         "file_path": doc.file_path,
                         "file_size": doc.file_size,
                         "category": doc.category,
+                        "owner_department": doc.owner_department,
                         "access_scope": doc.access_scope,
                         "ingest_status": doc.ingest_status,
+                        "progress_percent": progress,
                         "chunk_count": doc.chunk_count,
+                        "error_message": doc.ingest_error,
                         "creation_time": str(doc.creation_time)
                         if doc.creation_time
                         else None,
@@ -143,6 +156,7 @@ class DocumentRepository:
                 "file_path": doc.file_path,
                 "file_size": doc.file_size,
                 "category": doc.category,
+                "owner_department": doc.owner_department,
                 "access_scope": doc.access_scope,
                 "ingest_status": doc.ingest_status,
                 "chunk_count": doc.chunk_count,
@@ -176,17 +190,15 @@ class DocumentRepository:
                 doc.ingest_status = status
                 doc.chunk_count = chunk_count
                 doc.ingest_error = error
-                doc.last_modification_time = datetime.utcnow()
+                doc.last_modification_time = datetime.now(UTC)
                 db.commit()
-        except Exception as ex:
+        except Exception:
             db.rollback()
-            logger.error(
-                "[FAIL] Error updating RagDocument status ID=%d: %s",
+            logger.exception(
+                "[FAIL] Error updating RagDocument status ID=%d",
                 doc_id,
-                ex,
-                exc_info=True,
             )
-            raise ex
+            raise
         finally:
             db.close()
 
@@ -206,7 +218,7 @@ class DocumentRepository:
                 doc.document_name = document_name
                 doc.category = category
                 doc.access_scope = access_scope
-                doc.last_modification_time = datetime.utcnow()
+                doc.last_modification_time = datetime.now(UTC)
 
                 # Xóa roles cũ và nạp lại roles mới
                 db.query(RagDocumentRole).filter(
@@ -227,12 +239,10 @@ class DocumentRepository:
                     doc_id,
                     allowed_roles,
                 )
-        except Exception as ex:
+        except Exception:
             db.rollback()
-            logger.error(
-                "[FAIL] Error updating RagDocument ID=%d: %s", doc_id, ex, exc_info=True
-            )
-            raise ex
+            logger.exception("[FAIL] Error updating RagDocument ID=%d", doc_id)
+            raise
         finally:
             db.close()
 
@@ -248,15 +258,13 @@ class DocumentRepository:
                 file_name = doc.file_name
                 db.delete(doc)  # Cascade tự xóa RagDocumentRoles
                 db.commit()
-        except Exception as ex:
+        except Exception:
             db.rollback()
-            logger.error(
-                "[FAIL] Error deleting RagDocument ID=%d: %s",
+            logger.exception(
+                "[FAIL] Error deleting RagDocument ID=%d",
                 backend_id,
-                ex,
-                exc_info=True,
             )
-            raise ex
+            raise
         finally:
             db.close()
 
@@ -419,6 +427,103 @@ class DocumentRepository:
         finally:
             raw_conn.close()
 
+    # --- INGESTION TASKS ORM CRUD ---
+
+    def create_ingestion_task(
+        self, task_id: str, file_name: str, backend_document_id: int | None = None
+    ) -> None:
+        """Tạo bản ghi theo dõi tiến độ Ingestion ngầm với status = PENDING."""
+        db: Session = SessionLocal()
+        try:
+            task = IngestionTask(
+                task_id=task_id,
+                file_name=file_name,
+                backend_document_id=backend_document_id,
+                status="PENDING",
+                progress_percent=0,
+                chunk_count=0,
+                created_at=datetime.now(UTC),
+            )
+            db.add(task)
+            db.commit()
+            logger.info(
+                "[OK] Created IngestionTask task_id='%s' for file='%s'",
+                task_id,
+                file_name,
+            )
+        except Exception:
+            db.rollback()
+            logger.exception(
+                "[FAIL] Error creating IngestionTask task_id='%s'",
+                task_id,
+            )
+            raise
+        finally:
+            db.close()
+
+    def get_ingestion_task(self, task_id: str) -> dict[str, Any] | None:
+        """Lấy thông tin tiến độ IngestionTask theo task_id UUID."""
+        db: Session = SessionLocal()
+        try:
+            task = (
+                db.query(IngestionTask).filter(IngestionTask.task_id == task_id).first()
+            )
+            if not task:
+                return None
+            return {
+                "task_id": task.task_id,
+                "backend_document_id": task.backend_document_id,
+                "file_name": task.file_name,
+                "status": task.status,
+                "progress_percent": task.progress_percent,
+                "chunk_count": task.chunk_count,
+                "error_message": task.error_message,
+                "created_at": task.created_at.isoformat() if task.created_at else None,
+                "updated_at": task.updated_at.isoformat() if task.updated_at else None,
+            }
+        finally:
+            db.close()
+
+    def update_ingestion_task(
+        self,
+        task_id: str,
+        status: str,
+        progress_percent: int | None = None,
+        chunk_count: int = 0,
+        error_message: str | None = None,
+    ) -> None:
+        """Cập nhật trạng thái, % tiến độ và lỗi của IngestionTask."""
+        db: Session = SessionLocal()
+        try:
+            task = (
+                db.query(IngestionTask).filter(IngestionTask.task_id == task_id).first()
+            )
+            if task:
+                task.status = status
+                if progress_percent is not None:
+                    task.progress_percent = progress_percent
+                if chunk_count > 0:
+                    task.chunk_count = chunk_count
+                if error_message is not None:
+                    task.error_message = error_message
+                task.updated_at = datetime.now(UTC)
+                db.commit()
+                logger.debug(
+                    "[OK] Updated IngestionTask task_id='%s' status='%s' (%s%%)",
+                    task_id,
+                    status,
+                    progress_percent,
+                )
+        except Exception:
+            db.rollback()
+            logger.exception(
+                "[FAIL] Error updating IngestionTask task_id='%s'",
+                task_id,
+            )
+            raise
+        finally:
+            db.close()
+
     # --- VECTOR SEARCH CÓ PHÂN QUYỀN RBAC ---
 
     def search_vector_chunks(
@@ -428,14 +533,16 @@ class DocumentRepository:
         top_k: int,
         content_kind: str | None = None,
         user_roles: str | None = None,
+        user_department: str | None = None,
     ) -> dict[str, Any]:
         """
-        Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (RBAC) sử dụng SessionLocal connection.
+        Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (User Roles RBAC) và Phòng ban (Department RBAC).
 
         Luật Phân Quyền SQL:
         - Chunk hợp lệ nếu `accessScope` = 'Public' (hoặc NULL)
         - HOẶC `accessScope` = 'Restricted' VÀ user_roles có chứa 'admin'
         - HOẶC `accessScope` = 'Restricted' VÀ `user_roles` khớp với mảng `allowedRoles` lưu trong metadata.
+        - VÀ nếu tài liệu chỉ định Phòng ban sở hữu (owner_department), chỉ user thuộc phòng ban đó (hoặc Admin) mới xem được.
         """
         top_k = max(1, min(top_k, settings.SEARCH_TOP_K_MAX))
         candidate_count = max(top_k, settings.SEARCH_VECTOR_CANDIDATE_COUNT)
@@ -443,9 +550,32 @@ class DocumentRepository:
             settings.SEARCH_RRF_CONSTANT if settings.SEARCH_RRF_CONSTANT > 0 else 60
         )
         query_embedding_json = json.dumps(query_embedding)
-
         match = re.search(r"\b\d{6,}\b", query)
         exact_keyword = match.group(0) if match else ""
+
+        # Tự động nhận diện tài khoản Admin (bất kể tên role là admin, administrator, administrators, fulltemp, sysadmin, superadmin, GUID role admin...)
+        is_admin_flag = 0
+        if user_roles:
+            roles_lower = [
+                r.strip().lower() for r in user_roles.split(",") if r.strip()
+            ]
+            admin_keywords = {
+                "admin",
+                "administrator",
+                "administrators",
+                "fulltemp",
+                "sysadmin",
+                "superadmin",
+                "4ff86c2b184f46bebb5cc338c74b5669",
+            }
+            if any(
+                r in admin_keywords
+                or any(
+                    kw in r for kw in ("admin", "fulltemp", "sysadmin", "superadmin")
+                )
+                for r in roles_lower
+            ):
+                is_admin_flag = 1
 
         sql = """
             WITH FilteredDocuments AS (
@@ -453,20 +583,29 @@ class DocumentRepository:
                 FROM Documents
                 WHERE (? IS NULL OR JSON_VALUE(metadata, '$.content_kind') = ?)
                   AND (
-                      JSON_VALUE(metadata, '$.accessScope') IS NULL 
+                      ? = 1
+                      OR JSON_VALUE(metadata, '$.accessScope') IS NULL 
                       OR JSON_VALUE(metadata, '$.accessScope') = 'Public'
                       OR (
                           JSON_VALUE(metadata, '$.accessScope') = 'Restricted'
                           AND ? IS NOT NULL
-                          AND (
-                              CHARINDEX('admin', LOWER(?)) > 0
-                              OR EXISTS (
-                                  SELECT 1 
-                                  FROM OPENJSON(metadata, '$.allowedRoles') WITH (role NVARCHAR(100) '$')
-                                  WHERE role IN (SELECT value FROM STRING_SPLIT(?, ','))
-                              )
+                          AND EXISTS (
+                              SELECT 1 
+                              FROM OPENJSON(metadata, '$.allowedRoles') WITH (role NVARCHAR(100) '$')
+                              WHERE LOWER(role) IN (SELECT LOWER(value) FROM STRING_SPLIT(?, ','))
+                                 OR role IN (SELECT value FROM STRING_SPLIT(?, ','))
                           )
                       )
+                  )
+                  AND (
+                      ? = 1
+                      OR ? IS NULL OR ? = ''
+                      OR (
+                          ISNULL(JSON_VALUE(metadata, '$.owner_department'), '') = ''
+                          AND ISNULL(JSON_VALUE(metadata, '$.ownerDepartment'), '') = ''
+                      )
+                      OR LOWER(JSON_VALUE(metadata, '$.owner_department')) = LOWER(?)
+                      OR LOWER(JSON_VALUE(metadata, '$.ownerDepartment')) = LOWER(?)
                   )
             ),
             VectorBase AS (
@@ -514,9 +653,15 @@ class DocumentRepository:
                 params = (
                     content_kind,
                     content_kind,
+                    is_admin_flag,
                     user_roles,
                     user_roles,
                     user_roles,
+                    is_admin_flag,
+                    user_department,
+                    user_department,
+                    user_department,
+                    user_department,
                     query_embedding_json,
                     candidate_count,
                     exact_keyword,

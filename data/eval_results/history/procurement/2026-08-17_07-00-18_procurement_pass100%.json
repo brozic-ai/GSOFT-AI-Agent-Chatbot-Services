@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "agent_name": "procurement",
+    "timestamp_utc": "2026-08-17T07:00:18.714409+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 21.67,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": true
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 1,
+    "failed_cases": 0,
+    "pass_rate": 1.0,
+    "pass_percentage": "100%",
+    "avg_score": 1.0,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 1
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "proc_demo_019",
+      "passed": true,
+      "avg_score": 1.0,
+      "expected": {
+        "expected_tools": [],
+        "expected_keywords": [
+          "Tờ trình Mua sắm",
+          "Kế hoạch Ngân sách",
+          "Đơn đặt hàng PO",
+          "đối soát",
+          "hướng dẫn"
+        ],
+        "reference_answer": "Tôi là Trợ lý AI Mua sắm Doanh nghiệp (gAMSPro) của BVBank, sẵn sàng hỗ trợ anh các nghiệp vụ:\n1. 📄 Tra cứu danh sách & chi tiết Tờ trình Mua sắm (tiến độ, trạng thái duyệt, số tiền).\n2. 📊 Đối soát Hạn mức Ngân sách Kế hoạch liên kết (ngân sách còn lại khả dụng).\n3. 🚚 Theo dõi Đơn đặt hàng PO / Phiếu gọi hàng (nhà cung cấp, hạn giao hàng).\n4. 💡 Hướng dẫn các bước thao tác nghiệp vụ và quy trình phê duyệt trên hệ thống gAMSPro."
+      },
+      "actual": {
+        "final_answer": "📊 **Trợ lý Mua sắm gAMSPro hỗ trợ các nghiệp vụ sau:**  \n✨ **1. Tra cứu Tờ trình Mua sắm**  \n- Tìm kiếm tờ trình theo mã số (ví dụ: \"PUR/2025/000052\")  \n- Xem thông tin chi tiết: người lập, phòng ban chịu phí, số tiền đề xuất, trạng thái phê duyệt  \n\n✨ **2. Đối soát Ngân sách & Tuân thủ Hạn mức**  \n- Kiểm tra hạn mức ngân sách, số tiền đã thực hiện, số dư khả dụng của Kế hoạch liên kết  \n- Đánh giá xem ngân sách có đủ cover cho Tờ trình không  \n\n✨ **3. Truy vết Đơn đặt hàng PO (Phiếu gọi hàng)**  \n- Xem trạng thái PO (đang triển khai, đã giao hàng, chờ ký duyệt)  \n- Kiểm tra xem Tờ trình đã phát hành PO nào chưa  \n\n✨ **4. Hướng dẫn Quy trình Hành động**  \n- Hướng dẫn bước 1: Hoàn thiện chi tiết Tờ trình trên gAMSPro  \n- Hướng dẫn bước 2: Gửi phê duyệt Tờ trình đến Đơn vị Chuyên môn  \n- Hướng dẫn bước 3: Theo dõi tiến độ qua AI Chatbot  \n\n✨ **5. Tối ưu Trải nghiệm & Tác phong Ngân hàng**  \n- Xưng hô lịch sự (ví dụ: \"Anh/Chị\", \"Tôi\")  \n- Trình bày trực quan với Bảng biểu Markdown và Icons (📄, ⚠️, ✅, 🟩, 🚚, 🟢, 🔹, 📌, 💡)  \n\n📌 **Các công cụ hỗ trợ:**  \n- `search_request_docs` | `get_request_doc_detail` | `check_plan_budget_detail` | `get_po_master_status`  \n\n💡 **Lưu ý:**  \n- Trợ lý không gọi Tool khi người dùng yêu cầu hướng dẫn quy trình (ví dụ: \"Làm thế nào để gửi phê duyệt?\")  \n- Chỉ gọi Tool khi cần tra cứu dữ liệu thực thời gian (ví dụ: \"Xem trạng thái PO của PO069/26/0006\")  \n\n🎯 **Tổng kết:** Trợ lý hỗ trợ từ tra cứu đến hành động, đảm bảo tuân thủ ngân sách và quy trình mua sắm của đơn vị! 🛠️",
+        "tool_calls": []
+      },
+      "user_query": "Trợ lý Mua sắm gAMSPro có thể hỗ trợ tôi những nghiệp vụ gì?",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "Không có tool call nào (khớp kỳ vọng)"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 1.0,
+          "passed": true,
+          "detail": "Đáp án hoàn toàn đúng với tiêu chí relevancy, liệt kê đầy đủ 5 nghiệp vụ chính (tra cứu, đối soát, theo dõi, hướng dẫn quy trình, tối ưu hóa trải nghiệm) và các chi tiết cụ thể, đồng thời nêu rõ các công cụ hỗ trợ và điều kiện sử dụng. Nội dung đầy đủ, chính xác và phù hợp với yêu cầu."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=16.907643700000335s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

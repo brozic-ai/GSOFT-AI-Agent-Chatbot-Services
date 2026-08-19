@@ -2,7 +2,7 @@
 Pydantic Schemas / DTOs cho phân hệ Quản lý Tài liệu (Document Management & RBAC API).
 """
 
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -43,7 +43,30 @@ class UpdateDocumentStatusRequest(BaseModel):
 
     status: str
     chunk_count: int
-    error: str | None = None
+    error: Optional[str] = None
+
+
+class UploadAcceptedResponse(BaseModel):
+    """Phản hồi HTTP 202 Accepted khi nhận file upload xử lý ngầm."""
+
+    task_id: str
+    status: str = Field(
+        default="PENDING", description="PENDING | PROCESSING | COMPLETED | FAILED"
+    )
+
+
+class UploadStatusResponse(BaseModel):
+    """Phản hồi thông tin tiến độ xử lý file khi client poll theo task_id."""
+
+    task_id: str
+    file_name: str | None = None
+    backend_document_id: int | None = None
+    status: str  # PENDING | PROCESSING | COMPLETED | FAILED
+    progress_percent: int = 0
+    chunk_count: int = 0
+    error_message: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 class AddDocumentsRequest(BaseModel):
@@ -60,7 +83,7 @@ class AddDocumentsResponse(BaseModel):
 
 
 class SearchRequest(BaseModel):
-    """Yêu cầu tìm kiếm Vector kết hợp phân quyền RBAC."""
+    """Yêu cầu tìm kiếm Vector kết hợp phân quyền RBAC Vai trò + Phòng ban."""
 
     query: str
     top_k: int = Field(default=5, alias="top_k")
@@ -70,13 +93,18 @@ class SearchRequest(BaseModel):
         alias="user_roles",
         description="Chuỗi chứa các vai trò của user, phân cách bằng phẩy",
     )
+    user_department: str | None = Field(
+        default=None,
+        alias="user_department",
+        description="Tên phòng ban của user",
+    )
 
     model_config = {"populate_by_name": True}
 
 
 class Citation(BaseModel):
     source: str | None = None
-    page: str | None = None
+    page: int | str | None = None
     chunk_id: str
     score: float
 
@@ -91,13 +119,16 @@ class SearchResponse(BaseModel):
 
 class DocumentResponse(BaseModel):
     id: int
-    document_name: str
-    file_name: str
-    file_path: str
-    file_size: int
+    document_name: str | None = None
+    file_name: str | None = None
+    file_path: str | None = None
+    file_size: int | None = 0
     category: str | None = None
-    access_scope: str
-    ingest_status: str
-    chunk_count: int
+    owner_department: str | None = None
+    access_scope: str | None = "Public"
+    ingest_status: str | None = "Completed"
+    progress_percent: int = 0
+    chunk_count: int | None = 0
+    error_message: str | None = None
     creation_time: str | None = None
     allowed_roles: list[str] = Field(default_factory=list)

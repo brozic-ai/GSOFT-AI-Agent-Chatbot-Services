@@ -1,0 +1,99 @@
+{
+  "metadata": {
+    "agent_name": "procurement",
+    "timestamp_utc": "2026-08-17T04:57:25.108055+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 32.93,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": true
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 1,
+    "failed_cases": 0,
+    "pass_rate": 1.0,
+    "pass_percentage": "100%",
+    "avg_score": 1.0,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 1
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "proc_demo_001",
+      "passed": true,
+      "avg_score": 1.0,
+      "expected": {
+        "expected_tools": [
+          "search_request_docs"
+        ],
+        "expected_keywords": [
+          "PUR/2025/000052",
+          "50,000,000",
+          "PUR/2026/000065"
+        ],
+        "reference_answer": "Xin chào anh Bảo! Tôi đã tra cứu trên hệ thống gAMSPro. Dưới đây là các tờ trình mua sắm gần đây nhất của anh:\n1. 📄 PUR/2025/000052 — Trạng thái: Đã duyệt (Chờ đầu mối mua sắm xử lý) — 50,000,000 VND\n2. 📄 PUR/2026/000065 — Trạng thái: ⚠️ Lưu Nháp — 7,000,000 VND\n\nAnh muốn xem thông tin chi tiết của tờ trình nào?"
+      },
+      "actual": {
+        "final_answer": "Dưới đây là danh sách các Tờ trình mua sắm đã lập gần đây của bạn:\n\n---\n\n### **1. Tờ trình: PUR/2026/000065**  \n- **Mã hệ thống (REQ_ID):** TRRD00000269696  \n- **Trạng thái:** Lưu Nháp (Chờ gửi phê duyệt)  \n- **Người tạo:** Trương Quang Bảo (Phòng: Phòng Hỗ trợ)  \n- **Đơn vị:** Hội sở  \n- **Tổng tiền đề xuất:** 7,000,000 VNĐ  \n- **Ngày lập:** 2026-05-05  \n- **Lý do:** Tăng nhận diện thương hiệu và thu hút khách hàng cho sản phẩm Z  \n- **Mã Kế hoạch liên kết:** 0030/2025/TTr-0690905  \n\n---\n\n### **2. Tờ trình: PUR/2026/000040**  \n- **Mã hệ thống (REQ_ID):** TRRD00000269671  \n- **Trạng thái:** Lưu Nháp (Chờ gửi phê duyệt)  \n- **Người tạo:** Trương Quang Bảo (Phòng: Phòng Hỗ trợ)  \n- **Đơn vị:** Hội sở  \n- **Tổng tiền đề xuất:** 300,000,010 VNĐ  \n- **Ngày lập:** 2026-02-07  \n- **Lý do:** LÝ DO: TEST FLOW 07/02/2026  \n- **Mã Kế hoạch liên kết:** 0001/2026/TTr-0690905  \n\n---\n\n### **3. Tờ trình: PUR/2025/000052**  \n- **Mã hệ thống (REQ_ID):** TRRD00000269630  \n- **Trạng thái:** Đã duyệt (Chờ đầu mối mua sắm xử lý)  \n- **Người tạo:** Trương Quang Bảo (Phòng: Phòng Hỗ trợ)  \n- **Đơn vị:** Hội sở  \n- **Tổng tiền đề xuất:** 50,000,000 VNĐ  \n- **Ngày lập:** 2025-12-22  \n- **Lý do:** Chu trương mua sắm  \n- **Mã Kế hoạch liên kết:** 0049/2025/TTr-0690905  \n\n---\n\n### **4. Tờ trình: PUR/2025/000051**  \n- **Mã hệ thống (REQ_ID):** TRRD00000269629  \n- **Trạng thái:** Đã duyệt (Chờ đơn vị chuyên môn xác nhận)  \n- **Người tạo:** Trương Quang Bảo (Phòng: Phòng Hỗ trợ)  \n- **Đơn vị:** Hội sở  \n- **Tổng tiền đề xuất:** 1,000,000,000 VNĐ  \n- **Ngày lập:** 2025-12-10  \n- **Lý do:** Tờ trình quang test đừng sử dụng 18092024 LD  \n- **Mã Kế hoạch liên kết:** Chưa liên kết  \n\n---\n\n### **5. Tờ trình: PUR/2025/000047**  \n- **Mã hệ thống (REQ_ID):** TRRD00000269625  \n- **Trạng thái:** Đã duyệt (Chờ đầu mối mua sắm xử lý)  \n- **Người tạo:** Trương Quang Bảo (Phòng: Phòng Hỗ trợ)  \n- **Đơn vị:** Hội sở  \n- **Tổng tiền đề xuất:** 100,000,000 VNĐ  \n- **Ngày lập:** 2025-09-24  \n- **Lý do:** Tờ trình test Thanh toán 07/01/2024  \n- **Mã Kế hoạch liên kết:** 0001/2025/TTr-0690604  \n\n---\n\n### **Ghi chú:**  \n- **Tờ trình 4** đang chờ **đơn vị chuyên môn xác nhận**.  \n- **Tờ trình 1** và **2** đang ở trạng thái **Lưu Nháp**.  \n- **Tờ trình 5** chưa liên kết với Kế hoạch.  \n\nBạn có thể kiểm tra trạng thái của từng Tờ trình hoặc yêu cầu hỗ trợ thêm nếu cần!",
+        "tool_calls": [
+          {
+            "name": "search_request_docs",
+            "args": {
+              "so_to_trinh": null,
+              "type_job": "DVKD",
+              "user_name": "baotq"
+            }
+          }
+        ]
+      },
+      "user_query": "Cho tôi xem danh sách các Tờ trình mua sắm tôi đã lập gần đây.",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected=['search_request_docs'] actual=['search_request_docs'] matched=['search_request_docs']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 1.0,
+          "passed": true,
+          "detail": "Câu trả lời đáp ứng đầy đủ yêu cầu, liệt kê tất cả các tờ trình mua sắm gần đây với thông tin chi tiết, trạng thái, lý do và mã hệ thống. Nội dung chính xác, rõ ràng và phù hợp với yêu cầu của người dùng."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=29.073886399999537s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,118 @@
+{
+  "metadata": {
+    "agent_name": "rag",
+    "timestamp_utc": "2026-08-18T09:07:50.227948+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen2.5:3b",
+    "execution_time_seconds": 111.73,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": false
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 0,
+    "failed_cases": 1,
+    "pass_rate": 0.0,
+    "pass_percentage": "0%",
+    "avg_score": 0.4,
+    "accuracy": 0.0,
+    "macro_f1": 0.0
+  },
+  "classification_metrics": {
+    "agentic_rag": {
+      "support": 1,
+      "tp": 0,
+      "fp": 0,
+      "fn": 1,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0
+    },
+    "unknown": {
+      "support": 0,
+      "tp": 0,
+      "fp": 1,
+      "fn": 0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0
+    }
+  },
+  "confusion_matrix": {
+    "agentic_rag": {
+      "agentic_rag": 0,
+      "unknown": 1
+    },
+    "unknown": {
+      "agentic_rag": 0,
+      "unknown": 0
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 0.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 0.0,
+    "mean_confidence_incorrect": 1.0,
+    "calibration_gap": 1.0,
+    "calibration_verdict": "Overconfident (LLM tự tin quá mức khi đoán sai)"
+  },
+  "cases": [
+    {
+      "case_id": "gamspro_sys_001",
+      "passed": false,
+      "avg_score": 0.4,
+      "expected": {
+        "target_agent": "agentic_rag",
+        "reference_answer": "Phần hệ Danh mục & Hệ thống quản lý các danh mục chung (danh mục tài sản, vật liệu, đơn vị, phòng ban, nhà cung cấp) và cấu hình phân quyền người dùng, vai trò trên hệ thống gAMSPro.",
+        "expected_keywords": [
+          "Danh mục",
+          "Hệ thống",
+          "gAMSPro",
+          "phân quyền",
+          "danh mục chung"
+        ],
+        "retrieval_sources": [
+          "HDSD Phan mem QLTS GD 1-2-3 - DANH MUC - HE THONG.docx"
+        ],
+        "expected_tools": [
+          "search_policy_and_manual_docs"
+        ]
+      },
+      "actual": {
+        "final_answer": "Rất tiếc, tôi không tìm thấy thông tin cụ thể về nhóm thông tin cơ bản được quản lý trong phần Hệ thống và Hệ thống của gAMSPro trên kho tài liệu hiện tại. Tôi sẽ cố gắng mở rộng từ khóa để có kết quả tốt hơn.\n\nTôi sẽ gọi lại công cụ `search_policy_and_manual_docs` với một từ khóa mở rộng, như \"Hệ thống gAMSPro nhóm thông tin cơ bản\".\n\nĐể tự động thử lại, tôi sẽ gọi lại công cụ này sau khi đã thay đổi cách diễn đạt.",
+        "tool_calls": [
+          {
+            "name": "search_policy_and_manual_docs",
+            "args": {
+              "query": "Phần hệ Danh mục và Hệ thống trên gAMSPro quản lý những nhóm thông tin cơ bản nào"
+            }
+          }
+        ],
+        "citations": []
+      },
+      "user_query": "Phần hệ Danh mục và Hệ thống trên gAMSPro quản lý những nhóm thông tin cơ bản nào?",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected=['search_policy_and_manual_docs'] actual=['search_policy_and_manual_docs'] matched=['search_policy_and_manual_docs']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.2,
+          "passed": false,
+          "detail": "Chatbot đề xuất mở rộng từ khóa nhưng không thực hiện lại câu hỏi, dẫn đến mất đi thông tin chính xác về câu trả lời cần thiết."
+        },
+        {
+          "name": "latency",
+          "score": 0.0,
+          "passed": false,
+          "detail": "latency=67.14903730000151s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

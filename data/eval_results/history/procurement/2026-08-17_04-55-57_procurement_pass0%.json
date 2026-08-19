@@ -1,0 +1,99 @@
+{
+  "metadata": {
+    "agent_name": "procurement",
+    "timestamp_utc": "2026-08-17T04:55:57.841274+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 49.14,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": false
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 0,
+    "failed_cases": 1,
+    "pass_rate": 0.0,
+    "pass_percentage": "0%",
+    "avg_score": 0.6667,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 1
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "proc_demo_001",
+      "passed": false,
+      "avg_score": 0.6667,
+      "expected": {
+        "expected_tools": [
+          "search_request_docs"
+        ],
+        "expected_keywords": [
+          "PUR/2025/000052",
+          "50,000,000",
+          "PUR/2026/000065"
+        ],
+        "reference_answer": "Xin chào anh Bảo! Tôi đã tra cứu trên hệ thống gAMSPro. Dưới đây là các tờ trình mua sắm gần đây nhất của anh:\n1. 📄 PUR/2025/000052 — Trạng thái: Đã duyệt (Chờ đầu mối mua sắm xử lý) — 50,000,000 VND\n2. 📄 PUR/2026/000065 — Trạng thái: ⚠️ Lưu Nháp — 7,000,000 VND\n\nAnh muốn xem thông tin chi tiết của tờ trình nào?"
+      },
+      "actual": {
+        "final_answer": "",
+        "tool_calls": [
+          {
+            "name": "search_request_docs",
+            "args": {
+              "so_to_trinh": null,
+              "type_job": "DVKD",
+              "user_name": "baotq"
+            }
+          }
+        ]
+      },
+      "user_query": "Cho tôi xem danh sách các Tờ trình mua sắm tôi đã lập gần đây.",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected=['search_request_docs'] actual=['search_request_docs'] matched=['search_request_docs']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.0,
+          "passed": false,
+          "detail": "Câu trả lời không trực tiếp đáp ứng yêu cầu của người dùng (xem danh sách các tờ trình mua sắm gần đây) mà thay vào đó yêu cầu người dùng xác định tờ trình cụ thể. Câu trả lời tham chiếu đã đáp ứng yêu cầu đúng, nhưng câu trả lời của chatbot không liên quan đến yêu cầu ban đầu."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=33.73666839999896s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

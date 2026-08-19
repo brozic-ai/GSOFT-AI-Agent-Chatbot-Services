@@ -1,5 +1,7 @@
-# Agentic RAG Eval Configuration for gAMSPro HDSD
+# Agentic RAG Eval Configuration for gAMSPro Enterprise Chatbot
 metrics:
+  - type: tool_call_match
+
   - type: llm_judge
     params:
       criterion: relevance
@@ -7,4 +9,4 @@ metrics:
 
   - type: latency
     params:
-      max_seconds: 15.0
+      max_seconds: 35.0

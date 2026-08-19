@@ -1,0 +1,422 @@
+{
+  "metadata": {
+    "agent_name": "rag",
+    "timestamp_utc": "2026-08-18T08:52:23.795037+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen2.5vl:7b",
+    "execution_time_seconds": 136.05,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": false
+  },
+  "summary": {
+    "total_cases": 22,
+    "passed_cases": 0,
+    "failed_cases": 22,
+    "pass_rate": 0.0,
+    "pass_percentage": "0%",
+    "avg_score": 0.0,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 22,
+      "tp": 22,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 22
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "gamspro_sys_001",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "APIConnectionError: Connection error."
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_sys_002",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "APIConnectionError: Connection error."
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_plan_001",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_plan_002",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_kho_001",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_kho_002",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_tscd_001",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_tscd_002",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_bds_001",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_pyc_001",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_pyc_002",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_pyc_003",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_pyc_004",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_tttd_001",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_tttd_002",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_app_001",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_app_002",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_app_003",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_edge_001",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_edge_002",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_edge_003",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    },
+    {
+      "case_id": "gamspro_edge_004",
+      "passed": false,
+      "avg_score": 0.0,
+      "expected": {},
+      "actual": {},
+      "user_query": null,
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "agent_error",
+          "score": 0.0,
+          "passed": false,
+          "detail": "BadRequestError: Error code: 400 - {'error': {'message': 'registry.ollama.ai/library/qwen2.5vl:7b does not support tools', 'type': 'inval"
+        }
+      ]
+    }
+  ]
+}

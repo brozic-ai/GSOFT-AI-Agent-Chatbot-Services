@@ -44,16 +44,27 @@ async def _startup() -> None:
 
     # 1. LLM Provider — pre-warm để phát hiện lỗi config sớm
     try:
+        import os
         from app.routers.dependencies import get_llm_provider_dep
 
         provider = get_llm_provider_dep()
         logger.info("[OK] LLM Provider ready: %s", type(provider).__name__)
+        logger.info(
+            "[LANGSMITH] Tracing enabled=%s | Project='%s' | Endpoint='%s' | KeyConfigured=%s",
+            os.getenv("LANGCHAIN_TRACING_V2", "false"),
+            os.getenv("LANGCHAIN_PROJECT", "ai-agent-bvbank"),
+            os.getenv("LANGCHAIN_ENDPOINT", "default"),
+            bool(os.getenv("LANGCHAIN_API_KEY")),
+        )
     except Exception as ex:
         logger.error("[FAIL] Failed to initialize LLM Provider: %s", ex, exc_info=True)
         # Không crash app — cho phép health check vẫn hoạt động
 
-    # 2. Database — tạo bảng ORM (RagDocuments, RagDocumentRoles)
+    # 2. Database — tạo bảng ORM (RagDocuments, RagDocumentRoles, Conversations, ChatMessages)
     try:
+        # Import các ORM models để SQLAlchemy nhận biết schema trước khi create_all()
+        import app.modules.document.model  # noqa: F401 — RagDocument, RagDocumentRole
+        import app.modules.chat.model       # noqa: F401 — Conversation, ChatMessage
         from app.core.database import init_db
 
         init_db()

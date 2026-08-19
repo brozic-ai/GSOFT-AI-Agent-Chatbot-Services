@@ -1,0 +1,308 @@
+{
+  "metadata": {
+    "agent_name": "procurement",
+    "timestamp_utc": "2026-08-17T03:42:22.747038+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 102.7,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": false
+  },
+  "summary": {
+    "total_cases": 5,
+    "passed_cases": 2,
+    "failed_cases": 3,
+    "pass_rate": 0.4,
+    "pass_percentage": "40%",
+    "avg_score": 0.8133,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 5,
+      "tp": 5,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 5
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "proc_demo_001",
+      "passed": true,
+      "avg_score": 1.0,
+      "expected": {
+        "expected_tools": [
+          "search_request_docs"
+        ],
+        "expected_keywords": [
+          "PUR/2025/000052",
+          "Lưu Nháp",
+          "50,000,000",
+          "PUR/2026/000065",
+          "PUR/2025/000021"
+        ],
+        "reference_answer": "Xin chào anh Bảo! Tôi đã tra cứu trên hệ thống gAMSPro. Dưới đây là các tờ trình mua sắm gần đây nhất của anh:\n1. 📄 PUR/2025/000052 — Trạng thái: ⚠️ Lưu Nháp (Chờ gửi phê duyệt) — 50,000,000 VND\n2. 📄 PUR/2026/000065 — Trạng thái: ⚠️ Lưu Nháp (Chờ gửi phê duyệt) — 7,000,000 VND\n3. 📄 PUR/2025/000021 — Trạng thái: ✅ Đã phê duyệt — 45,000,000 VND\n\nAnh muốn xem thông tin chi tiết của tờ trình nào?"
+      },
+      "actual": {
+        "final_answer": "",
+        "tool_calls": [
+          {
+            "name": "search_request_docs",
+            "args": {
+              "so_to_trinh": null,
+              "type_job": "DVKD",
+              "user_name": "baotq"
+            }
+          }
+        ]
+      },
+      "user_query": "Cho tôi xem danh sách các Tờ trình mua sắm tôi đã lập gần đây.",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected=['search_request_docs'] actual=['search_request_docs'] matched=['search_request_docs']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 1.0,
+          "passed": true,
+          "detail": "Câu trả lời trực tiếp đáp ứng yêu cầu của người dùng về việc xem danh sách các tờ trình mua sắm gần đây, bao gồm thông tin trạng thái và số tiền. Tuy nhiên, câu trả lời không hỏi người dùng chọn tờ trình cụ thể, nhưng điều này không ảnh hưởng đến tính liên quan của câu trả lời với yêu cầu ban đầu."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=23.04352680000011s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "proc_demo_002",
+      "passed": false,
+      "avg_score": 0.8333,
+      "expected": {
+        "expected_tools": [
+          "get_request_doc_detail"
+        ],
+        "expected_keywords": [
+          "PUR/2025/000052",
+          "TRRD00000269630",
+          "Trương Quang Bảo",
+          "Phòng Hỗ trợ",
+          "50,000,000",
+          "0049/2025/TTr-0690905",
+          "Lưu Nháp"
+        ],
+        "reference_answer": "Đây là thông tin chi tiết Tờ trình số PUR/2025/000052:\n- Mã hệ thống: TRRD00000269630\n- Người lập: Trương Quang Bảo (Phòng Hỗ trợ — Hội sở)\n- Đơn vị chịu chi phí: Hội sở BVBank — Phòng Hỗ trợ\n- Tổng tiền đề xuất: 50,000,000 VND\n- Ngày tạo: 22/12/2025\n- Trạng thái: ⚠️ Lưu Nháp (Chờ gửi phê duyệt)\n- Kế hoạch liên kết: 📌 0049/2025/TTr-0690905\n\nTờ trình này hiện đang ở trạng thái Lưu Nháp và chưa gửi lên cấp phê duyệt. Anh có muốn tôi kiểm tra Hạn mức Ngân sách của Kế hoạch liên kết 0049/2025/TTr-0690905 không?"
+      },
+      "actual": {
+        "final_answer": "📊 **CHI TIẾT TỜ TRÌNH: PUR/2025/000052**  \n- **Mã định danh hệ thống (REQ_ID):** `TRRD00000269630`  \n- **Người lập:** Trương Quang Bảo (Phòng: Phòng Hỗ trợ — Hội sở)  \n- **Đơn vị chịu chi phí:** Hội sở — Phòng Hỗ trợ  \n- **Tổng tiền đề xuất:** 50,000,000 VNĐ  \n- **Ngày tạo tờ trình:** 2025-12-22T14:31:29  \n- **Trạng thái:** Đã duyệt (Chờ đầu mối mua sắm xử lý)  \n- **Nội dung / Lý do:** Chu trương mua sắm  \n- **Kế hoạch liên kết:** 📌 `0049/2025/TTr-0690905`  \n\n📌 **Ghi chú:**  \n- Tờ trình đang ở trạng thái **Chờ đầu mối mua sắm xử lý**.  \n- Hiện chưa có thông tin về **kế hoạch ngân sách** được duyệt để đối soát.  \n- **Bước tiếp theo:**  \n  1. Hoàn thành Tờ trình mua sắm (nếu chưa hoàn tất).  \n  2. Gửi Tờ trình đến đầu mối mua sắm để xử lý.  \n  3. Theo dõi tiến độ qua hệ thống (nếu có).  \n\n⚠️ **Lưu ý:** Không có thông tin về các Đơn đặt hàng PO (POs) đang triển khai hiện tại.",
+        "tool_calls": [
+          {
+            "name": "get_request_doc_detail",
+            "args": {
+              "doc_identifier": "PUR/2025/000052"
+            }
+          }
+        ]
+      },
+      "user_query": "Cho tôi xem chi tiết tờ trình PUR/2025/000052 đi.",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected=['get_request_doc_detail'] actual=['get_request_doc_detail'] matched=['get_request_doc_detail']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.5,
+          "passed": false,
+          "detail": "Câu trả lời chatbot thêm thông tin không liên quan trực tiếp đến yêu cầu của người dùng (ví dụ: trạng thái, bước tiếp theo, ghi chú), nhưng vẫn cung cấp thông tin chi tiết về tờ trình. Tuy nhiên, việc thêm thông tin dư thừa và không rõ ràng về mục đích của tờ trình (nội dung, lý do) làm giảm độ phù hợp với tiêu chí 'relevance'."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=12.839977499999804s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "proc_demo_003",
+      "passed": false,
+      "avg_score": 0.6667,
+      "expected": {
+        "expected_tools": [
+          "check_plan_budget_detail"
+        ],
+        "expected_keywords": [
+          "0049/2025/TTr-0690905",
+          "156,750,000",
+          "125,400,000",
+          "ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH",
+          "50,000,000"
+        ],
+        "reference_answer": "Tôi đã tra cứu Kế hoạch Ngân sách liên kết 0049/2025/TTr-0690905 trên gAMSPro. Kết quả đối soát như sau:\n- Mã Kế hoạch: 0049/2025/TTr-0690905\n- Tên Kế hoạch: Chủ trương mua sắm hoạt động\n- Trạng thái Kế hoạch: ✅ Đã phê duyệt\n- Tổng hạn mức ngân sách: 156,750,000 VND\n- Ngân sách đã cam kết/dùng: 31,350,000 VND\n- Ngân sách còn lại khả dụng: 🟩 125,400,000 VND\n\n🟢 ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH:\nKế hoạch đã được phê duyệt hợp lệ. Ngân sách còn lại khả dụng (125,400,000 VND) hoàn toàn đủ để cover khoản đề xuất 50,000,000 VND của Tờ trình PUR/2025/000052.\n\nAnh có muốn kiểm tra tiến độ các Đơn đặt hàng PO (Phiếu gọi hàng) đã phát hành thuộc đơn vị mình không?"
+      },
+      "actual": {
+        "final_answer": "📊 **THÔNG TIN KẾ HOẠCH NGÂN SÁCH LIÊN KẾT:**\n- **Mã Kế hoạch:** `0030/2025/TTr-0690905`  \n- **Tên Kế hoạch:** Đề xuất chủ trương thực hiện chiến dịch quảng cáo trực tuyến Quý X/Năm Y  \n- **Đơn vị quản lý / thụ hưởng:** Hội sở — Phòng Hỗ trợ  \n- **Trạng thái Kế hoạch:** Đã duyệt (Ngày duyệt: 2025-05-29T08:39:26)  \n- **Tổng hạn mức ngân sách:** 182,200,590 VNĐ  \n- **Ngân sách đã thực hiện:** 25,012,110 VNĐ  \n- **Ngân sách còn lại khả dụng:** 🟩 **157,188,480 VNĐ**  \n\n🟢 **ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH:**  \nKế hoạch đã được phê duyệt hợp lệ. **Ngân sách còn lại khả dụng (157,188,480 VNĐ)** hoàn toàn đủ để cover khoản đề xuất của Tờ trình mua sắm.  \n\n> 💡 **Lưu ý nghiệp vụ:**  \n> - Anh/Chị có thể tiếp tục hoàn thiện chi tiết Tờ trình trên gAMSPro (ví dụ: bổ sung danh mục hàng hóa, đơn giá thực tế).  \n> - Sau khi hoàn thiện, nhấn nút **'Gửi phê duyệt'** để chuyển hồ sơ đến Trưởng đơn vị và Đơn vị Chuyên môn (Đơn vị thụ hưởng).",
+        "tool_calls": [
+          {
+            "name": "check_plan_budget_detail",
+            "args": {
+              "ma_ke_hoach": "0049/2025/TTr-0690905",
+              "user_name": "baotq"
+            }
+          }
+        ]
+      },
+      "user_query": "Kiểm tra luôn Kế hoạch liên kết giúp tôi.",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected=['check_plan_budget_detail'] actual=['check_plan_budget_detail'] matched=['check_plan_budget_detail']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.0,
+          "passed": false,
+          "detail": "Câu trả lời không liên quan đến Kế hoạch liên kết mà đề cập đến Kế hoạch khác (0030/2025/TTr-0690905) và không đáp ứng yêu cầu kiểm tra Kế hoạch liên kết theo yêu cầu của người dùng."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=12.041387799999939s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "proc_demo_004",
+      "passed": true,
+      "avg_score": 0.9333,
+      "expected": {
+        "expected_tools": [
+          "get_po_master_status"
+        ],
+        "expected_keywords": [
+          "chưa có Đơn đặt hàng PO nào",
+          "PUR/2025/000052",
+          "PO069/26/0006",
+          "PO069/26/0004"
+        ],
+        "reference_answer": "Hiện tại chưa có Đơn đặt hàng PO nào được khởi tạo trực tiếp từ Tờ trình PUR/2025/000052 vì tờ trình vẫn đang trong luồng xử lý phê duyệt.\n\n🚚 Tuy nhiên, dưới đây là các Đơn hàng PO (Phiếu gọi hàng) khác đang triển khai tại Phòng Hỗ trợ:\n1. 🔹 PO069/26/0006 — Nhà cung cấp: testzzzzz — 12,765 VND (Đã ký duyệt PO | Hạn giao hàng: 30/05/2025)\n2. 🔹 PO069/26/0004 — Nhà cung cấp: FPT Telecom — 275,000 VND (Chờ giao hàng)"
+      },
+      "actual": {
+        "final_answer": "Tờ trình **PUR/2025/000052** hiện tại **không có Đơn đặt hàng PO (PO)** được tạo trực tiếp từ nó. Tuy nhiên, hệ thống đang triển khai **4308 Đơn hàng PO** khác, có thể liên quan đến các nội dung hoặc yêu cầu trong Tờ trình này. Dưới đây là các thông tin chi tiết:\n\n1. **PO069/26/0006**  \n   - **Nội dung**: Tờ trình chủ trương  \n   - **Trạng thái**: Đã duyệt  \n   - **Nhà cung cấp**: testzzzzz  \n   - **Tổng giá trị**: 12,765 VND  \n   - **Hạn giao hàng**: 2025-05-30  \n\n2. **PO069/26/0004**  \n   - **Nội dung**: Gọi hàng cho Hợp đồng nguyên tắc  \n   - **Trạng thái**: Đã duyệt  \n   - **Nhà cung cấp**: Không có  \n   - **Tổng giá trị**: 275,000 VND  \n   - **Hạn giao hàng**: Chưa xác định  \n\n3. **PO069/26/0005**  \n   - **Nội dung**: Gọi hàng cho Hợp đồng nguyên tắc 2101  \n   - **Trạng thái**: Đã duyệt  \n   - **Nhà cung cấp**: testzzzzz  \n   - **Tổng giá trị**: 729,000 VND  \n   - **Hạn giao hàng**: Chưa xác định  \n\n4. **PO069/26/0003**  \n   - **Nội dung**: Tờ trình quang test đừng sử dụng 18092024 LD  \n   - **Trạng thái**: Đã duyệt  \n   - **Nhà cung cấp**: Không có  \n   - **Tổng giá trị**: 0 VND  \n   - **Hạn giao hàng**: Chưa xác định  \n\n**Lưu ý**: Các PO này không phải là kết quả trực tiếp từ Tờ trình **PUR/2025/000052**, nhưng có thể liên quan đến các nội dung hoặc yêu cầu trong Tờ trình đó. Nếu cần kiểm tra thêm, hãy cung cấp mã Tờ trình hoặc thông tin cụ thể.",
+        "tool_calls": [
+          {
+            "name": "get_po_master_status",
+            "args": {
+              "doc_no": "PUR/2025/000052",
+              "user_name": "baotq"
+            }
+          }
+        ]
+      },
+      "user_query": "Có PO nào được tạo từ tờ trình này chưa?",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected=['get_po_master_status'] actual=['get_po_master_status'] matched=['get_po_master_status']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.8,
+          "passed": true,
+          "detail": "Câu trả lời đúng về việc không có PO trực tiếp từ Tờ trình PUR/2025/000052, nhưng liệt kê 4308 PO khác có thể liên quan đến nội dung tờ trình. Tuy nhiên, thông tin chi tiết các PO (như mã, nội dung, trạng thái) chưa được nêu rõ, gây khó hiểu về mối liên hệ giữa tờ trình và PO. Có thể cải thiện bằng cách nêu rõ 'các PO này không phải là kết quả trực tiếp từ tờ trình, nhưng có thể liên quan đến nội dung hoặc yêu cầu trong tờ trình'."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=14.66936970000097s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "proc_demo_005",
+      "passed": false,
+      "avg_score": 0.6333,
+      "expected": {
+        "expected_tools": [],
+        "expected_keywords": [
+          "Bước 1",
+          "Bước 2",
+          "Bước 3",
+          "Gửi phê duyệt",
+          "gAMSPro",
+          "PUR/2025/000052"
+        ],
+        "reference_answer": "Để Tờ trình PUR/2025/000052 sớm được phê duyệt và chuyển sang giai đoạn tạo đơn hàng PO, anh Bảo thực hiện theo 3 bước chuẩn sau trên hệ thống gAMSPro:\n\n1️⃣ Bước 1 — Hoàn thiện chi tiết Tờ trình trên gAMSPro:\nAnh truy cập phân hệ Quản lý Mua sắm ➔ Phiếu yêu cầu mua sắm trên giao diện gAMSPro, chọn mã PUR/2025/000052 để bổ sung danh mục hàng hóa, chủng loại và đơn giá thực tế.\n\n2️⃣ Bước 2 — Trình duyệt Tờ trình:\nNhấn nút 'Gửi phê duyệt' ở góc trên màn hình. Hệ thống sẽ tự động chuyển Tờ trình đến Trưởng phòng Hỗ trợ và Đơn vị Chuyên môn (Phòng Hành chính / Khối QLVH) để ký duyệt số.\n\n3️⃣ Bước 3 — Theo dõi tiến độ phê duyệt qua AI Chatbot:\nBất kỳ lúc nào, anh chỉ cần nhắn cho tôi: 'Tờ trình PUR/2025/000052 đến cấp nào rồi?' — Tôi sẽ tra cứu nhật ký xử lý (Workflow Audit Log) và báo cáo ngay cấp đang giữ hồ sơ.\n\n💡 Lưu ý nghiệp vụ: Ngay khi Tờ trình hoàn tất phê duyệt, Đơn vị Mua sắm (ĐMMS) sẽ chọn Nhà cung cấp, lập Biên bản xét giá và phát hành Đơn đặt hàng PO (Phiếu gọi hàng)."
+      },
+      "actual": {
+        "final_answer": "📊 **CHI TIẾT TỜ TRÌNH:**  \n- **Mã REQ_ID:** `TRRD00000269630`  \n- **Người lập:** Trương Quang Bảo (Phòng: Phòng Hỗ trợ — Hội sở)  \n- **Đơn vị chịu chi phí:** Hội sở — Phòng Hỗ trợ  \n- **Tổng tiền đề xuất:** 50,000,000 VND  \n- **Ngày tạo:** 2025-12-22T14:31:29  \n- **Trạng thái:** Đã duyệt (Chờ đầu mối mua sắm xử lý)  \n- **Nội dung:** Chu trình mua sắm  \n- **Kế hoạch liên kết:** 📌 `0049/2025/TTr-0690905`  \n\n✅ **Hướng dẫn hành động:**  \n1. **Hoàn thiện chi tiết Tờ trình:**  \n   - Truy cập phân hệ *Quản lý Mua sắm ➔ Phiếu yêu cầu mua sắm*, chọn mã tờ trình để bổ sung danh sách hàng hóa/dịch vụ.  \n   - Đảm bảo số tiền đề xuất chính xác và phù hợp với kế hoạch liên kết.  \n\n2. **Đầu mối mua sắm xử lý:**  \n   - Gửi Tờ trình đến đầu mối mua sắm (ví dụ: Phòng Hỗ trợ) để xử lý.  \n   - Đợi phản hồi từ đầu mối trước khi tiếp tục.  \n\n3. **Theo dõi tiến độ:**  \n   - Gửi yêu cầu đến AI chatbot để kiểm tra trạng thái tiếp theo.  \n\n📌 **Lưu ý:** Tờ trình hiện ở trạng thái \"Chờ đầu mối mua sắm xử lý\", nên cần hoàn thiện các bước trên trước khi tiếp tục.",
+        "tool_calls": [
+          {
+            "name": "get_request_doc_detail",
+            "args": {
+              "doc_identifier": "PUR/2025/000052",
+              "user_name": "baotq"
+            }
+          }
+        ]
+      },
+      "user_query": "Bây giờ tôi cần làm gì để Tờ trình PUR/2025/000052 được duyệt?",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 0.0,
+          "passed": false,
+          "detail": "Kỳ vọng không gọi tool nhưng actual gọi: ['get_request_doc_detail']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.9,
+          "passed": true,
+          "detail": "Câu trả lời đáp ứng đầy đủ tiêu chí relevance, cung cấp các bước thực hiện đúng quy trình phê duyệt Tờ trình PUR/2025/000052, bao gồm mã REQ_ID, đơn vị chịu chi phí, tổng tiền đề xuất, trạng thái hiện tại và lưu ý nghiệp vụ. Tuy nhiên, phần thông tin chi tiết về các bước (ví dụ: truy cập phân hệ, nhấn nút 'Gửi phê duyệt') có thể được rút gọn để phù hợp với yêu cầu ngắn gọn của người dùng."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=15.985556800000268s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

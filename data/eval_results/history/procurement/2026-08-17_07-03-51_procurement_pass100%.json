@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "agent_name": "procurement",
+    "timestamp_utc": "2026-08-17T07:03:51.254256+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 18.97,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": true
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 1,
+    "failed_cases": 0,
+    "pass_rate": 1.0,
+    "pass_percentage": "100%",
+    "avg_score": 1.0,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 1
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "proc_demo_019",
+      "passed": true,
+      "avg_score": 1.0,
+      "expected": {
+        "expected_tools": [],
+        "expected_keywords": [
+          "Tờ trình Mua sắm",
+          "Kế hoạch Ngân sách",
+          "Đơn đặt hàng PO",
+          "đối soát",
+          "hướng dẫn"
+        ],
+        "reference_answer": "Tôi là Trợ lý AI Mua sắm Doanh nghiệp (gAMSPro) của BVBank, sẵn sàng hỗ trợ anh các nghiệp vụ:\n1. 📄 Tra cứu danh sách & chi tiết Tờ trình Mua sắm (tiến độ, trạng thái duyệt, số tiền).\n2. 📊 Đối soát Hạn mức Ngân sách Kế hoạch liên kết (ngân sách còn lại khả dụng).\n3. 🚚 Theo dõi Đơn đặt hàng PO / Phiếu gọi hàng (nhà cung cấp, hạn giao hàng).\n4. 💡 Hướng dẫn các bước thao tác nghiệp vụ và quy trình phê duyệt trên hệ thống gAMSPro."
+      },
+      "actual": {
+        "final_answer": "| **Nghiệp vụ hỗ trợ** | **Mô tả** |\n|----------------------|------------|\n| **Tra cứu Tờ trình** | Xem danh sách hoặc tìm kiếm tờ trình mua sắm theo mã số (ví dụ: PUR/2025/000052) |\n| **Tra cứu Kế hoạch** | Kiểm tra thông tin Kế hoạch mua sắm, đối soát ngân sách, và trạng thái phê duyệt |\n| **Tra cứu Đơn đặt hàng (PO)** | Xem tình trạng PO, lịch giao hàng, và thông tin đơn hàng |\n| **Thông tin chi tiết** | Truy xuất dữ liệu chi tiết của Tờ trình, Kế hoạch, hoặc PO |\n| **Điều hướng nghiệp vụ** | Hướng dẫn cán bộ hoàn thiện Tờ trình, trình duyệt, và theo dõi tiến độ qua AI Chatbot |\n\n📌 **Ghi chú:**  \n- Tuyệt đối không gọi tool kỹ thuật (API, hàm xử lý).  \n- Chỉ hỗ trợ nghiệp vụ ngân hàng chuẩn (trạng thái phê duyệt, ngân sách, PO).  \n- Trình bày thông tin bằng bảng biểu và icon (✅, ⚠️, 📌).",
+        "tool_calls": []
+      },
+      "user_query": "Trợ lý Mua sắm gAMSPro có thể hỗ trợ tôi những nghiệp vụ gì?",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "Không có tool call nào (khớp kỳ vọng)"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 1.0,
+          "passed": true,
+          "detail": "Câu trả lời hoàn toàn phù hợp với tiêu chí 'relevance' vì đã bao quát đầy đủ các nghiệp vụ chính (tra cứu Tờ trình, Kế hoạch, PO, thông tin chi tiết) và tuân thủ yêu cầu về định dạng bảng biểu, icon, và không sử dụng thuật ngữ kỹ thuật."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=13.253236700002162s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

@@ -25,6 +25,7 @@ from app.ai.eval.metrics import (
     LLMJudgeMetric,
     Metric,
     MinValueMetric,
+    ToolCallMatchMetric,
 )
 from app.ai.eval.scorer import CaseResult, EvalCase, Scorer
 
@@ -37,6 +38,7 @@ _METRIC_REGISTRY: dict[str, type[Metric]] = {
     "min_value": MinValueMetric,
     "latency": LatencyMetric,
     "llm_judge": LLMJudgeMetric,
+    "tool_call_match": ToolCallMatchMetric,
 }
 
 
@@ -91,6 +93,7 @@ def _load_cases(
     results_dir: Path | None = None,
 ) -> list[EvalCase]:
     cases: list[EvalCase] = []
+    case_counter = 1
     for case_file in sorted(cases_dir.glob("*.json")):
         raw_cases = json.loads(case_file.read_text(encoding="utf-8"))
         for raw in raw_cases:
@@ -100,9 +103,10 @@ def _load_cases(
                     input=raw["input"],
                     expected=raw["expected"],
                     tags=raw.get("tags", []),
-                    index=raw.get("index"),
+                    index=raw.get("index") or case_counter,
                 )
             )
+            case_counter += 1
 
     # 1. Nếu bật cờ --failed: đọc file result latest của agent để lọc ra danh sách test case FAIL
     if only_failed and agent_name:
@@ -149,39 +153,42 @@ def _load_cases(
     if target_index is not None:
         target_str = str(target_index).strip().lower()
 
-        # Tier 1: Khớp exact index số (ví dụ: "2" -> index == 2)
+        # Tier 1: Khớp exact index số (ví dụ: "2" -> test case thứ 2 trong danh sách)
         if target_str.isdigit():
             idx_num = int(target_str)
             exact_index_cases = [c for c in cases if c.index == idx_num]
             if exact_index_cases:
                 return exact_index_cases
 
-        # Tier 2: Khớp exact ID (ví dụ: "TC_002_...")
+            # Tier 1b: Khớp hậu tố số của ID (ví dụ: "2" -> khớp proc_case_002 / sup_demo_002)
+            suffix_3 = f"_{idx_num:03d}"
+            suffix_2 = f"_{idx_num:02d}"
+            suffix_1 = f"_{idx_num}"
+            suffix_cases = [
+                c
+                for c in cases
+                if c.id.lower().endswith(suffix_3)
+                or c.id.lower().endswith(suffix_2)
+                or c.id.lower().endswith(suffix_1)
+            ]
+            if suffix_cases:
+                return suffix_cases
+
+        # Tier 2: Khớp exact ID (ví dụ: "proc_case_002")
         exact_id_cases = [c for c in cases if c.id.lower() == target_str]
         if exact_id_cases:
             return exact_id_cases
 
-        # Tier 3: Khớp formatted TC index (ví dụ: "2" -> "tc_002")
-        if target_str.isdigit():
-            formatted_tc = f"tc_{int(target_str):03d}"
-            formatted_cases = [
-                c
-                for c in cases
-                if formatted_tc in c.id.lower()
-                or any(formatted_tc == t.lower() for t in c.tags)
-            ]
-            if formatted_cases:
-                return formatted_cases
-
-        # Tier 4: Khớp exact tag (ví dụ: "faq" hoặc "admin")
+        # Tier 3: Khớp exact tag (ví dụ: "request_doc_detail" hoặc "faq")
         tag_cases = [c for c in cases if any(target_str == t.lower() for t in c.tags)]
         if tag_cases:
             return tag_cases
 
-        # Tier 5: Substring match trong case ID
-        substring_cases = [c for c in cases if target_str in c.id.lower()]
-        if substring_cases:
-            return substring_cases
+        # Tier 4: Substring match trong case ID (chỉ áp dụng khi KHÔNG phải số thuần túy)
+        if not target_str.isdigit():
+            substring_cases = [c for c in cases if target_str in c.id.lower()]
+            if substring_cases:
+                return substring_cases
 
         try:
             from rich.console import Console
@@ -267,7 +274,10 @@ async def run_eval(
                 )
                 start = time.perf_counter()
                 try:
-                    actual = await agent_fn(case.input)
+                    case_input = dict(case.input)
+                    case_input["_eval_case_id"] = case.id
+                    case_input["_eval_case_index"] = i
+                    actual = await agent_fn(case_input)
                 except Exception as ex:
                     latency = time.perf_counter() - start
                     from app.ai.eval.metrics import MetricResult
@@ -321,7 +331,10 @@ async def run_eval(
         for i, case in enumerate(cases, 1):
             start = time.perf_counter()
             try:
-                actual = await agent_fn(case.input)
+                case_input = dict(case.input)
+                case_input["_eval_case_id"] = case.id
+                case_input["_eval_case_index"] = i
+                actual = await agent_fn(case_input)
             except Exception as ex:
                 latency = time.perf_counter() - start
                 from app.ai.eval.metrics import MetricResult

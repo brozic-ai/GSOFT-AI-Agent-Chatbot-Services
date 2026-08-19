@@ -1,0 +1,691 @@
+{
+  "metadata": {
+    "agent_name": "supervisor",
+    "timestamp_utc": "2026-08-10T04:22:01.726412+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 181.79,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": false
+  },
+  "summary": {
+    "total_cases": 17,
+    "passed_cases": 7,
+    "failed_cases": 10,
+    "pass_rate": 0.4118,
+    "pass_percentage": "41%",
+    "avg_score": 0.7755,
+    "accuracy": 0.4118,
+    "macro_f1": 0.25
+  },
+  "classification_metrics": {
+    "fallback": {
+      "support": 1,
+      "tp": 0,
+      "fp": 5,
+      "fn": 1,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0
+    },
+    "faq": {
+      "support": 11,
+      "tp": 6,
+      "fp": 1,
+      "fn": 5,
+      "precision": 0.8571,
+      "recall": 0.5455,
+      "f1_score": 0.6667
+    },
+    "gamspro": {
+      "support": 4,
+      "tp": 1,
+      "fp": 1,
+      "fn": 3,
+      "precision": 0.5,
+      "recall": 0.25,
+      "f1_score": 0.3333
+    },
+    "rag": {
+      "support": 1,
+      "tp": 0,
+      "fp": 3,
+      "fn": 1,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1_score": 0.0
+    }
+  },
+  "confusion_matrix": {
+    "fallback": {
+      "fallback": 0,
+      "faq": 1,
+      "gamspro": 0,
+      "rag": 0
+    },
+    "faq": {
+      "fallback": 5,
+      "faq": 6,
+      "gamspro": 0,
+      "rag": 0
+    },
+    "gamspro": {
+      "fallback": 0,
+      "faq": 0,
+      "gamspro": 1,
+      "rag": 3
+    },
+    "rag": {
+      "fallback": 0,
+      "faq": 0,
+      "gamspro": 1,
+      "rag": 0
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 0.4118,
+    "mean_confidence": 0.9147,
+    "mean_confidence_correct": 0.9429,
+    "mean_confidence_incorrect": 0.895,
+    "calibration_gap": 0.5029,
+    "calibration_verdict": "Overconfident (LLM tự tin quá mức khi đoán sai)"
+  },
+  "cases": [
+    {
+      "case_id": "TC_001_faq_cap_nhat_noi_quy",
+      "passed": true,
+      "avg_score": 0.9833,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "faq",
+        "confidence": 0.95,
+        "reasoning": "Câu hỏi 'Làm thế nào để cập nhật nội quy?' là câu hỏi đơn giản, có đáp án cố định về quy trình cập nhật nội quy, thuộc phạm vi kiến thức cơ bản về văn phòng phẩm và quy định nội bộ."
+      },
+      "user_query": "Làm thế nào để cập nhật nội quy?",
+      "reasoning": "Câu hỏi 'Làm thế nào để cập nhật nội quy?' là câu hỏi đơn giản, có đáp án cố định về quy trình cập nhật nội quy, thuộc phạm vi kiến thức cơ bản về văn phòng phẩm và quy định nội bộ.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=17.04403709999997s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_003_faq_dinh_huong_nam_moi",
+      "passed": false,
+      "avg_score": 0.6167,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "fallback",
+        "confidence": 0.85,
+        "reasoning": "Câu hỏi 'Cập nhật định hướng năm mới như thế nào?' không rõ ràng, không thể xác định cụ thể là vấn đề nghiệp vụ hay câu hỏi đơn giản. Nó không tuân theo các dấu hiệu rõ ràng của các loại intent khác nhau và thiếu thông tin để phân loại chính xác."
+      },
+      "user_query": "Cập nhật định hướng năm mới như thế nào?",
+      "reasoning": "Câu hỏi 'Cập nhật định hướng năm mới như thế nào?' không rõ ràng, không thể xác định cụ thể là vấn đề nghiệp vụ hay câu hỏi đơn giản. Nó không tuân theo các dấu hiệu rõ ràng của các loại intent khác nhau và thiếu thông tin để phân loại chính xác.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='faq' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.935933500000374s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_004_faq_gui_thong_bao_toan_hang",
+      "passed": true,
+      "avg_score": 0.9833,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "faq",
+        "confidence": 0.95,
+        "reasoning": "Câu hỏi 'Làm sao gửi thông báo toàn hàng?' là câu hỏi đơn giản, yêu cầu hướng dẫn từng bước cụ thể, phù hợp với định nghĩa FAQ (trả lời ngắn gọn, không có branching conditions). Câu hỏi không liên quan đến quy trình phức tạp, điều kiện, hoặc hệ thống cụ thể, nên được phân loại vào category FAQ."
+      },
+      "user_query": "Làm sao gửi thông báo toàn hàng?",
+      "reasoning": "Câu hỏi 'Làm sao gửi thông báo toàn hàng?' là câu hỏi đơn giản, yêu cầu hướng dẫn từng bước cụ thể, phù hợp với định nghĩa FAQ (trả lời ngắn gọn, không có branching conditions). Câu hỏi không liên quan đến quy trình phức tạp, điều kiện, hoặc hệ thống cụ thể, nên được phân loại vào category FAQ.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=8.22671020000007s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_005_faq_tao_khoa_hoc_hoi_nhap",
+      "passed": false,
+      "avg_score": 0.6167,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "fallback",
+        "confidence": 0.85,
+        "reasoning": "Câu hỏi về việc tạo khóa học hội nhập không thuộc phạm vi các phân hệ nghiệp vụ cụ thể (TSCĐ, Fleet, PYCXE, VHX, Kho, Tờ trình, Thanh toán tự động) và không liên quan đến các module gAMSPro. Đây là câu hỏi chung, không rõ ràng về nội dung cụ thể, nên thuộc loại fallback."
+      },
+      "user_query": "Làm sao tạo khóa học hội nhập?",
+      "reasoning": "Câu hỏi về việc tạo khóa học hội nhập không thuộc phạm vi các phân hệ nghiệp vụ cụ thể (TSCĐ, Fleet, PYCXE, VHX, Kho, Tờ trình, Thanh toán tự động) và không liên quan đến các module gAMSPro. Đây là câu hỏi chung, không rõ ràng về nội dung cụ thể, nên thuộc loại fallback.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='faq' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=8.28441440000006s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_006_faq_xem_lich_su_thay_doi",
+      "passed": false,
+      "avg_score": 0.6167,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "fallback",
+        "confidence": 0.85,
+        "reasoning": "Câu hỏi 'Xem lịch sử thay đổi ở đâu?' không rõ ràng, không liên quan cụ thể đến các quy trình nghiệp vụ hoặc phân hệ cụ thể. Nó có thể là chitchat hoặc câu hỏi mơ hồ, không đủ thông tin để xác định intent."
+      },
+      "user_query": "Xem lịch sử thay đổi ở đâu?",
+      "reasoning": "Câu hỏi 'Xem lịch sử thay đổi ở đâu?' không rõ ràng, không liên quan cụ thể đến các quy trình nghiệp vụ hoặc phân hệ cụ thể. Nó có thể là chitchat hoặc câu hỏi mơ hồ, không đủ thông tin để xác định intent.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='faq' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=6.808455299999878s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_008_faq_quy_trinh_phe_duyet",
+      "passed": false,
+      "avg_score": 0.6167,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "fallback",
+        "confidence": 0.85,
+        "reasoning": "Câu hỏi 'Quy trình phê duyệt ra sao?' là câu hỏi chung về quy trình phê duyệt, không cụ thể về phân hệ hoặc module nào, và không có thông tin rõ ràng để xác định intent. Theo quy tắc, câu hỏi không rõ ràng hoặc off-topic sẽ được phân loại vào fallback."
+      },
+      "user_query": "Quy trình phê duyệt ra sao?",
+      "reasoning": "Câu hỏi 'Quy trình phê duyệt ra sao?' là câu hỏi chung về quy trình phê duyệt, không cụ thể về phân hệ hoặc module nào, và không có thông tin rõ ràng để xác định intent. Theo quy tắc, câu hỏi không rõ ràng hoặc off-topic sẽ được phân loại vào fallback.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='faq' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=12.65230479999991s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_010_faq_xuat_pdf",
+      "passed": true,
+      "avg_score": 0.9833,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "faq",
+        "confidence": 0.95,
+        "reasoning": "Câu hỏi 'Có thể xuất PDF không?' là câu hỏi đơn giản, có đáp án cố định về khả năng thực hiện hành động (xuất PDF) trong phạm vi hệ thống, phù hợp với định nghĩa của mục 'faq' (trả lời ngắn gọn, không cần phân nhánh)."
+      },
+      "user_query": "Có thể xuất PDF không?",
+      "reasoning": "Câu hỏi 'Có thể xuất PDF không?' là câu hỏi đơn giản, có đáp án cố định về khả năng thực hiện hành động (xuất PDF) trong phạm vi hệ thống, phù hợp với định nghĩa của mục 'faq' (trả lời ngắn gọn, không cần phân nhánh).",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=11.070974600000227s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_019_faq_di_tre_ve_som",
+      "passed": false,
+      "avg_score": 0.6167,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "fallback",
+        "confidence": 0.85,
+        "reasoning": "Câu hỏi về việc xử lý đi trễ hoặc về sớm không rõ ràng, không cụ thể về quy trình hoặc nội dung cụ thể, không thuộc về các loại câu hỏi trong danh sách ví dụ (faq, rag, gamspro). Đây là một câu hỏi chitchat hoặc không rõ ràng."
+      },
+      "user_query": "Đi trễ, về sớm bị xử lý như thế nào?",
+      "reasoning": "Câu hỏi về việc xử lý đi trễ hoặc về sớm không rõ ràng, không cụ thể về quy trình hoặc nội dung cụ thể, không thuộc về các loại câu hỏi trong danh sách ví dụ (faq, rag, gamspro). Đây là một câu hỏi chitchat hoặc không rõ ràng.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='faq' actual='fallback'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.85,
+          "passed": true,
+          "detail": "confidence=0.85 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=15.69776929999989s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_023_faq_phan_anh_khieu_nai",
+      "passed": true,
+      "avg_score": 0.9833,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "faq",
+        "confidence": 0.95,
+        "reasoning": "Câu hỏi 'Làm thế nào để phản ánh, khiếu nại nội bộ?' là câu hỏi đơn giản, có đáp án cố định về quy trình phản ánh khiếu nại, phù hợp với định nghĩa của category faq."
+      },
+      "user_query": "Làm thế nào để phản ánh, khiếu nại nội bộ?",
+      "reasoning": "Câu hỏi 'Làm thế nào để phản ánh, khiếu nại nội bộ?' là câu hỏi đơn giản, có đáp án cố định về quy trình phản ánh khiếu nại, phù hợp với định nghĩa của category faq.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=11.409678200000144s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_025_faq_dang_ky_cong_tac",
+      "passed": true,
+      "avg_score": 0.9833,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "faq",
+        "confidence": 0.95,
+        "reasoning": "Câu hỏi 'Làm thế nào để đăng ký đi công tác?' là câu hỏi đơn giản, có đáp án cố định về quy trình đăng ký, thuộc phạm vi 'faq' vì nó là câu hỏi đơn giản, không yêu cầu truy xuất dữ liệu phức tạp."
+      },
+      "user_query": "Làm thế nào để đăng ký đi công tác?",
+      "reasoning": "Câu hỏi 'Làm thế nào để đăng ký đi công tác?' là câu hỏi đơn giản, có đáp án cố định về quy trình đăng ký, thuộc phạm vi 'faq' vì nó là câu hỏi đơn giản, không yêu cầu truy xuất dữ liệu phức tạp.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=14.894183500000054s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_026_faq_quy_trinh_onboarding",
+      "passed": true,
+      "avg_score": 0.9667,
+      "expected": {
+        "target_agent": "faq"
+      },
+      "actual": {
+        "target_agent": "faq",
+        "confidence": 0.9,
+        "reasoning": "Câu hỏi về quy trình onboarding nhân viên mới là một câu hỏi đơn giản, có thể trả lời bằng một câu ngắn, thuộc phạm vi kiến thức cơ bản về HR. Tuy nhiên, theo định nghĩa FAQ, nó phù hợp với các câu hỏi đơn giản, có đáp án cố định."
+      },
+      "user_query": "Quy trình onboarding cho nhân viên mới diễn ra như thế nào?",
+      "reasoning": "Câu hỏi về quy trình onboarding nhân viên mới là một câu hỏi đơn giản, có thể trả lời bằng một câu ngắn, thuộc phạm vi kiến thức cơ bản về HR. Tuy nhiên, theo định nghĩa FAQ, nó phù hợp với các câu hỏi đơn giản, có đáp án cố định.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='faq' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.9,
+          "passed": true,
+          "detail": "confidence=0.90 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=11.42781449999984s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_043_rag_pyc_chon_nhanh_danh_sach_dieu_phoi_hdsd",
+      "passed": false,
+      "avg_score": 0.65,
+      "expected": {
+        "target_agent": "rag"
+      },
+      "actual": {
+        "target_agent": "gamspro",
+        "confidence": 0.95,
+        "reasoning": "Câu hỏi liên quan đến việc chọn danh sách Phiếu yêu cầu cần điều phối tại màn hình cụ thể, thuộc phân hệ Fleet (PYCXE) trong hệ thống gAMSPro. Đây là thao tác nghiệp vụ chuyên sâu trên phân hệ Quản lý Yêu cầu xe/Vận hành xe, phù hợp với mục tiêu 'gamspro'."
+      },
+      "user_query": "Hệ thống hỗ trợ chọn nhanh danh sách các Phiếu yêu cầu cần điều phối tại màn hình nào?",
+      "reasoning": "Câu hỏi liên quan đến việc chọn danh sách Phiếu yêu cầu cần điều phối tại màn hình cụ thể, thuộc phân hệ Fleet (PYCXE) trong hệ thống gAMSPro. Đây là thao tác nghiệp vụ chuyên sâu trên phân hệ Quản lý Yêu cầu xe/Vận hành xe, phù hợp với mục tiêu 'gamspro'.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='rag' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=4.75450230000024s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_052_gamspro_duyet_pycxe_fleet",
+      "passed": false,
+      "avg_score": 0.65,
+      "expected": {
+        "target_agent": "gamspro"
+      },
+      "actual": {
+        "target_agent": "rag",
+        "confidence": 0.95,
+        "reasoning": "Câu hỏi mô tả quy trình cụ thể trên phân hệ Fleet, liên quan đến việc xếp xe và phê duyệt PYCXE của bộ phận HCQT. Đây là quy trình phức tạp với nhiều bước và điều kiện, phù hợp với tiêu chí 'rag' (truy hồi sổ tay nghiệp vụ)."
+      },
+      "user_query": "Quy trình bộ phận HCQT thực hiện xếp xe và phê duyệt Phiếu yêu cầu xe (PYCXE) trên Phân hệ Fleet?",
+      "reasoning": "Câu hỏi mô tả quy trình cụ thể trên phân hệ Fleet, liên quan đến việc xếp xe và phê duyệt PYCXE của bộ phận HCQT. Đây là quy trình phức tạp với nhiều bước và điều kiện, phù hợp với tiêu chí 'rag' (truy hồi sổ tay nghiệp vụ).",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='gamspro' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=5.551648999999998s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_054_gamspro_thanh_toan_tu_dong_tich_hop",
+      "passed": false,
+      "avg_score": 0.65,
+      "expected": {
+        "target_agent": "gamspro"
+      },
+      "actual": {
+        "target_agent": "rag",
+        "confidence": 0.95,
+        "reasoning": "Câu hỏi mô tả quy trình thao tác nghiệp vụ cụ thể trên phân hệ Kế toán ngân hàng, liên quan đến việc đẩy chứng từ Thanh toán tự động, cần truy hồi từ sổ tay nghiệp vụ."
+      },
+      "user_query": "Quy trình đẩy chứng từ Thanh toán tự động sang phân hệ Kế toán ngân hàng được xử lý như thế nào?",
+      "reasoning": "Câu hỏi mô tả quy trình thao tác nghiệp vụ cụ thể trên phân hệ Kế toán ngân hàng, liên quan đến việc đẩy chứng từ Thanh toán tự động, cần truy hồi từ sổ tay nghiệp vụ.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='gamspro' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=9.882903900000201s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_057_gamspro_lap_to_trinh_nghiep_vu",
+      "passed": true,
+      "avg_score": 0.9833,
+      "expected": {
+        "target_agent": "gamspro"
+      },
+      "actual": {
+        "target_agent": "gamspro",
+        "confidence": 0.95,
+        "reasoning": "Câu hỏi liên quan đến các bước thao tác cụ thể trong phân hệ Quản lý Tờ trình nghiệp vụ, thuộc phạm vi hệ thống gAMSPro. Đây là hoạt động kỹ thuật và quy trình chuyên sâu, cần truy xuất thông tin từ sổ tay nghiệp vụ."
+      },
+      "user_query": "Các bước thao tác tạo mới và gửi duyệt Tờ trình nghiệp vụ trên Phân hệ Quản lý Tờ trình?",
+      "reasoning": "Câu hỏi liên quan đến các bước thao tác cụ thể trong phân hệ Quản lý Tờ trình nghiệp vụ, thuộc phạm vi hệ thống gAMSPro. Đây là hoạt động kỹ thuật và quy trình chuyên sâu, cần truy xuất thông tin từ sổ tay nghiệp vụ.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected='gamspro' actual='gamspro'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=8.284056400000281s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_065_gamspro_doanh_thu_cho_thue_tru_so",
+      "passed": false,
+      "avg_score": 0.6333,
+      "expected": {
+        "target_agent": "gamspro"
+      },
+      "actual": {
+        "target_agent": "rag",
+        "confidence": 0.9,
+        "reasoning": "Câu hỏi liên quan đến việc tra cứu dữ liệu lịch sử và doanh thu cho thuê mặt bằng trụ sở, thuộc phạm vi quy trình nghiệp vụ phức tạp liên quan đến hệ thống quản lý văn phòng phẩm và doanh thu. Tuy nhiên, câu hỏi không rõ ràng về quy trình cụ thể, cần truy hồi từ sổ tay nghiệp vụ, nên được phân loại vào 'rag' với mức độ tin cậy cao."
+      },
+      "user_query": "Thao tác tra cứu lịch sử khai thác và doanh thu cho thuê mặt bằng trụ sở trên hệ thống?",
+      "reasoning": "Câu hỏi liên quan đến việc tra cứu dữ liệu lịch sử và doanh thu cho thuê mặt bằng trụ sở, thuộc phạm vi quy trình nghiệp vụ phức tạp liên quan đến hệ thống quản lý văn phòng phẩm và doanh thu. Tuy nhiên, câu hỏi không rõ ràng về quy trình cụ thể, cần truy hồi từ sổ tay nghiệp vụ, nên được phân loại vào 'rag' với mức độ tin cậy cao.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='gamspro' actual='rag'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.9,
+          "passed": true,
+          "detail": "confidence=0.90 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=15.957026699999915s (threshold=35.0s)"
+        }
+      ]
+    },
+    {
+      "case_id": "TC_069_fallback_mo_the_tin_dung",
+      "passed": false,
+      "avg_score": 0.65,
+      "expected": {
+        "target_agent": "fallback"
+      },
+      "actual": {
+        "target_agent": "faq",
+        "confidence": 0.95,
+        "reasoning": "Câu hỏi hỏi cách đăng ký mở thẻ tín dụng online, yêu cầu thông tin cụ thể và có thể được trả lời bằng cách hướng dẫn đơn giản. Đây là câu hỏi đơn giản, có đáp án cố định, thuộc phạm vi FAQ."
+      },
+      "user_query": "Làm sao để đăng ký mở thẻ tín dụng Visa BVBank online?",
+      "reasoning": "Câu hỏi hỏi cách đăng ký mở thẻ tín dụng online, yêu cầu thông tin cụ thể và có thể được trả lời bằng cách hướng dẫn đơn giản. Đây là câu hỏi đơn giản, có đáp án cố định, thuộc phạm vi FAQ.",
+      "metrics": [
+        {
+          "name": "exact_match:target_agent",
+          "score": 0.0,
+          "passed": false,
+          "detail": "expected='fallback' actual='faq'"
+        },
+        {
+          "name": "min_value:confidence>=0.5",
+          "score": 0.95,
+          "passed": true,
+          "detail": "confidence=0.95 (min=0.5)"
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=13.804123899999922s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

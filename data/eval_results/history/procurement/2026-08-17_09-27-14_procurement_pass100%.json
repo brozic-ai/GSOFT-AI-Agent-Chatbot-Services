@@ -1,0 +1,96 @@
+{
+  "metadata": {
+    "agent_name": "procurement",
+    "timestamp_utc": "2026-08-17T09:27:14.776963+00:00",
+    "environment": "local",
+    "llm_provider": "vllm",
+    "llm_model": "qwen3:1.7b",
+    "execution_time_seconds": 19.77,
+    "benchmark_threshold": 0.9,
+    "benchmark_passed": true
+  },
+  "summary": {
+    "total_cases": 1,
+    "passed_cases": 1,
+    "failed_cases": 0,
+    "pass_rate": 1.0,
+    "pass_percentage": "100%",
+    "avg_score": 0.9667,
+    "accuracy": 1.0,
+    "macro_f1": 1.0
+  },
+  "classification_metrics": {
+    "unknown": {
+      "support": 1,
+      "tp": 1,
+      "fp": 0,
+      "fn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1_score": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "unknown": {
+      "unknown": 1
+    }
+  },
+  "confidence_calibration": {
+    "overall_accuracy": 1.0,
+    "mean_confidence": 1.0,
+    "mean_confidence_correct": 1.0,
+    "mean_confidence_incorrect": 0.0,
+    "calibration_gap": 0.0,
+    "calibration_verdict": "Perfect / Well Calibrated"
+  },
+  "cases": [
+    {
+      "case_id": "proc_case_022",
+      "passed": true,
+      "avg_score": 0.9667,
+      "expected": {
+        "expected_tools": [
+          "get_po_master_status"
+        ],
+        "expected_keywords": [
+          "PO069/26/0006",
+          "testzzzzz"
+        ],
+        "reference_answer": "Đơn đặt hàng PO069/26/0006 được phát hành cho nhà cung cấp: testzzzzz."
+      },
+      "actual": {
+        "final_answer": "Đơn hàng PO PO069/26/0006 là của nhà cung cấp **testzzzzz**. \n\nThông tin chi tiết:\n- **Tổng giá trị PO**: 12,765 VNĐ  \n- **Hạn giao hàng**: 2025-05-30  \n- **Trạng thái PO**: Đã duyệt  \n\nNếu cần thêm thông tin về đơn hàng, có thể liên hệ trực tiếp với hệ thống để kiểm tra chi tiết.",
+        "tool_calls": [
+          {
+            "name": "get_po_master_status",
+            "args": {
+              "doc_no": "PO069/26/0006"
+            }
+          }
+        ]
+      },
+      "user_query": "Đơn hàng PO PO069/26/0006 là của nhà cung cấp nào?",
+      "reasoning": null,
+      "metrics": [
+        {
+          "name": "tool_call_match",
+          "score": 1.0,
+          "passed": true,
+          "detail": "expected=['get_po_master_status'] actual=['get_po_master_status'] matched=['get_po_master_status']"
+        },
+        {
+          "name": "llm_judge:relevance",
+          "score": 0.9,
+          "passed": true,
+          "detail": "Câu trả lời chính xác và đầy đủ thông tin từ câu trả lời tham chiếu."
+        },
+        {
+          "name": "latency",
+          "score": 1.0,
+          "passed": true,
+          "detail": "latency=16.214879900002416s (threshold=35.0s)"
+        }
+      ]
+    }
+  ]
+}

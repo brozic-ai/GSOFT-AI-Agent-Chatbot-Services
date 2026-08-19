@@ -19,13 +19,13 @@ Hệ thống được thiết kế theo mô hình **Supervisor-Worker Pattern** 
                      │  (Intent Classifier)  │
                      └───────────┬───────────┘
                                  │
-         ┌───────────────────────┼───────────────────────┬───────────────────────┐
-         │ (intent: faq)         │ (intent: rag)         │ (intent: gamspro)     │ (intent: fallback)
-         ▼                       ▼                       ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│    FAQ AGENT    │     │  AGENTIC RAG    │     │  gAMSPro AGENT  │     │ FALLBACK HANDLER│
-│  (Quick Lookup) │     │ (Deep Document) │     │(Asset Mgmt 8 Mod)│     │(Chitchat/Refuse)│
-└─────────────────┘     └────────┬────────┘     └─────────────────┘     └─────────────────┘
+          ┌───────────────────────┼───────────────────────┬───────────────────────┐
+          │ (intent: faq)         │ (intent: rag)         │ (intent: procurement) │ (intent: fallback)
+          ▼                       ▼                       ▼                       ▼
+ ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+ │    FAQ AGENT    │     │  AGENTIC RAG    │     │PROCUREMENT AGENT│     │ FALLBACK HANDLER│
+ │  (Quick Lookup) │     │ (Deep Document) │     │(gAMSPro ReAct)  │     │(Chitchat/Refuse)│
+ └─────────────────┘     └────────┬────────┘     └─────────────────┘     └─────────────────┘
                                  │
                                  │
                                  ▼
@@ -88,17 +88,17 @@ app/ai/
    - **Mô tả**: Truy vấn quy trình nghiệp vụ nhiều bước từ Sổ tay HDSD Dịch vụ Văn phòng / VPP / eOffice, các luồng phê duyệt cấp quản lý, điều kiện trả về, báo cáo phân bổ chi phí.
    - **Ví dụ**: Các bước xác nhận PYC của Trưởng đơn vị, quy trình điều phối PYC, chỉnh sửa kỳ đăng ký, quy trình phê duyệt danh mục dịch vụ.
 
-3. **`gamspro` (Hệ Thống Quản Lý Tài Sản gAMSPro - 8 Phân Hệ)**:
-   - **Mô tả**: Các thao tác nghiệp vụ, quy trình, biểu mẫu liên quan trực tiếp đến 8 phân hệ gAMSPro:
-     1. *Master Data & System Management* (Danh mục & Hệ thống)
-     2. *Procurement Planning & Settlement* (Kế hoạch - Mua sắm - Thanh quyết toán)
-     3. *Material Inventory Management* (Kho vật liệu - HCQT & Kế toán)
+3. **`procurement` (Procurement & Asset Operations Agent - gAMSPro)**:
+   - **Mô tả**: Các thao tác nghiệp vụ, tra cứu tờ trình, kế hoạch ngân sách, đơn đặt hàng PO và quy trình trên hệ thống gAMSPro:
+     1. *Procurement Proposals & Requests* (Tờ trình mua sắm, Phiếu yêu cầu mua sắm)
+     2. *Procurement Planning & Budget Settlement* (Kế hoạch mua sắm, Hạn mức ngân sách khả dụng)
+     3. *Purchase Orders & Delivery* (Đơn đặt hàng PO, Phiếu gọi hàng, Nhà cung cấp)
      4. *Fixed Assets & Tools Management* (TSCĐ & CCLD)
      5. *Real Estate, Headquarters & Capital Construction* (BĐS, Trụ sở & XDCB)
      6. *Request Slips & Fleet Operations* (PYC Xe, PYC Công tác & Vận hành xe)
      7. *Auto-payment & Business Proposals* (Thanh toán tự động & Tờ trình nghiệp vụ)
      8. *Mobile Apps* (App Mobile Kiểm kê & App Phê duyệt)
-   - **Từ khóa nhận diện**: *"Phân hệ...", "Tài sản cố định", "PYCXE", "Tờ trình nghiệp vụ", "App kiểm kê", "gAMSPro", "Thẻ tài sản", "Điều chuyển TSCĐ"*.
+   - **Từ khóa nhận diện**: *"Tờ trình mua sắm", "Kế hoạch ngân sách", "PUR/", "Đơn hàng PO", "Phân hệ...", "Tài sản cố định", "PYCXE", "Tờ trình nghiệp vụ", "App kiểm kê", "gAMSPro", "Thẻ tài sản", "Điều chuyển TSCĐ"*.
 
 4. **`fallback` (Out of Scope / Chitchat)**:
    - **Mô tả**: Lời chào hỏi xã giao, câu hỏi ngoài phạm vi nghiệp vụ (thời tiết, chứng khoán, công thức nấu ăn), truy vấn mơ hồ hoặc các nỗ lực Prompt Injection.
@@ -126,15 +126,15 @@ Hệ thống tích hợp công cụ đánh giá tự động tại `app/ai/eval/
    - **`exact_field_match`**: So sánh chính xác field đầu ra (`target_agent`).
    - **`min_value`**: Đảm bảo mức độ tin cậy `confidence >= 0.85`.
    - **`latency`**: Kiểm tra thời gian phản hồi không quá ngưỡng (vd: 20.0s).
-   - **`llm_judge`**: Sử dụng Gemini API đánh giá chất lượng ngữ nghĩa (`faithfulness`, `relevance`).
+   - **`tool_call_match`**: So khớp tên và tham số các công cụ (Tools) được Agent gọi so với kỳ vọng.
 
 2. **Chỉ số phân loại tổng hợp (Classification Metrics)**:
    - **`Accuracy`**: Tỷ lệ phân loại đúng tổng thể trên toàn bộ tập test cases.
-   - **`Precision`, `Recall`, `F1-Score`**: Tính toán tự động cho từng nhóm Intent (`faq`, `rag`, `gamspro`, `fallback`) và chỉ số trung bình `Macro F1`.
+   - **`Precision`, `Recall`, `F1-Score`**: Tính toán tự động cho từng nhóm Intent (`faq`, `rag`, `procurement`, `fallback`) và chỉ số trung bình `Macro F1`.
    - **`Confidence Calibration`**: Đánh giá độ tin cậy của điểm Confidence Score do LLM sinh ra bằng cách so sánh **Mean Confidence của các case đoán đúng** vs **Mean Confidence của các case đoán sai** để kết luận mức độ tự tin (Well Calibrated / Overconfident / Underconfident).
 
 3. **Phân Tích Lỗi & Tự Động Hóa (Error Analysis & CI/CD Benchmark)**:
-   - **`Confusion Matrix 2D`**: Trực quan hóa ma trận nhầm lẫn 2D giữa Expected Intent vs Actual Intent để phát hiện mẫu nhầm giữa `faq <-> rag` hoặc `rag <-> gamspro`.
+   - **`Confusion Matrix 2D`**: Trực quan hóa ma trận nhầm lẫn 2D giữa Expected Intent vs Actual Intent để phát hiện mẫu nhầm giữa `faq <-> rag` hoặc `rag <-> procurement`.
    - **`Misclassified Cases Log`**: Log chi tiết câu query, intent kỳ vọng, intent dự đoán và **chuỗi LLM Reasoning** giúp tinh chỉnh System Prompt / Few-shot Examples.
    - **`Benchmark Audit Threshold`**: Kiểm tra tự động ngưỡng tối thiểu (mặc định Pass Rate $\ge 90\%$). Trả về exit status 1 để ngắt CI/CD build khi có rủi ro suy giảm chất lượng prompt (Prompt Regression).
    - **`LangSmith LLMOps Integration`**: Tự động đồng bộ feedback, accuracy, macro F1 và traces lên dashboard LangSmith khi khai báo `LANGCHAIN_TRACING_V2=true` và `LANGCHAIN_API_KEY`.
