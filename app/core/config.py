@@ -91,6 +91,15 @@ class Settings(BaseSettings):
     HYBRID_TOP_K_CANDIDATES: int = 20
     CHAT_HISTORY_LIMIT: int = 10
 
+    # --- Full-Text Search (FTS) Config ---
+    # Bật/tắt Full-Text Search. Nếu False, fallback về Vector-only search.
+    FTS_ENABLED: bool = True
+    # Số lượng candidate tối đa mà CONTAINSTABLE trả về trước khi RRF
+    FTS_MAX_CANDIDATES: int = 200
+    # Trọng số hai luồng trong RRF (tổng khuyến nghị = 1.0)
+    RRF_VECTOR_WEIGHT: float = 0.6
+    RRF_FTS_WEIGHT: float = 0.4
+
     # --- RAG Preprocessing & Context Builder Config ---
     RAG_ENABLE_VIETNAMESE_NORMALIZATION: bool = True
     RAG_ENABLE_MARKDOWN_CONVERSION: bool = True

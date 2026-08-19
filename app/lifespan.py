@@ -102,6 +102,38 @@ async def _startup() -> None:
     except Exception as ex:
         logger.error("[FAIL] Failed to create Documents table: %s", ex, exc_info=True)
 
+    # 4. Tạo Full-Text Catalog & Index cho cột `document` của bảng Documents
+    # Dùng LANGUAGE 0 (Neutral) — SQL Server không có word-breaker tiếng Việt native;
+    # Neutral tách theo khoảng trắng, phù hợp nhất cho văn bản tiếng Việt đã chuẩn hóa.
+    try:
+        import pyodbc as _pyodbc
+
+        _conn = _pyodbc.connect(settings.SQLSERVER_CONNECTIONSTRING, autocommit=True)
+        try:
+            with _conn.cursor() as _cur:
+                # 4a. Tạo Full-Text Catalog nếu chưa có
+                _cur.execute(
+                    "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs "
+                    "WHERE name = 'FtCatalog_Documents') "
+                    "CREATE FULLTEXT CATALOG FtCatalog_Documents AS DEFAULT;"
+                )
+                # 4b. Tạo Full-Text Index trên cột document (dùng UQ_Documents_id làm unique key)
+                _cur.execute(
+                    "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_indexes "
+                    "WHERE object_id = OBJECT_ID('dbo.Documents')) "
+                    "CREATE FULLTEXT INDEX ON dbo.Documents(document LANGUAGE 0) "
+                    "KEY INDEX UQ_Documents_id ON FtCatalog_Documents "
+                    "WITH CHANGE_TRACKING AUTO;"
+                )
+            logger.info("[OK] Full-Text Catalog and Index on 'Documents.document' are ready.")
+        finally:
+            _conn.close()
+    except Exception as ex:
+        logger.warning(
+            "[WARN] Full-Text Search setup skipped (FTS may not be supported on this SQL Server edition): %s",
+            ex,
+        )
+
 
 async def _shutdown() -> None:
     """Giải phóng tất cả resources khi ứng dụng tắt."""
