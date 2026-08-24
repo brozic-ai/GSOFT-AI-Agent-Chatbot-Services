@@ -54,10 +54,14 @@ app/ai/
 │   │   ├── prompts/               # Prompt registry
 │   │   └── tools/                 # Tool tra cứu FAQ
 │   │
-│   └── agentic_rag/               # Agent tra cứu văn bản quy chế phức tạp
-│       ├── graph/                 # ReAct / Plan-and-Execute Loop
-│       ├── prompts/               # Prompt registry
-│       └── tools/                 # Vector Retrieval Tools
+│   └── agentic_rag/               # RAG Knowledge Agent (Sub-graph Node 4-Node)
+│       ├── graph/                 # Sub-graph (Agent -> Tool -> Grader -> Generator)
+│       ├── nodes/                 # 4 Nodes: rag_agent_node, tools_node, grader_node, generator_node
+│       ├── prompts/               # Prompt registry (system.md, grader.md, generator.md, user.md)
+│       ├── schemas.py             # DocumentGradeOutput Schema
+│       ├── state.py               # AgenticRagState TypedDict Schema
+│       └── tools/                 # Tools: search_policy_docs, vector_search, doc_metadata, list_categories
+
 │
 ├── memory/                        # Bộ nhớ hội thoại & Rewrite Query
 │   └── conversation/

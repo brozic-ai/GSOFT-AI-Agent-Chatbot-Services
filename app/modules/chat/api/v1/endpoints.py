@@ -184,6 +184,7 @@ async def chat_stream(
         conversation_id=request.conversation_id,
         user_id=x_user_id,
         user_roles=roles,
+        user_department=department,
         request=http_request,
     )
 

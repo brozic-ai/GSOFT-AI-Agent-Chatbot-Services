@@ -59,14 +59,13 @@ class ChatService:
         """Generate a short title; title generation failure must not fail the chat."""
         fallback = question.strip()[:80]
         try:
-            from app.llmops.langfuse import get_langfuse_callback
+            from app.llmops.langfuse import get_langfuse_langchain_config
 
-            lf_cb = get_langfuse_callback(
+            title_config = get_langfuse_langchain_config(
                 session_id=str(conversation_id),
                 tags=["title-generation", "background"],
                 trace_name=f"Generate-Title: cid={conversation_id}",
             )
-            title_config = {"callbacks": [lf_cb]} if lf_cb else {}
 
             response = await asyncio.wait_for(
                 self.llm_provider.ainvoke(
@@ -99,24 +98,30 @@ class ChatService:
 
     async def generate_rag_response_stream(
         self,
-        message: str,
+        message: str = "",
         conversation_id: Optional[int] = None,
-        user_id: Optional[str] = None,
-        user_roles: Optional[str] = None,
+        user_id: Optional[str] = "guest",
+        user_roles: Optional[Union[List[str], str]] = None,
         user_department: Optional[str] = None,
         top_k: int = 5,
-        request: Optional[Request] = None,
+        images: Optional[List[Dict[str, Any]]] = None,
+        request: Optional[Any] = None,
+        question: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """
-        Tạo luồng Server-Sent Events (SSE) phản hồi câu hỏi RAG.
-        Tích hợp lịch sử hội thoại vào ngữ cảnh Prompt để bot nhớ các câu hỏi trước.
+        Tạo luồng Server-Sent Events (SSE) phản hồi qua Master Orchestrator Graph.
 
-        Luồng xử lý:
+        Luồng xử lý Enterprise Multi-Agent:
         1. Lấy lịch sử tin nhắn từ DB (nếu có conversation_id).
-        2. Lưu câu hỏi mới của User vào DB.
-        3. Truy vấn RAG từ Vector Store (có RBAC).
-        4. Xây dựng Prompt kết hợp ngữ cảnh tài liệu + lịch sử hội thoại.
-        5. Stream câu trả lời từ LLM; nối lại và lưu câu trả lời vào DB sau khi hoàn tất.
+        2. Lưu câu hỏi mới của User vào DB và tạo tiêu đề tự động nếu là tin nhắn đầu tiên.
+        3. Khởi tạo OrchestratorState kèm messages và user_info (roles, department, user_id).
+        4. Thực thi Master Orchestrator Graph:
+           - Input Guardrail (Chặn tấn công)
+           - Supervisor Intent Classifier (RAG, Procurement, FAQ, Fallback)
+           - Sub-Agent tương ứng (RAG Knowledge Agent 4-Node, gAMSPro ReAct, FAQ, Fallback)
+           - Output Guardrail (Kiểm duyệt an toàn thông tin)
+        5. Trả về trích dẫn citations (nếu có từ RAG) và stream token về Frontend qua SSE.
+        6. Lưu phản hồi của Assistant vào DB.
         """
         try:
             # Phát sự kiện khởi đầu chat
@@ -125,22 +130,14 @@ class ChatService:
             if request and await request.is_disconnected():
                 return
 
-            base_query = message.strip()
+            base_query = (message or question or "").strip()
             if not base_query:
                 reply_empty = "Bạn chưa nhập câu hỏi."
                 if conversation_id:
-                    self.chat_repo.save_message(conversation_id, role="assistant", content=reply_empty)
+                    self.chat_repo.save_message(
+                        conversation_id=conversation_id, role="assistant", content=reply_empty
+                    )
                 yield f"event: token\ndata: {json.dumps({'text': reply_empty}, ensure_ascii=False)}\n\n"
-                yield "event: chat_ended\ndata: {}\n\n"
-                return
-
-            # Lời chào đơn giản — không cần RAG, không lưu lịch sử
-            if base_query.lower() in ["hi", "hello", "xin chào", "chào", "alo"]:
-                greeting = "Xin chào! Tôi là trợ lý AI thông minh. Tôi có thể giúp gì cho bạn?"
-                if conversation_id:
-                    self.chat_repo.save_message(conversation_id, role="assistant", content=greeting)
-                yield "event: citations\ndata: []\n\n"
-                yield f"event: token\ndata: {json.dumps({'text': greeting}, ensure_ascii=False)}\n\n"
                 yield "event: chat_ended\ndata: {}\n\n"
                 return
 
@@ -151,9 +148,11 @@ class ChatService:
                 if request and await request.is_disconnected():
                     return
                 message_count = self.chat_repo.get_message_count(conversation_id)
-                is_first_message = (message_count == 0)
+                is_first_message = message_count == 0
                 if message_count > 0:
-                    history = self.chat_repo.get_chat_history(conversation_id, limit=HISTORY_LIMIT)
+                    history = self.chat_repo.get_chat_history(
+                        conversation_id=conversation_id, limit=HISTORY_LIMIT
+                    )
 
             # 2. Lưu câu hỏi của User vào DB
             if conversation_id:
@@ -166,119 +165,135 @@ class ChatService:
                 )
                 # Tự động đặt tiêu đề từ câu hỏi đầu tiên
                 if is_first_message:
-                    await self.generate_conversation_title(conversation_id, base_query)
+                    asyncio.create_task(
+                        self.generate_conversation_title(
+                            conversation_id, base_query
+                        )
+                    )
 
-            # 3. Truy vấn ngữ cảnh RAG từ Vector Store với phân quyền RBAC
-            search_res = await self.retriever.retrieve_context(
-                query=base_query,
-                top_k=top_k,
-                user_roles=user_roles,
-                user_department=user_department,
-            )
+            # 3. Chuẩn bị danh sách BaseMessage cho Master Orchestrator
+            from langchain_core.messages import AIMessage, HumanMessage
 
-            if request and await request.is_disconnected():
-                return
-
-            documents = search_res["documents"][0] if search_res.get("documents") else []
-            citations_list = search_res["citations"][0] if search_res.get("citations") else []
-
-            # Trả về trích dẫn tài liệu (Citations SSE Event)
-            yield f"event: citations\ndata: {json.dumps(citations_list, ensure_ascii=False, default=str)}\n\n"
-
-            if not documents or not any(doc.strip() for doc in documents):
-                no_info_msg = "Tôi không tìm thấy thông tin phù hợp trong tài liệu được cấp quyền."
-                yield f"event: token\ndata: {json.dumps({'text': no_info_msg})}\n\n"
-                # Lưu câu trả lời "không tìm thấy" vào DB
-                if conversation_id:
-                    self.chat_repo.save_message(conversation_id=conversation_id, role="assistant", content=no_info_msg)
-                    self.chat_repo.touch_conversation(conversation_id)
-                yield "event: chat_ended\ndata: {}\n\n"
-                return
-
-            # 4. Xây dựng Prompt kết hợp ngữ cảnh tài liệu + lịch sử hội thoại
-            context_str = "\n---\n".join(documents)
-            system_prompt = (
-                "Bạn là trợ lý AI thông minh của hệ thống Enterprise. "
-                "Hãy trả lời câu hỏi của người dùng dựa trên NGỮ CẢNH TÀI LIỆU được cung cấp bên dưới.\n"
-                "Quy tắc:\n"
-                "1. Chỉ sử dụng thông tin trong phần NGỮ CẢNH TÀI LIỆU. Không tự suy diễn.\n"
-                "2. Nếu tài liệu không có thông tin, hãy trả lời: 'Tôi không tìm thấy thông tin này trong tài liệu.'\n"
-                "3. Trả lời ngắn gọn, trực tiếp, tự nhiên bằng tiếng Việt.\n\n"
-                f"NGỮ CẢNH TÀI LIỆU:\n{context_str}"
-            )
-
-            # Xây dựng danh sách messages kèm lịch sử hội thoại
-            messages_for_llm = [("system", system_prompt)]
+            messages_for_graph = []
             for hist_msg in history:
-                role = hist_msg["role"]
-                if role in ("user", "assistant"):
-                    messages_for_llm.append((role, hist_msg["content"]))
-            messages_for_llm.append(("user", base_query))
+                role = hist_msg.get("role")
+                content = hist_msg.get("content", "")
+                if role in ("user", "human"):
+                    messages_for_graph.append(HumanMessage(content=content))
+                elif role in ("assistant", "ai"):
+                    messages_for_graph.append(AIMessage(content=content))
+            messages_for_graph.append(HumanMessage(content=base_query))
 
-            # 5. Gọi LLM Provider Streaming và thu thập câu trả lời
-            logger.info("[CHAT] Calling LLM streaming for query='%s', history_count=%d...", base_query, len(history))
-            full_response_chunks = []
-
+            # 4. Thiết lập Tracing Langfuse / LangSmith
+            from app.ai.orchestration.graph import orchestrator_graph
             from app.core.config import settings
-            from app.llmops.langfuse import get_langfuse_callback
+            from app.llmops.langfuse import get_langfuse_langchain_config
 
-            langfuse_cb = get_langfuse_callback(
+            stream_config = get_langfuse_langchain_config(
                 user_id=user_id,
                 session_id=str(conversation_id) if conversation_id else None,
-                tags=["rag", "chat", "streaming", getattr(settings, "AI_PROVIDER", "llm")],
+                tags=[
+                    "orchestrator",
+                    "chat",
+                    "multi-agent",
+                    getattr(settings, "AI_PROVIDER", "llm"),
+                ],
                 metadata={
                     "conversation_id": str(conversation_id) if conversation_id else None,
                     "user_roles": user_roles,
                     "user_department": user_department,
                     "top_k": top_k,
-                    "documents_count": len(documents),
                 },
-                trace_name=f"Chatbot-RAG: {base_query[:35]}",
+                trace_name=f"Orchestrator-Chat: {base_query[:35]}",
             )
-            callbacks = [langfuse_cb] if langfuse_cb else []
 
-            stream_config = {
-                "run_name": f"Chatbot-RAG: {base_query[:35]}",
-                "tags": ["rag", "chat", "streaming"],
-                "callbacks": callbacks,
-                "metadata": {
-                    "conversation_id": str(conversation_id) if conversation_id else None,
-                    "user_roles": user_roles,
-                    "user_department": user_department,
+            state_input = {
+                "session_id": str(conversation_id)
+                if conversation_id
+                else f"chat-{uuid.uuid4().hex[:8]}",
+                "user_query": base_query,
+                "user_info": {
+                    "roles": user_roles,
+                    "department": user_department,
+                    "user_id": user_id,
                 },
+                "chat_history": history,
+                "messages": messages_for_graph,
             }
 
-            async for chunk in self.llm_provider.astream(messages_for_llm, config=stream_config):
-                if request and await request.is_disconnected():
-                    return
-                token_text = chunk.content if hasattr(chunk, "content") else str(chunk)
-                if token_text:
-                    full_response_chunks.append(token_text)
-                    yield f"event: token\ndata: {json.dumps({'text': token_text}, ensure_ascii=False)}\n\n"
+            # 5. Thực thi Master Orchestrator Graph
+            logger.info(
+                "[CHAT] Invoking Master Orchestrator for query='%s', history_count=%d...",
+                base_query,
+                len(history),
+            )
+            orch_result = await orchestrator_graph.ainvoke(
+                state_input, config=stream_config
+            )
 
-            # 6. Lưu câu trả lời hoàn chỉnh vào DB sau khi stream xong
             if request and await request.is_disconnected():
                 return
 
-            if conversation_id and full_response_chunks:
-                full_response = "".join(full_response_chunks)
+            agent_output = (
+                orch_result.get("agent_output")
+                or "Tôi không thể xử lý yêu cầu lúc này."
+            )
+            citations_list = orch_result.get("citations") or []
+
+            # 6. Phát sự kiện trích dẫn tài liệu (Citations SSE Event)
+            yield f"event: citations\ndata: {json.dumps(citations_list, ensure_ascii=False, default=str)}\n\n"
+
+            # 7. Stream từng token/chunk tới Frontend với hiệu ứng typing animation mượt mà
+            chunk_size = 6
+            for i in range(0, len(agent_output), chunk_size):
+                if request and await request.is_disconnected():
+                    return
+                chunk = agent_output[i : i + chunk_size]
+                yield f"event: token\ndata: {json.dumps({'text': chunk}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0.015)
+
+            # 8. Lưu câu trả lời hoàn chỉnh vào DB sau khi hoàn tất
+            if request and await request.is_disconnected():
+                return
+
+            if conversation_id and agent_output:
                 self.chat_repo.save_message(
                     conversation_id=conversation_id,
                     role="assistant",
-                    content=full_response,
+                    content=agent_output,
                 )
                 self.chat_repo.touch_conversation(conversation_id)
 
             yield "event: chat_ended\ndata: {}\n\n"
 
-        except asyncio.CancelledError:
-            # The ASGI server cancels the generator when the downstream client disconnects.
-            logger.info("[CHAT] Stream cancelled by client for conversation_id=%s", conversation_id)
-            raise
+        except (asyncio.CancelledError, GeneratorExit):
+            # ASGI server / anyio cancels the generator when the client disconnects or clicks Cancel stream.
+            logger.info(
+                "[CHAT] Stream closed/cancelled by client for conversation_id=%s",
+                conversation_id,
+            )
+            return
+
         except Exception as ex:
-            logger.error("[CHAT] Stream error for conversation_id=%s: %s", conversation_id, ex, exc_info=True)
-            error_msg = json.dumps({'text': '\n[Lỗi kết nối tới mô hình AI hoặc Database]'})
+            logger.error(
+                "[CHAT] Stream error for conversation_id=%s: %s",
+                conversation_id,
+                ex,
+                exc_info=True,
+            )
+            error_msg = json.dumps(
+                {
+                    "text": "\n⚠️ Hệ thống đang gặp sự cố kết nối. Vui lòng thử lại sau."
+                },
+                ensure_ascii=False,
+            )
             yield f"event: token\ndata: {error_msg}\n\n"
             yield "event: chat_ended\ndata: {}\n\n"
+        finally:
+            from app.llmops.langfuse import flush_langfuse
+
+            flush_langfuse()
+
+
 
 

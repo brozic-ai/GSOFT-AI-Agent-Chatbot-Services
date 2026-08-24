@@ -81,9 +81,10 @@ _JAILBREAK_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 _SENSITIVE_OUTPUT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # A. API Keys (OpenAI, Gemini, Anthropic, HuggingFace)
     (re.compile(r"(sk-[a-zA-Z0-9_-]{20,})"), "openai_api_key"),
-    (re.compile(r"(AIzaSy[a-zA-Z0-9_-]{33})"), "google_gemini_api_key"),
+    (re.compile(r"(AIzaSy[a-zA-Z0-9_-]{30,40})"), "google_gemini_api_key"),
     (re.compile(r"(sk-ant-[a-zA-Z0-9_-]{20,})"), "anthropic_api_key"),
     (re.compile(r"(hf_[a-zA-Z0-9]{30,})"), "huggingface_token"),
+
 
     # B. Private Keys
     (re.compile(r"-----BEGIN\s+(RSA\s+|OPENSSH\s+|EC\s+)?PRIVATE\s+KEY-----"), "private_key_leak"),

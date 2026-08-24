@@ -32,4 +32,6 @@ class OrchestratorState(TypedDict, total=False):
     # Kết quả đầu ra của Sub-Agent
     agent_output: Optional[str]
     rag_context: Optional[List[str]]
+    citations: Optional[List[Dict[str, Any]]]
     error_state: Optional[str]
+

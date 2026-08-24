@@ -39,48 +39,49 @@ async def get_document_metadata(
     try:
         repo = _get_doc_repo()
         if doc_id is not None:
-            doc = repo.get_rag_document_by_id(doc_id)
+            # Hỗ trợ cả get_rag_document và get_rag_document_by_id
+            doc = (
+                repo.get_rag_document(doc_id)
+                if hasattr(repo, "get_rag_document")
+                else repo.get_rag_document_by_id(doc_id)
+            )
             if not doc:
                 return json.dumps(
                     {"error": f"Không tìm thấy tài liệu có ID {doc_id}"},
                     ensure_ascii=False,
                 )
+            if isinstance(doc, dict):
+                return json.dumps(doc, ensure_ascii=False)
             return json.dumps(
                 {
-                    "id": doc.id,
-                    "document_name": doc.document_name,
-                    "file_name": doc.file_name,
-                    "category": doc.category,
-                    "owner_department": doc.owner_department,
-                    "access_scope": doc.access_scope,
-                    "effective_date": str(doc.effective_date)
-                    if doc.effective_date
-                    else None,
-                    "expiration_date": str(doc.expiration_date)
-                    if doc.expiration_date
-                    else None,
+                    "id": getattr(doc, "id", doc_id),
+                    "document_name": getattr(doc, "document_name", ""),
+                    "file_name": getattr(doc, "file_name", ""),
+                    "category": getattr(doc, "category", None),
+                    "owner_department": getattr(doc, "owner_department", None),
+                    "access_scope": getattr(doc, "access_scope", "Public"),
+                    "effective_date": str(getattr(doc, "effective_date", None)),
                 },
                 ensure_ascii=False,
             )
         elif file_name:
-            docs = repo.search_rag_documents(query=file_name, limit=5)
-            if not docs:
+            docs = (
+                repo.get_rag_documents_list()
+                if hasattr(repo, "get_rag_documents_list")
+                else []
+            )
+            matched = [
+                d
+                for d in docs
+                if file_name.lower() in (d.get("file_name", "") or "").lower()
+                or file_name.lower() in (d.get("document_name", "") or "").lower()
+            ]
+            if not matched:
                 return json.dumps(
                     {"error": f"Không tìm thấy tài liệu khớp với '{file_name}'"},
                     ensure_ascii=False,
                 )
-            results = [
-                {
-                    "id": d.id,
-                    "document_name": d.document_name,
-                    "file_name": d.file_name,
-                    "category": d.category,
-                    "owner_department": d.owner_department,
-                    "access_scope": d.access_scope,
-                }
-                for d in docs
-            ]
-            return json.dumps({"results": results}, ensure_ascii=False)
+            return json.dumps({"results": matched[:5]}, ensure_ascii=False)
         else:
             return json.dumps(
                 {"error": "Vui lòng cung cấp doc_id hoặc file_name để tra cứu"},
@@ -89,3 +90,4 @@ async def get_document_metadata(
     except Exception as e:
         logger.exception("get_document_metadata error")
         return json.dumps({"error": str(e)}, ensure_ascii=False)
+

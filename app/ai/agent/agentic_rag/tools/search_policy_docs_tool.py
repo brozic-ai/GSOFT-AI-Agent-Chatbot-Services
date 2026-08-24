@@ -37,12 +37,10 @@ class SearchPolicyDocsInput(BaseModel):
     top_k: int = Field(default=5, description="Số lượng đoạn văn bản trả về (1-10)")
 
 
-@tool("search_policy_and_manual_docs", args_schema=SearchPolicyDocsInput)
-async def search_policy_and_manual_docs(query: str, top_k: int = 5) -> str:
-    """Tìm kiếm trong kho tài liệu quy chế, chính sách nội bộ, sổ tay HDSD gAMSPro.
-
-    Dùng tool này khi cần tra cứu quy trình, thủ tục, điều kiện nghiệp vụ từ văn bản.
-    """
+async def _search_policy_and_manual_docs_impl(
+    query: str, top_k: int = 5
+) -> str:
+    """Hàm thực thi tra cứu ngữ cảnh tài liệu quy chế và HDSD."""
     try:
         retriever = _get_retriever()
         result = await retriever.retrieve_context(
@@ -63,3 +61,23 @@ async def search_policy_and_manual_docs(query: str, top_k: int = 5) -> str:
     except Exception as e:
         logger.exception("search_policy_and_manual_docs error")
         return json.dumps({"documents": [], "citations": [], "error": str(e)})
+
+
+@tool("search_policy_and_manual_docs", args_schema=SearchPolicyDocsInput)
+async def search_policy_and_manual_docs(query: str, top_k: int = 5) -> str:
+    """Tìm kiếm trong kho tài liệu quy chế, chính sách nội bộ, sổ tay HDSD gAMSPro.
+
+    Dùng tool này khi cần tra cứu quy trình, thủ tục, điều kiện nghiệp vụ từ văn bản.
+    """
+    return await _search_policy_and_manual_docs_impl(query=query, top_k=top_k)
+
+
+@tool("vector_search_tool", args_schema=SearchPolicyDocsInput)
+async def vector_search_tool(query: str, top_k: int = 5) -> str:
+    """Công cụ tìm kiếm ngữ nghĩa Vector Search trong kho dữ liệu tài liệu chính sách, quy chế và HDSD gAMSPro.
+
+    Tra cứu các đoạn tài liệu liên quan phù hợp nhất kèm phân quyền truy cập RBAC.
+    """
+    return await _search_policy_and_manual_docs_impl(query=query, top_k=top_k)
+
+

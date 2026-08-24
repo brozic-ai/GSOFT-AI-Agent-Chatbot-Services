@@ -67,9 +67,104 @@ async def call_procurement_agent(state: Any) -> Dict[str, Any]:
 
 
 async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Adapter kích hoạt Agentic RAG Agent (Tra cứu quy trình, quy chế)."""
-    logger.info("[ORCHESTRATOR -> RAG] Điều phối sang RAG Agent...")
-    return await rag_node(state)
+    """Adapter kích hoạt RAG Knowledge Agent (Sub-graph Node: Tra cứu quy trình, quy chế, sổ tay HDSD)."""
+    user_query = (
+        state.get("user_query", "")
+        if isinstance(state, dict)
+        else getattr(state, "user_query", "")
+    )
+    logger.info(
+        "[ORCHESTRATOR -> RAG] Điều phối câu hỏi sang RAG Knowledge Agent: '%s'",
+        str(user_query)[:80],
+    )
+
+    try:
+        # Chuẩn bị tin nhắn đầu vào cho RAG Knowledge Graph
+        raw_msgs = (
+            state.get("messages", [])
+            if isinstance(state, dict)
+            else getattr(state, "messages", [])
+        )
+        messages = list(raw_msgs or [])
+        if not messages:
+            messages = [HumanMessage(content=user_query)]
+
+        user_info = (
+            state.get("user_info", {})
+            if isinstance(state, dict)
+            else getattr(state, "user_info", {})
+        )
+        user_roles = state.get("user_roles") or (
+            user_info.get("roles") if isinstance(user_info, dict) else None
+        )
+        user_department = state.get("user_department") or (
+            user_info.get("department") if isinstance(user_info, dict) else None
+        )
+        session_id = state.get("session_id", "orchestrator-rag-session")
+
+        # Thiết lập context RBAC cho các tool tra cứu văn bản
+        from app.ai.agent.agentic_rag.tools.search_policy_docs_tool import (
+            set_rbac_context,
+        )
+
+        set_rbac_context(
+            user_roles=user_roles, user_department=user_department
+        )
+
+        rag_input = {
+            "messages": messages,
+            "user_query": user_query,
+            "session_id": str(session_id),
+            "user_roles": user_roles,
+            "user_department": user_department,
+            "documents": [],
+            "citations": [],
+            "is_relevant": False,
+            "retry_count": 0,
+            "final_answer": "",
+        }
+
+        from app.ai.agent.agentic_rag.graph.graph import agentic_rag_graph
+
+        rag_result = await agentic_rag_graph.ainvoke(rag_input)
+
+        final_answer = rag_result.get("final_answer", "")
+        res_messages = rag_result.get("messages", [])
+
+        if not final_answer:
+            for msg in reversed(res_messages):
+                if isinstance(msg, AIMessage) and msg.content:
+                    final_answer = str(msg.content)
+                    break
+
+        if not final_answer:
+            final_answer = "Tôi không tìm thấy thông tin phù hợp trong tài liệu quy chế/HDSD được cấp quyền truy cập."
+
+        return {
+            "agent_output": final_answer,
+            "final_answer": final_answer,
+            "rag_context": rag_result.get("documents", []),
+            "citations": rag_result.get("citations", []),
+            "messages": res_messages,
+        }
+
+    except Exception as ex:
+        logger.error(
+            "[ORCHESTRATOR -> RAG ERROR] Lỗi khi gọi RAG Sub-graph: %s",
+            ex,
+            exc_info=True,
+        )
+        err_msg = (
+            "⚠️ Hệ thống tra cứu tài liệu quy chế BVBank hiện đang gặp sự cố kết nối. "
+            "Bạn vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên."
+        )
+        return {
+            "agent_output": err_msg,
+            "final_answer": err_msg,
+            "messages": [AIMessage(content=err_msg)],
+            "error_state": str(ex),
+        }
+
 
 
 async def call_faq_agent(state: Dict[str, Any]) -> Dict[str, Any]:

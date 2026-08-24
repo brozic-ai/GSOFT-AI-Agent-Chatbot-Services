@@ -99,3 +99,5 @@ graph.add_edge("generator_node", END)
 
 # ── 5. Compile Sub-graph ──
 agentic_rag_graph = graph.compile()
+rag_agent_graph = agentic_rag_graph
+

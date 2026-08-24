@@ -7,6 +7,7 @@ Bao gồm:
 - GlobalExceptionMiddleware: Bắt mọi exception chưa xử lý, trả về response chuẩn.
 """
 
+import asyncio
 import logging
 import time
 import traceback
@@ -47,21 +48,29 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             client_ip,
         )
 
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            logger.info(
+                "<-- %s %s -> %s (%.1fms)",
+                request.method,
+                request.url.path,
+                response.status_code,
+                duration_ms,
+            )
 
-        duration_ms = (time.perf_counter() - start_time) * 1000
-        logger.info(
-            "<-- %s %s -> %s (%.1fms)",
-            request.method,
-            request.url.path,
-            response.status_code,
-            duration_ms,
-        )
-
-        # Thêm header timing vào response (hữu ích cho debugging)
-        response.headers["X-Process-Time-Ms"] = f"{duration_ms:.1f}"
-
-        return response
+            # Thêm header timing vào response (hữu ích cho debugging)
+            response.headers["X-Process-Time-Ms"] = f"{duration_ms:.1f}"
+            return response
+        except (asyncio.CancelledError, GeneratorExit):
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            logger.info(
+                "<-- %s %s -> STREAM CANCELLED by client (%.1fms)",
+                request.method,
+                request.url.path,
+                duration_ms,
+            )
+            raise
 
 
 # 2. API Key Authentication Middleware
@@ -130,6 +139,9 @@ class GlobalExceptionMiddleware(BaseHTTPMiddleware):
     ) -> Response:
         try:
             return await call_next(request)
+        except (asyncio.CancelledError, GeneratorExit):
+            # Client đã hủy hoặc ngắt kết nối stream (dừng phản hồi) -> Cho qua sạch sẽ
+            raise
         except Exception as exc:
             logger.error(
                 "[ERROR] Unhandled exception on %s %s: %s\n%s",
@@ -153,6 +165,7 @@ class GlobalExceptionMiddleware(BaseHTTPMiddleware):
                     "type": type(exc).__name__,
                 },
             )
+
 
 
 # Hàm đăng ký tất cả middleware vào app
