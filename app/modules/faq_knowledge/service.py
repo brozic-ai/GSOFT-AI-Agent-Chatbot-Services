@@ -1,6 +1,8 @@
 """
 FAQ Knowledge Base Service: Business logic cho module FAQ.
 Bao gồm xử lý nhập liệu từ file Excel với cơ chế chống trùng lặp.
+Đồng bộ Vector Store (bảng dbo.FaqVectors) tự động khi CRUD.
+Kế thừa TeiEmbeddingService từ hệ thống RAG để tạo embeddings.
 """
 
 import io
@@ -12,6 +14,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.ai.rag.embedding.service import TeiEmbeddingService
 from app.modules.faq_knowledge.model import FaqKnowledge
 from app.modules.faq_knowledge.repository import FaqRepository
 from app.modules.faq_knowledge.schema import (
@@ -28,6 +31,9 @@ logger = logging.getLogger(__name__)
 _VALID_QUESTION_COLS = {"câu hỏi", "question", "q", "cau hoi"}
 _VALID_ANSWER_COLS = {"câu trả lời", "answer", "a", "tra loi", "cau tra loi"}
 
+# Kích thước batch khi vectorize trong quá trình import Excel hoặc sync hàng loạt
+_EMBED_BATCH_SIZE = 16
+
 
 def _find_column(columns: list[str], valid_names: set[str]) -> str | None:
     """Tìm tên cột thực tế trong DataFrame dựa trên danh sách tên hợp lệ (case-insensitive)."""
@@ -38,17 +44,66 @@ def _find_column(columns: list[str], valid_names: set[str]) -> str | None:
 
 
 class FaqService:
-    """Service xử lý các nghiệp vụ liên quan đến FAQ Knowledge Base."""
+    """Service xử lý các nghiệp vụ liên quan đến FAQ Knowledge Base.
 
-    def __init__(self, db: Session) -> None:
+    Đồng bộ tự động sang bảng FaqVectors (Vector Store) khi CRUD.
+    Nếu embedding_service=None thì CRUD vẫn hoạt động bình thường
+    nhưng sẽ ghi cảnh báo và bỏ qua bước vectorize.
+    """
+
+    def __init__(self, db: Session, embedding_service: TeiEmbeddingService | None = None) -> None:
         self.repo = FaqRepository(db)
         self.db = db
+        self.embedding_service = embedding_service
+
+    # -------------------------------------------------------------------------
+    # Internal helpers
+    # -------------------------------------------------------------------------
+    async def _try_upsert_vector(self, faq: FaqKnowledge) -> None:
+        """Tạo embedding và upsert vào FaqVectors. Ghi warning nếu lỗi (không crash)."""
+        if not self.embedding_service:
+            logger.warning(
+                "[FAQ VECTOR] EmbeddingService không được cấu hình. Bỏ qua vectorize faq_id=%d.",
+                faq.id,
+            )
+            return
+        try:
+            embeddings = await self.embedding_service.embed_texts([faq.question])
+            if not embeddings or not embeddings[0]:
+                logger.warning("[FAQ VECTOR] Embedding rỗng cho faq_id=%d. Bỏ qua.", faq.id)
+                return
+            self.repo.upsert_faq_vector(
+                faq_id=faq.id,
+                question=faq.question,
+                answer=faq.answer,
+                embedding=embeddings[0],
+            )
+            logger.info("[FAQ VECTOR] Đã upsert vector cho faq_id=%d.", faq.id)
+        except Exception as ex:  # noqa: BLE001
+            logger.warning(
+                "[FAQ VECTOR] Không thể vectorize faq_id=%d: %s. "
+                "Dữ liệu vẫn được lưu trong FAQ_Knowledge_Base.",
+                faq.id,
+                ex,
+            )
+
+    def _try_delete_vector(self, faq_id: int) -> None:
+        """Xóa vector trong FaqVectors. Ghi warning nếu lỗi (không crash)."""
+        try:
+            self.repo.delete_faq_vector(faq_id)
+        except Exception as ex:  # noqa: BLE001
+            logger.warning(
+                "[FAQ VECTOR] Không thể xóa vector faq_id=%d: %s.", faq_id, ex
+            )
 
     # -------------------------------------------------------------------------
     # CRUD Thủ công
     # -------------------------------------------------------------------------
-    def create_faq(self, payload: FaqCreate) -> FaqResponse:
-        """Tạo mới 1 FAQ thủ công. Trả về lỗi 409 nếu câu hỏi đã tồn tại."""
+    async def create_faq(self, payload: FaqCreate) -> FaqResponse:
+        """Tạo mới 1 FAQ thủ công.
+        Sau khi lưu vào DB, tự động tạo embedding và upsert vào FaqVectors.
+        Trả về 409 nếu câu hỏi đã tồn tại.
+        """
         if self.repo.exists_normalized(payload.question):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -68,6 +123,10 @@ class FaqService:
             )
             self.db.commit()
             self.db.refresh(faq)
+
+            # Đồng bộ vector — không-blocking, lỗi sẽ chỉ ghi warning
+            await self._try_upsert_vector(faq)
+
             return FaqResponse.model_validate(faq)
         except IntegrityError:
             self.db.rollback()
@@ -98,8 +157,11 @@ class FaqService:
             page_size=page_size,
         )
 
-    def update_faq(self, faq_id: int, payload: FaqUpdate) -> FaqResponse:
-        """Cập nhật FAQ. Trả về 404 nếu không tìm thấy, 409 nếu câu hỏi mới bị trùng."""
+    async def update_faq(self, faq_id: int, payload: FaqUpdate) -> FaqResponse:
+        """Cập nhật FAQ.
+        Nếu question hoặc answer thay đổi → tự động tạo lại embedding và upsert vào FaqVectors.
+        Trả về 404 nếu không tìm thấy, 409 nếu câu hỏi mới bị trùng.
+        """
         faq = self.repo.get_by_id(faq_id)
         if not faq:
             raise HTTPException(
@@ -116,6 +178,12 @@ class FaqService:
                     detail=f"Câu hỏi mới đã tồn tại: '{payload.question[:80]}'.",
                 )
 
+        # Theo dõi xem question/answer có thay đổi không để quyết định re-embed
+        needs_reembed = (
+            (payload.question is not None and payload.question != faq.question)
+            or (payload.answer is not None and payload.answer != faq.answer)
+        )
+
         try:
             metadata_str = (
                 json.dumps(payload.metadata_json, ensure_ascii=False)
@@ -131,6 +199,11 @@ class FaqService:
             )
             self.db.commit()
             self.db.refresh(updated)
+
+            # Chỉ re-embed nếu nội dung câu hỏi / câu trả lời thực sự thay đổi
+            if needs_reembed:
+                await self._try_upsert_vector(updated)
+
             return FaqResponse.model_validate(updated)
         except IntegrityError:
             self.db.rollback()
@@ -140,7 +213,9 @@ class FaqService:
             )
 
     def delete_faq(self, faq_id: int) -> dict[str, str]:
-        """Xóa FAQ. Trả về 404 nếu không tìm thấy."""
+        """Xóa FAQ và đồng bộ xóa vector trong FaqVectors.
+        Trả về 404 nếu không tìm thấy.
+        """
         faq = self.repo.get_by_id(faq_id)
         if not faq:
             raise HTTPException(
@@ -149,6 +224,10 @@ class FaqService:
             )
         self.repo.delete(faq)
         self.db.commit()
+
+        # Xóa vector tương ứng trong FaqVectors
+        self._try_delete_vector(faq_id)
+
         return {"message": f"Đã xóa FAQ có ID = {faq_id} thành công."}
 
     # -------------------------------------------------------------------------
@@ -158,6 +237,7 @@ class FaqService:
         """
         Đọc file Excel, trích xuất cột Câu hỏi & Câu trả lời, kiểm tra trùng lặp
         và nhập dữ liệu hàng loạt vào bảng FAQ_Knowledge_Base.
+        Sau khi insert thành công, tự động batch embed và upsert vào FaqVectors.
 
         Quy trình:
             1. Đọc nội dung file với pandas.
@@ -166,7 +246,8 @@ class FaqService:
                 - Bỏ qua nếu question hoặc answer trống.
                 - Bỏ qua (skip) nếu câu hỏi đã tồn tại.
                 - Ghi log chi tiết cho từng trường hợp.
-            4. Commit toàn bộ batch, trả về thống kê.
+            4. Bulk insert vào FAQ_Knowledge_Base.
+            5. Batch embed (EMBED_BATCH_SIZE dòng/lần) và upsert vào FaqVectors.
         """
         try:
             import pandas as pd
@@ -272,17 +353,26 @@ class FaqService:
             faqs_to_add.append(faq)
             imported_count += 1
 
-        # Bulk insert
+        # Bulk insert vào FAQ_Knowledge_Base
         if faqs_to_add:
             try:
                 self.db.add_all(faqs_to_add)
                 self.db.commit()
+
+                # Refresh để lấy id được DB tự sinh (IDENTITY)
+                for faq in faqs_to_add:
+                    self.db.refresh(faq)
+
                 logger.info(
-                    "[FAQ IMPORT] Hoàn thành: import=%d, skip=%d, error=%d.",
+                    "[FAQ IMPORT] Bulk insert hoàn thành: import=%d, skip=%d, error=%d.",
                     imported_count,
                     skipped_count,
                     error_count,
                 )
+
+                # Batch embed & upsert vào FaqVectors
+                await self._bulk_vectorize(faqs_to_add)
+
             except IntegrityError as exc:
                 self.db.rollback()
                 logger.error("[FAQ IMPORT] Lỗi bulk insert (IntegrityError): %s", exc)
@@ -299,3 +389,94 @@ class FaqService:
             skipped_questions=skipped_questions,
             errors=errors[:10],  # Trả về tối đa 10 lỗi để tránh response quá lớn
         )
+
+    # -------------------------------------------------------------------------
+    # Batch Vectorize & Sync
+    # -------------------------------------------------------------------------
+    async def _bulk_vectorize(self, faqs: list[FaqKnowledge]) -> None:
+        """
+        Vectorize danh sách FAQ theo từng mini-batch và upsert vào FaqVectors.
+        Tương tự cơ chế mini-batching của IngestionPipeline trong RAG.
+        """
+        if not self.embedding_service:
+            logger.warning(
+                "[FAQ VECTOR] EmbeddingService không được cấu hình. Bỏ qua batch vectorize."
+            )
+            return
+
+        total = len(faqs)
+        logger.info("[FAQ VECTOR] Bắt đầu batch embed %d câu hỏi...", total)
+
+        for batch_start in range(0, total, _EMBED_BATCH_SIZE):
+            batch = faqs[batch_start: batch_start + _EMBED_BATCH_SIZE]
+            questions = [f.question for f in batch]
+            try:
+                embeddings = await self.embedding_service.embed_texts(questions)
+                items = [
+                    (f.id, f.question, f.answer, embeddings[i])
+                    for i, f in enumerate(batch)
+                    if embeddings[i]
+                ]
+                self.repo.bulk_upsert_faq_vectors(items)
+                logger.info(
+                    "[FAQ VECTOR] Batch %d-%d/%d: upserted %d vectors.",
+                    batch_start + 1,
+                    min(batch_start + _EMBED_BATCH_SIZE, total),
+                    total,
+                    len(items),
+                )
+            except Exception as ex:  # noqa: BLE001
+                logger.warning(
+                    "[FAQ VECTOR] Lỗi batch embed tại batch %d: %s. Bỏ qua batch này.",
+                    batch_start,
+                    ex,
+                )
+
+    async def sync_all_vectors(self, limit: int = 500) -> dict[str, Any]:
+        """
+        Quét toàn bộ FAQ chưa có vector trong FaqVectors và tạo embedding hàng loạt.
+        Dùng cho endpoint POST /api/v1/faq/sync-vectors sau khi import dữ liệu cũ.
+
+        Args:
+            limit: Số FAQ tối đa cần sync trong một lần gọi.
+
+        Returns:
+            Dict thống kê: {'synced': int, 'failed': int, 'total_missing': int}.
+        """
+        faqs = self.repo.get_faqs_without_vector(limit=limit)
+        total_missing = len(faqs)
+
+        if not faqs:
+            logger.info("[FAQ VECTOR] Tất cả FAQ đã có vector. Không cần sync.")
+            return {"synced": 0, "failed": 0, "total_missing": 0}
+
+        if not self.embedding_service:
+            logger.warning("[FAQ VECTOR] EmbeddingService không được cấu hình. Không thể sync.")
+            return {"synced": 0, "failed": total_missing, "total_missing": total_missing}
+
+        synced = 0
+        failed = 0
+
+        for batch_start in range(0, total_missing, _EMBED_BATCH_SIZE):
+            batch = faqs[batch_start: batch_start + _EMBED_BATCH_SIZE]
+            questions = [f.question for f in batch]
+            try:
+                embeddings = await self.embedding_service.embed_texts(questions)
+                items = [
+                    (f.id, f.question, f.answer, embeddings[i])
+                    for i, f in enumerate(batch)
+                    if embeddings[i]
+                ]
+                self.repo.bulk_upsert_faq_vectors(items)
+                synced += len(items)
+            except Exception as ex:  # noqa: BLE001
+                logger.warning("[FAQ VECTOR] Sync batch lỗi tại index %d: %s", batch_start, ex)
+                failed += len(batch)
+
+        logger.info(
+            "[FAQ VECTOR] sync_all_vectors hoàn thành: synced=%d, failed=%d, total_missing=%d.",
+            synced,
+            failed,
+            total_missing,
+        )
+        return {"synced": synced, "failed": failed, "total_missing": total_missing}
