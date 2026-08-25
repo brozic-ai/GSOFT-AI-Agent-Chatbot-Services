@@ -1,31 +1,51 @@
 """
-FAQ Agent Node: Tra cứu và trả lời các câu hỏi thường gặp (FAQ Knowledge Base).
-(Stub Interface chuẩn kết nối với Orchestrator)
+FAQ Agent Node — Node chính điều phối hội thoại cho FAQ Agent.
+
+Nhận FAQState, đưa System Prompt vào messages, bind tool search_faq_knowledge_base,
+gọi LLM để xử lý theo pattern ReAct (Reason + Act).
 """
 
 import logging
-from typing import Any, Dict
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import BaseMessage, SystemMessage
+
+from app.ai.agent.faq.prompts.registry import PromptLoader
+from app.ai.agent.faq.state import FAQState
+from app.ai.agent.faq.tools import FAQ_TOOLS
+from app.llmops.factory import get_chat_model
 
 logger = logging.getLogger(__name__)
 
+# Load System Prompt một lần duy nhất khi module được import (tránh đọc file nhiều lần)
+_SYSTEM_PROMPT: str = PromptLoader(task="faq").load_system()
 
-async def faq_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Xử lý câu hỏi thường gặp (FAQ).
-    Được thiết kế theo chuẩn Interface để bạn đồng nghiệp tích hợp logic chuyên sâu.
-    """
-    user_query = state.get("user_query", "")
-    logger.info("[FAQ AGENT] Đang xử lý câu hỏi FAQ: '%s'", user_query[:80])
 
-    # Placeholder / Stub logic cho FAQ
-    response_content = (
-        f"💡 [FAQ Bot]: Đây là giải đáp cho câu hỏi thường gặp liên quan đến '{user_query}'. "
-        f"(Hệ thống FAQ đang được tích hợp dữ liệu câu hỏi thường gặp của BVBank)."
+async def faq_agent_node(state: FAQState) -> dict[str, list[BaseMessage]]:
+    """Node chính của FAQ Agent — LLM suy luận và quyết định gọi tool hay trả lời thẳng.
+
+    Luồng:
+    - Nếu cần tra cứu FAQ → LLM sinh tool_calls → ToolNode xử lý → quay lại node này.
+    - Nếu đã có kết quả tool → LLM tổng hợp câu trả lời thân thiện → kết thúc.
+    - Nếu không tìm thấy FAQ (tool trả về found=false) → LLM kích hoạt Fallback theo System Prompt.
+    """
+    messages = (
+        list(state.get("messages", []))
+        if isinstance(state, dict)
+        else list(state.messages)
     )
 
-    return {
-        "agent_output": response_content,
-        "messages": [AIMessage(content=response_content)],
-    }
+    # Đưa System Prompt vào đầu danh sách nếu chưa có
+    if not messages or not isinstance(messages[0], SystemMessage):
+        messages = [SystemMessage(content=_SYSTEM_PROMPT)] + messages
+
+    # Khởi tạo LLM và bind FAQ search tool
+    llm = get_chat_model().bind_tools(FAQ_TOOLS)
+
+    # Gọi LLM (async)
+    response = await llm.ainvoke(messages)
+    logger.debug(
+        "[FAQ AGENT NODE] LLM response: tool_calls=%s",
+        bool(getattr(response, "tool_calls", None)),
+    )
+
+    return {"messages": [response]}

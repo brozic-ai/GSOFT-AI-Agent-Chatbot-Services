@@ -100,9 +100,10 @@ def init_db() -> None:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         logger.info("[OK] Database connection established successfully.")
-        # Import models để SQLAlchemy Base nhận diện tất cả ORM models (RagDocument, RagDocumentRole, IngestionTask, Conversation, ChatMessage)
+        # Import models để SQLAlchemy Base nhận diện tất cả ORM models
         import app.modules.document.model  # noqa: F401
         import app.modules.chat.model  # noqa: F401
+        import app.modules.faq_knowledge.model  # noqa: F401
         Base.metadata.create_all(bind=engine)
         _ensure_chat_conversation_columns()
         _ensure_chat_message_columns()
