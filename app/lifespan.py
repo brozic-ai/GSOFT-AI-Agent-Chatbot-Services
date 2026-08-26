@@ -109,6 +109,96 @@ async def _startup() -> None:
     except Exception as ex:
         logger.error("[FAIL] Failed to create Documents table: %s", ex, exc_info=True)
 
+    # 4. Tạo Full-Text Catalog & Index cho cột `document` của bảng Documents
+    # Dùng LANGUAGE 0 (Neutral) — SQL Server không có word-breaker tiếng Việt native;
+    # Neutral tách theo khoảng trắng, phù hợp nhất cho văn bản tiếng Việt đã chuẩn hóa.
+    try:
+        import pyodbc as _pyodbc
+
+        _conn = _pyodbc.connect(settings.SQLSERVER_CONNECTIONSTRING, autocommit=True)
+        try:
+            with _conn.cursor() as _cur:
+                # 4a. Tạo Full-Text Catalog nếu chưa có
+                _cur.execute(
+                    "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs "
+                    "WHERE name = 'FtCatalog_Documents') "
+                    "CREATE FULLTEXT CATALOG FtCatalog_Documents AS DEFAULT;"
+                )
+                # 4b. Tạo Full-Text Index trên cột document (dùng UQ_Documents_id làm unique key)
+                _cur.execute(
+                    "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_indexes "
+                    "WHERE object_id = OBJECT_ID('dbo.Documents')) "
+                    "CREATE FULLTEXT INDEX ON dbo.Documents(document LANGUAGE 0) "
+                    "KEY INDEX UQ_Documents_id ON FtCatalog_Documents "
+                    "WITH CHANGE_TRACKING AUTO;"
+                )
+            logger.info("[OK] Full-Text Catalog and Index on 'Documents.document' are ready.")
+        finally:
+            _conn.close()
+    except Exception as ex:
+        logger.warning(
+            "[WARN] Full-Text Search setup skipped (FTS may not be supported on this SQL Server edition): %s",
+            ex,
+        )
+
+
+    # 5. Tạo bảng FaqVectors (Vector Store riêng cho FAQ Knowledge Base)
+    # Dùng VECTOR(1024) — SQL Server kiểu native, phải tạo thủ công bằng DDL.
+    try:
+        raw_conn2 = engine.raw_connection()
+        try:
+            with raw_conn2.cursor() as cursor:
+                cursor.execute(
+                    "SELECT 1 FROM sysobjects WHERE name='FaqVectors' AND xtype='U'"
+                )
+                if not cursor.fetchone():
+                    cursor.execute("""
+                        CREATE TABLE FaqVectors (
+                            id_int   INT IDENTITY(1,1) CONSTRAINT PK_FaqVectors PRIMARY KEY CLUSTERED,
+                            faq_id   INT NOT NULL CONSTRAINT UQ_FaqVectors_faq_id UNIQUE,
+                            question NVARCHAR(MAX),
+                            answer   NVARCHAR(MAX),
+                            embedding VECTOR(1024)
+                        );
+                    """)
+                    logger.info(
+                        "[OK] Table 'FaqVectors' (FAQ Vector Store) created via DDL."
+                    )
+            raw_conn2.commit()
+        finally:
+            raw_conn2.close()
+    except Exception as ex:
+        logger.error("[FAIL] Failed to create FaqVectors table: %s", ex, exc_info=True)
+
+    # 6. Tạo Full-Text Catalog & Index cho bảng FaqVectors (cột question và answer)
+    try:
+        import pyodbc as _pyodbc2
+
+        _conn2 = _pyodbc2.connect(settings.SQLSERVER_CONNECTIONSTRING, autocommit=True)
+        try:
+            with _conn2.cursor() as _cur2:
+                # 6a. Tạo Full-Text Catalog nếu chưa có
+                _cur2.execute(
+                    "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs "
+                    "WHERE name = 'FtCatalog_FaqVectors') "
+                    "CREATE FULLTEXT CATALOG FtCatalog_FaqVectors AS DEFAULT;"
+                )
+                # 6b. Tạo Full-Text Index trên cột question và answer
+                _cur2.execute(
+                    "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_indexes "
+                    "WHERE object_id = OBJECT_ID('dbo.FaqVectors')) "
+                    "CREATE FULLTEXT INDEX ON dbo.FaqVectors(question LANGUAGE 0, answer LANGUAGE 0) "
+                    "KEY INDEX UQ_FaqVectors_faq_id ON FtCatalog_FaqVectors "
+                    "WITH CHANGE_TRACKING AUTO;"
+                )
+            logger.info("[OK] Full-Text Catalog and Index on 'FaqVectors' are ready.")
+        finally:
+            _conn2.close()
+    except Exception as ex:
+        logger.warning(
+            "[WARN] FaqVectors Full-Text Search setup skipped: %s", ex
+        )
+
 
 async def _shutdown() -> None:
     """Giải phóng tất cả resources khi ứng dụng tắt."""
