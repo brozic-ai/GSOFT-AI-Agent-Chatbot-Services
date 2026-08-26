@@ -280,6 +280,80 @@ class ChatRepository:
         finally:
             db.close()
 
+    def truncate_messages_after(self, conversation_id: int, message_id: int) -> int:
+        """Xóa tất cả các tin nhắn trong conversation có ID > message_id khi retry mốc ở giữa."""
+        int_id = self._to_int_id(conversation_id)
+        if int_id is None:
+            return 0
+        db: Session = SessionLocal()
+        try:
+            deleted_count = (
+                db.query(ChatMessage)
+                .filter(ChatMessage.conversation_id == int_id, ChatMessage.id > message_id)
+                .delete(synchronize_session=False)
+            )
+            db.commit()
+            logger.info("[OK] Truncated %d messages after ID=%d in conversation_id=%s", deleted_count, message_id, conversation_id)
+            return deleted_count
+        except Exception as ex:
+            db.rollback()
+            logger.error("[FAIL] Error truncating messages after ID=%s: %s", message_id, ex, exc_info=True)
+            raise ex
+        finally:
+            db.close()
+
+    def update_message_content(self, message_id: int, content: str) -> bool:
+        """Cập nhật nội dung của tin nhắn đã có (dùng cho tính năng Retry In-place)."""
+        db: Session = SessionLocal()
+        try:
+            msg = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
+            if not msg:
+                logger.warning("[WARN] ChatMessage ID=%s not found for update", message_id)
+                return False
+            msg.content = content
+            db.commit()
+            logger.debug("[OK] Updated ChatMessage ID=%d content", message_id)
+            return True
+        except Exception as ex:
+            db.rollback()
+            logger.error("[FAIL] Error updating ChatMessage ID=%s: %s", message_id, ex, exc_info=True)
+            raise ex
+        finally:
+            db.close()
+
+    def get_chat_history_up_to(
+        self,
+        conversation_id: int,
+        target_message_id: Optional[int] = None,
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """
+        Lấy N tin nhắn trong phiên hội thoại tính đến trước target_message_id.
+        Đảm bảo LLM chỉ nhận ngữ cảnh hội thoại đúng đến mốc câu hỏi được retry.
+        """
+        int_id = self._to_int_id(conversation_id)
+        if int_id is None:
+            return []
+        db: Session = SessionLocal()
+        try:
+            query = db.query(ChatMessage).filter(ChatMessage.conversation_id == int_id)
+            if target_message_id is not None:
+                # Lấy các tin nhắn trước tin nhắn AI đang retry
+                query = query.filter(ChatMessage.id < target_message_id)
+            msgs = query.order_by(ChatMessage.id.desc()).limit(limit).all()
+            msgs.reverse()
+            return [
+                {
+                    "id": msg.id,
+                    "role": msg.role,
+                    "content": msg.content,
+                    "created_at": self._to_iso(msg.created_at),
+                }
+                for msg in msgs
+            ]
+        finally:
+            db.close()
+
     def get_message_count(self, conversation_id: int) -> int:
         """Đếm số tin nhắn trong phiên hội thoại (dùng để detect tin nhắn đầu tiên)."""
         int_id = self._to_int_id(conversation_id)

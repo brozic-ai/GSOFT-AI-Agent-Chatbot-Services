@@ -107,13 +107,15 @@ class ChatService:
         images: Optional[List[Dict[str, Any]]] = None,
         request: Optional[Any] = None,
         question: Optional[str] = None,
+        is_retry: bool = False,
+        retry_message_id: Optional[int] = None,
     ) -> AsyncGenerator[str, None]:
         """
         Tạo luồng Server-Sent Events (SSE) phản hồi qua Master Orchestrator Graph.
 
         Luồng xử lý Enterprise Multi-Agent:
-        1. Lấy lịch sử tin nhắn từ DB (nếu có conversation_id).
-        2. Lưu câu hỏi mới của User vào DB và tạo tiêu đề tự động nếu là tin nhắn đầu tiên.
+        1. Lấy lịch sử tin nhắn từ DB (nếu có conversation_id). Hỗ trợ lấy ngữ cảnh đến đúng mốc retry.
+        2. Lưu câu hỏi mới của User vào DB (nếu không phải là request Retry).
         3. Khởi tạo OrchestratorState kèm messages và user_info (roles, department, user_id).
         4. Thực thi Master Orchestrator Graph:
            - Input Guardrail (Chặn tấn công)
@@ -121,7 +123,7 @@ class ChatService:
            - Sub-Agent tương ứng (RAG Knowledge Agent 4-Node, gAMSPro ReAct, FAQ, Fallback)
            - Output Guardrail (Kiểm duyệt an toàn thông tin)
         5. Trả về trích dẫn citations (nếu có từ RAG) và stream token về Frontend qua SSE.
-        6. Lưu phản hồi của Assistant vào DB.
+        6. Cập nhật tin nhắn đã có (nếu là Retry) hoặc Lưu phản hồi mới của Assistant vào DB.
         """
         try:
             # Phát sự kiện khởi đầu chat
@@ -132,14 +134,17 @@ class ChatService:
 
             base_query = (message or question or "").strip()
             if not base_query:
-                reply_empty = "Bạn chưa nhập câu hỏi."
-                if conversation_id:
-                    self.chat_repo.save_message(
-                        conversation_id=conversation_id, role="assistant", content=reply_empty
-                    )
-                yield f"event: token\ndata: {json.dumps({'text': reply_empty}, ensure_ascii=False)}\n\n"
-                yield "event: chat_ended\ndata: {}\n\n"
-                return
+                if is_retry:
+                    base_query = "Xin chào! Hãy giới thiệu về trợ lý AI BVBank & gAMSPro và các nhóm nghiệp vụ có thể hỗ trợ."
+                else:
+                    reply_empty = "Bạn chưa nhập câu hỏi."
+                    if conversation_id:
+                        self.chat_repo.save_message(
+                            conversation_id=conversation_id, role="assistant", content=reply_empty
+                        )
+                    yield f"event: token\ndata: {json.dumps({'text': reply_empty}, ensure_ascii=False)}\n\n"
+                    yield "event: chat_ended\ndata: {}\n\n"
+                    return
 
             # 1. Lấy lịch sử hội thoại từ DB
             history: List[Dict[str, Any]] = []
@@ -147,15 +152,27 @@ class ChatService:
             if conversation_id:
                 if request and await request.is_disconnected():
                     return
-                message_count = self.chat_repo.get_message_count(conversation_id)
-                is_first_message = message_count == 0
-                if message_count > 0:
-                    history = self.chat_repo.get_chat_history(
-                        conversation_id=conversation_id, limit=HISTORY_LIMIT
+                if is_retry and retry_message_id:
+                    self.chat_repo.truncate_messages_after(
+                        conversation_id=conversation_id,
+                        message_id=retry_message_id,
                     )
+                    history = self.chat_repo.get_chat_history_up_to(
+                        conversation_id=conversation_id,
+                        target_message_id=retry_message_id,
+                        limit=HISTORY_LIMIT,
+                    )
+                    is_first_message = False
+                else:
+                    message_count = self.chat_repo.get_message_count(conversation_id)
+                    is_first_message = message_count == 0
+                    if message_count > 0:
+                        history = self.chat_repo.get_chat_history(
+                            conversation_id=conversation_id, limit=HISTORY_LIMIT
+                        )
 
-            # 2. Lưu câu hỏi của User vào DB
-            if conversation_id:
+            # 2. Lưu câu hỏi của User vào DB (Chỉ lưu khi là câu hỏi mới, KHÔNG lưu trùng khi Retry)
+            if conversation_id and not is_retry:
                 if request and await request.is_disconnected():
                     return
                 self.chat_repo.save_message(
@@ -203,8 +220,10 @@ class ChatService:
                     "user_roles": user_roles,
                     "user_department": user_department,
                     "top_k": top_k,
+                    "is_retry": is_retry,
+                    "retry_message_id": retry_message_id,
                 },
-                trace_name=f"Orchestrator-Chat: {base_query[:35]}",
+                trace_name=f"{'[RETRY] ' if is_retry else ''}Orchestrator-Chat: {base_query[:35]}",
             )
 
             state_input = {
@@ -223,7 +242,9 @@ class ChatService:
 
             # 5. Thực thi Master Orchestrator Graph
             logger.info(
-                "[CHAT] Invoking Master Orchestrator for query='%s', history_count=%d...",
+                "[CHAT] Invoking Master Orchestrator (is_retry=%s, retry_msg_id=%s) for query='%s', history_count=%d...",
+                is_retry,
+                retry_message_id,
                 base_query,
                 len(history),
             )
@@ -252,16 +273,27 @@ class ChatService:
                 yield f"event: token\ndata: {json.dumps({'text': chunk}, ensure_ascii=False)}\n\n"
                 await asyncio.sleep(0.015)
 
-            # 8. Lưu câu trả lời hoàn chỉnh vào DB sau khi hoàn tất
+            # 8. Lưu hoặc cập nhật câu trả lời hoàn chỉnh vào DB sau khi hoàn tất
             if request and await request.is_disconnected():
                 return
 
             if conversation_id and agent_output:
-                self.chat_repo.save_message(
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=agent_output,
-                )
+                if is_retry and retry_message_id:
+                    updated = self.chat_repo.update_message_content(
+                        message_id=retry_message_id, content=agent_output
+                    )
+                    if not updated:
+                        self.chat_repo.save_message(
+                            conversation_id=conversation_id,
+                            role="assistant",
+                            content=agent_output,
+                        )
+                else:
+                    self.chat_repo.save_message(
+                        conversation_id=conversation_id,
+                        role="assistant",
+                        content=agent_output,
+                    )
                 self.chat_repo.touch_conversation(conversation_id)
 
             yield "event: chat_ended\ndata: {}\n\n"

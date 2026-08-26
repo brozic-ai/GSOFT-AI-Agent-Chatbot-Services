@@ -186,6 +186,8 @@ async def chat_stream(
         user_roles=roles,
         user_department=department,
         request=http_request,
+        is_retry=bool(request.is_retry),
+        retry_message_id=request.retry_message_id,
     )
 
     return StreamingResponse(generator, media_type="text/event-stream")

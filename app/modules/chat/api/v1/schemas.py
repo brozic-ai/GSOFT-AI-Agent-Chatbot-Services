@@ -20,6 +20,8 @@ class ChatRequest(BaseModel):
     user_roles: Optional[str] = Field(default=None, description="Danh sách Vai trò của user, phân cách bằng dấu phẩy")
     user_department: Optional[str] = Field(default=None, description="Phòng ban của user")
     conversation_id: Optional[int] = Field(default=None, description="ID phiên hội thoại (int). Nếu None, bot sẽ trả lời không lưu lịch sử.")
+    is_retry: Optional[bool] = Field(default=False, description="Cờ đánh dấu request tạo lại câu trả lời (Retry in-place)")
+    retry_message_id: Optional[int] = Field(default=None, description="ID tin nhắn AI trong DB cần cập nhật lại nội dung")
 
     model_config = {
         "populate_by_name": True

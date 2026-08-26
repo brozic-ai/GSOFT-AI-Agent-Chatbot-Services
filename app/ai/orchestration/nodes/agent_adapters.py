@@ -10,7 +10,9 @@ from langchain_core.messages import AIMessage, HumanMessage
 from app.ai.agent.fallback.nodes.fallback_node import fallback_node
 from app.ai.agent.faq.nodes.faq_node import faq_node
 from app.ai.agent.agentic_rag.nodes.rag_node import rag_node
+from app.ai.agent.agentic_rag.prompts.registry import get_user_prompt as get_rag_user_prompt
 from app.ai.agent.procurement.graph.graph import procurement_graph
+from app.ai.agent.procurement.prompts.registry import get_user_prompt as get_procurement_user_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -18,14 +20,16 @@ logger = logging.getLogger(__name__)
 async def call_procurement_agent(state: Any) -> Dict[str, Any]:
     """Adapter kích hoạt Procurement Agent (gAMSPro Multi-turn Slot Filling)."""
     user_query = state.get("user_query", "") if isinstance(state, dict) else getattr(state, "user_query", "")
+    chat_history = state.get("chat_history", []) if isinstance(state, dict) else getattr(state, "chat_history", [])
     logger.info("[ORCHESTRATOR -> PROCUREMENT] Điều phối câu hỏi: '%s'", str(user_query)[:80])
 
     try:
-        # Chuẩn bị tin nhắn đầu vào cho Procurement Graph
+        # Chuẩn bị tin nhắn đầu vào cho Procurement Graph từ Langfuse Prompt
         raw_msgs = state.get("messages", []) if isinstance(state, dict) else getattr(state, "messages", [])
         messages = list(raw_msgs or [])
         if not messages:
-            messages = [HumanMessage(content=user_query)]
+            formatted_prompt = get_procurement_user_prompt(query=user_query, chat_history=chat_history)
+            messages = [HumanMessage(content=formatted_prompt)]
 
         # Chạy Procurement Sub-graph
         procurement_result = await procurement_graph.ainvoke({"messages": messages})
@@ -73,13 +77,18 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(state, dict)
         else getattr(state, "user_query", "")
     )
+    chat_history = (
+        state.get("chat_history", [])
+        if isinstance(state, dict)
+        else getattr(state, "chat_history", [])
+    )
     logger.info(
         "[ORCHESTRATOR -> RAG] Điều phối câu hỏi sang RAG Knowledge Agent: '%s'",
         str(user_query)[:80],
     )
 
     try:
-        # Chuẩn bị tin nhắn đầu vào cho RAG Knowledge Graph
+        # Chuẩn bị tin nhắn đầu vào cho RAG Knowledge Graph từ Langfuse Prompt
         raw_msgs = (
             state.get("messages", [])
             if isinstance(state, dict)
@@ -87,7 +96,8 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         )
         messages = list(raw_msgs or [])
         if not messages:
-            messages = [HumanMessage(content=user_query)]
+            formatted_prompt = get_rag_user_prompt(query=user_query, chat_history=chat_history)
+            messages = [HumanMessage(content=formatted_prompt)]
 
         user_info = (
             state.get("user_info", {})
