@@ -8,7 +8,7 @@ from typing import Any, Dict
 from langchain_core.messages import AIMessage, HumanMessage
 
 from app.ai.agent.fallback.nodes.fallback_node import fallback_node
-from app.ai.agent.faq.nodes.faq_node import faq_node
+from app.ai.agent.faq.graph.graph import faq_graph
 from app.ai.agent.agentic_rag.nodes.rag_node import rag_node
 from app.ai.agent.agentic_rag.prompts.registry import get_user_prompt as get_rag_user_prompt
 from app.ai.agent.procurement.graph.graph import procurement_graph
@@ -178,9 +178,65 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def call_faq_agent(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Adapter kích hoạt FAQ Agent (Giải đáp câu hỏi thường gặp)."""
-    logger.info("[ORCHESTRATOR -> FAQ] Điều phối sang FAQ Agent...")
-    return await faq_node(state)
+    """Adapter kích hoạt FAQ Agent (Sub-graph ReAct: Tra cứu cơ sở tri thức câu hỏi thường gặp)."""
+    user_query = (
+        state.get("user_query", "")
+        if isinstance(state, dict)
+        else getattr(state, "user_query", "")
+    )
+    logger.info("[ORCHESTRATOR -> FAQ] Điều phối sang FAQ Agent: '%s'", str(user_query)[:80])
+
+    try:
+        raw_msgs = (
+            state.get("messages", [])
+            if isinstance(state, dict)
+            else getattr(state, "messages", [])
+        )
+        messages = list(raw_msgs or [])
+        if not messages and user_query:
+            messages = [HumanMessage(content=user_query)]
+
+        faq_result = await faq_graph.ainvoke({"messages": messages})
+        res_messages = faq_result.get("messages", [])
+
+        last_ai_msg = ""
+        for msg in reversed(res_messages):
+            if isinstance(msg, AIMessage) and msg.content:
+                last_ai_msg = str(msg.content)
+                break
+
+        if not last_ai_msg:
+            from langchain_core.messages import ToolMessage
+            for msg in reversed(res_messages):
+                if isinstance(msg, ToolMessage) and msg.content:
+                    last_ai_msg = str(msg.content)
+                    break
+
+        if not last_ai_msg:
+            last_ai_msg = "Tôi chưa tìm thấy câu trả lời phù hợp trong danh mục câu hỏi thường gặp (FAQ)."
+
+        return {
+            "agent_output": last_ai_msg,
+            "final_answer": last_ai_msg,
+            "messages": res_messages,
+        }
+
+    except Exception as ex:
+        logger.error(
+            "[ORCHESTRATOR -> FAQ ERROR] Lỗi khi gọi FAQ Graph: %s",
+            ex,
+            exc_info=True,
+        )
+        err_msg = (
+            "⚠️ Hệ thống tra cứu câu hỏi thường gặp (FAQ) hiện đang gặp sự cố kết nối. "
+            "Bạn vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên."
+        )
+        return {
+            "agent_output": err_msg,
+            "final_answer": err_msg,
+            "messages": [AIMessage(content=err_msg)],
+            "error_state": str(ex),
+        }
 
 
 async def call_fallback_agent(state: Dict[str, Any]) -> Dict[str, Any]:

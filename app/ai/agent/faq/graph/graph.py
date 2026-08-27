@@ -7,7 +7,7 @@ Kiến trúc ReAct (Reason + Act) 2 node:
   └────────┬─────────┘                   │
            │ tool_calls?                 │
      ┌─────┴──────┐                      │
-     │ (có tool)  │ (không tool)          │
+     │ (có tool)  │ (không tool)         │
      ▼            ▼                      │
  tools_node    END                       │
      │                                   │

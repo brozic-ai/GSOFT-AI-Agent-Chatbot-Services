@@ -16,9 +16,6 @@ from app.llmops.factory import get_chat_model
 
 logger = logging.getLogger(__name__)
 
-# Load System Prompt một lần duy nhất khi module được import (tránh đọc file nhiều lần)
-_SYSTEM_PROMPT: str = PromptLoader(task="faq").load_system()
-
 
 async def faq_agent_node(state: FAQState) -> dict[str, list[BaseMessage]]:
     """Node chính của FAQ Agent — LLM suy luận và quyết định gọi tool hay trả lời thẳng.
@@ -36,7 +33,8 @@ async def faq_agent_node(state: FAQState) -> dict[str, list[BaseMessage]]:
 
     # Đưa System Prompt vào đầu danh sách nếu chưa có
     if not messages or not isinstance(messages[0], SystemMessage):
-        messages = [SystemMessage(content=_SYSTEM_PROMPT)] + messages
+        system_prompt = PromptLoader(task="faq").load_system()
+        messages = [SystemMessage(content=system_prompt)] + messages
 
     # Khởi tạo LLM và bind FAQ search tool
     llm = get_chat_model().bind_tools(FAQ_TOOLS)
@@ -49,3 +47,9 @@ async def faq_agent_node(state: FAQState) -> dict[str, list[BaseMessage]]:
     )
 
     return {"messages": [response]}
+
+
+# Alias tương thích ngược
+faq_node = faq_agent_node
+
+__all__ = ["faq_agent_node", "faq_node"]

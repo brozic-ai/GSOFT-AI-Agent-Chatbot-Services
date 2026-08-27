@@ -38,6 +38,7 @@ dependencies = [
   "markitdown>=0.1.0",
   "underthesea>=6.8.0",
   "langfuse>=2.0.0",
+  "pandas>=3.0.5",
 ]
 
 [tool.uv]

@@ -34,9 +34,9 @@ class FaqKnowledge(Base):
 
     question_normalized = Column(
         "QuestionNormalized",
-        UnicodeText,
+        Unicode(450),
         nullable=False,
-        comment="Câu hỏi đã chuẩn hóa (lowercase, strip) dùng để kiểm tra trùng lặp.",
+        comment="Câu hỏi đã chuẩn hóa (lowercase, strip, max 450 ký tự) dùng để kiểm tra trùng lặp.",
     )
 
     answer = Column(

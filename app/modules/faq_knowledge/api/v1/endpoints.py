@@ -54,15 +54,18 @@ def _get_service(
     "/",
     response_model=FaqListResponse,
     summary="Lấy danh sách FAQ",
-    description="Lấy danh sách câu hỏi thường gặp, hỗ trợ phân trang và lọc theo danh mục.",
+    description="Lấy danh sách câu hỏi thường gặp, hỗ trợ phân trang, tìm kiếm keyword và lọc theo danh mục.",
 )
 def list_faqs(
     page: int = Query(1, ge=1, description="Số trang (bắt đầu từ 1)."),
     page_size: int = Query(20, ge=1, le=100, description="Số bản ghi mỗi trang (tối đa 100)."),
     category: str | None = Query(None, description="Lọc theo danh mục (category)."),
+    keyword: str | None = Query(None, description="Tìm kiếm theo câu hỏi, câu trả lời hoặc danh mục."),
+    query: str | None = Query(None, description="Alias tìm kiếm (tương thích query)."),
     service: FaqService = Depends(_get_service),
 ) -> FaqListResponse:
-    return service.list_faqs(page=page, page_size=page_size, category=category)
+    search_term = keyword or query
+    return service.list_faqs(page=page, page_size=page_size, category=category, keyword=search_term)
 
 
 @router.get(

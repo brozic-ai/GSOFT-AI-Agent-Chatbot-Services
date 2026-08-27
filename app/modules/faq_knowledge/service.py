@@ -146,10 +146,16 @@ class FaqService:
         return FaqResponse.model_validate(faq)
 
     def list_faqs(
-        self, page: int = 1, page_size: int = 20, category: str | None = None
+        self,
+        page: int = 1,
+        page_size: int = 20,
+        category: str | None = None,
+        keyword: str | None = None,
     ) -> FaqListResponse:
-        """Lấy danh sách FAQ có phân trang."""
-        items, total = self.repo.get_all(page=page, page_size=page_size, category=category)
+        """Lấy danh sách FAQ có phân trang và tìm kiếm."""
+        items, total = self.repo.get_all(
+            page=page, page_size=page_size, category=category, keyword=keyword
+        )
         return FaqListResponse(
             items=[FaqResponse.model_validate(f) for f in items],
             total=total,

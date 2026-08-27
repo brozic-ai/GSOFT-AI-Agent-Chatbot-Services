@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_question(question: str) -> str:
-    """Chuẩn hóa chuỗi câu hỏi: lowercase, strip khoảng trắng thừa."""
-    return " ".join(question.strip().lower().split())
+    """Chuẩn hóa chuỗi câu hỏi: lowercase, strip khoảng trắng thừa, tối đa 450 ký tự."""
+    return " ".join(question.strip().lower().split())[:450]
 
 
 class FaqRepository:
@@ -58,18 +58,27 @@ class FaqRepository:
         page: int = 1,
         page_size: int = 20,
         category: str | None = None,
+        keyword: str | None = None,
     ) -> tuple[list[FaqKnowledge], int]:
-        """Lấy danh sách FAQ có phân trang, hỗ trợ lọc theo category.
-        
-        Returns:
-            Tuple (danh sách FAQ, tổng số bản ghi).
-        """
+        """Lấy danh sách FAQ có phân trang, hỗ trợ lọc theo category và tìm kiếm keyword."""
+        from sqlalchemy import or_
+
         stmt = select(FaqKnowledge)
         count_stmt = select(func.count()).select_from(FaqKnowledge)
 
         if category:
             stmt = stmt.where(FaqKnowledge.category == category)
             count_stmt = count_stmt.where(FaqKnowledge.category == category)
+
+        if keyword and keyword.strip():
+            term = f"%{keyword.strip()}%"
+            search_filter = or_(
+                FaqKnowledge.question.ilike(term),
+                FaqKnowledge.answer.ilike(term),
+                FaqKnowledge.category.ilike(term),
+            )
+            stmt = stmt.where(search_filter)
+            count_stmt = count_stmt.where(search_filter)
 
         total = self.db.execute(count_stmt).scalar_one()
 
@@ -403,8 +412,31 @@ class FaqRepository:
         raw_conn = engine.raw_connection()
         try:
             with raw_conn.cursor() as cursor:
-                cursor.execute(sql, params)
-                rows = cursor.fetchall()
+                try:
+                    cursor.execute(sql, params)
+                    rows = cursor.fetchall()
+                except Exception as query_ex:
+                    if use_fts:
+                        logger.warning(
+                            "[FAQ SEARCH] FTS query thất bại (%s), tự động fallback sang Vector-only search.",
+                            query_ex,
+                        )
+                        fallback_sql = f"""
+                            SELECT TOP (?)
+                                faq_id, question, answer,
+                                {vector_weight} * (1.0 / (? + ROW_NUMBER() OVER (
+                                    ORDER BY VECTOR_DISTANCE('cosine', embedding,
+                                        CAST(CAST(? AS VARCHAR(MAX)) AS VECTOR(1024))) ASC
+                                ))) AS rrf_score
+                            FROM FaqVectors
+                            ORDER BY VECTOR_DISTANCE('cosine', embedding,
+                                CAST(CAST(? AS VARCHAR(MAX)) AS VECTOR(1024))) ASC;
+                        """
+                        fallback_params = (top_k, rrf_k, query_embedding_json, query_embedding_json)
+                        cursor.execute(fallback_sql, fallback_params)
+                        rows = cursor.fetchall()
+                    else:
+                        raise
         finally:
             raw_conn.close()
 

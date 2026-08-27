@@ -21,6 +21,8 @@ from app.modules.chat.api.v1.schemas import (
     ConversationResponse,
     ChatMessageResponse,
     ConversationUpdateRequest,
+    ChatFeedbackRequest,
+    ChatFeedbackResponse,
 )
 from app.modules.chat.service import ChatService
 from app.routers.dependencies import get_chat_service
@@ -191,3 +193,42 @@ async def chat_stream(
     )
 
     return StreamingResponse(generator, media_type="text/event-stream")
+
+
+# ── User Feedback Endpoint (Like / Dislike / Langfuse Score) ──
+
+@router.post("/feedback", response_model=ChatFeedbackResponse)
+def submit_feedback(
+    request: ChatFeedbackRequest,
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    service: ChatService = Depends(get_chat_service),
+):
+    """
+    Ghi nhận đánh giá Like / Dislike của người dùng cho một tin nhắn AI.
+    Tự động cập nhật CSDL và gửi Score sang Langfuse gắn vào Trace tương ứng.
+    """
+    try:
+        feedback_result = service.save_feedback(
+            message_id=request.message_id,
+            score=request.score,
+            reason=request.reason,
+            comment=request.comment,
+            user_id=x_user_id,
+        )
+        return ChatFeedbackResponse(
+            success=True,
+            message="Đã ghi nhận phản hồi thành công.",
+            data=feedback_result,
+        )
+    except ValueError as ex:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(ex))
+    except Exception as ex:
+        logger.error(
+            "[FAIL] Error saving feedback for message_id=%s: %s",
+            request.message_id, ex, exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(ex),
+        )
+

@@ -57,6 +57,27 @@ class ChatMessageResponse(BaseModel):
     id: int
     role: str
     content: str
+    trace_id: Optional[str] = None
+    feedback_score: Optional[int] = None
+    feedback_reason: Optional[str] = None
+    feedback_comment: Optional[str] = None
+    feedback_at: Optional[str] = None
     created_at: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class ChatFeedbackRequest(BaseModel):
+    """Request gửi đánh giá Like/Dislike cho tin nhắn."""
+    message_id: int
+    score: Optional[int] = Field(None, ge=0, le=1, description="1 cho Like, 0 cho Dislike, None để hủy đánh giá")
+    reason: Optional[str] = Field(None, description="Lý do đánh giá (chọn nhanh khi Dislike)")
+    comment: Optional[str] = Field(None, description="Ý kiến đóng góp chi tiết")
+
+
+class ChatFeedbackResponse(BaseModel):
+    """Response kết quả ghi nhận đánh giá."""
+    success: bool = True
+    message: str = "Đã ghi nhận phản hồi thành công."
+    data: Optional[dict] = None
+

@@ -191,6 +191,26 @@ def _ensure_chat_message_columns() -> None:
           AND COL_LENGTH('dbo.ChatMessages', 'CreatedAt') IS NOT NULL
         EXEC('UPDATE dbo.ChatMessages SET CreatedAt = CreationTime WHERE CreatedAt IS NULL')
         """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'TraceId') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD TraceId NVARCHAR(100) NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'FeedbackScore') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD FeedbackScore INT NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'FeedbackReason') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD FeedbackReason NVARCHAR(255) NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'FeedbackComment') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD FeedbackComment NVARCHAR(MAX) NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'FeedbackAt') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD FeedbackAt DATETIME2 NULL
+        """,
     ]
     try:
         with engine.begin() as conn:

@@ -79,6 +79,7 @@ def get_langfuse_callback(
     metadata: Optional[Dict[str, Any]] = None,
     trace_name: Optional[str] = None,
     version: Optional[str] = None,
+    trace_id: Optional[str] = None,
 ) -> Any:
     """
     Tạo LangChain / LangGraph CallbackHandler cho Langfuse.
@@ -90,6 +91,7 @@ def get_langfuse_callback(
         metadata: Dữ liệu bổ sung (user_roles, user_department, v.v.).
         trace_name: Tên trace mô tả ngắn gọn (vd: "Chatbot-RAG: Tra cứu quy trình").
         version: Phiên bản ứng dụng / prompt (nếu có).
+        trace_id: ID cố định cho trace nếu cần gán trước.
 
     Returns:
         Instance của CallbackHandler nếu cấu hình thành công, ngược lại None.
@@ -116,6 +118,8 @@ def get_langfuse_callback(
             clean_metadata["langfuse_session_id"] = str(session_id)
         if tags:
             clean_metadata["langfuse_tags"] = tags
+        if trace_id:
+            clean_metadata["langfuse_trace_id"] = str(trace_id)
 
         init_kwargs: Dict[str, Any] = {"public_key": pub_key}
         if user_id:
@@ -128,6 +132,8 @@ def get_langfuse_callback(
             init_kwargs["trace_name"] = trace_name
         if version:
             init_kwargs["version"] = version
+        if trace_id:
+            init_kwargs["trace_id"] = str(trace_id)
 
         # Thử khởi tạo với đầy đủ parameters, fallback an toàn nếu version cũ
         try:
@@ -163,6 +169,7 @@ def get_langfuse_langchain_config(
     trace_name: Optional[str] = None,
     version: Optional[str] = None,
     run_name: Optional[str] = None,
+    trace_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Tạo config dictionary chuẩn chỉnh nhất cho LangChain / LangGraph (invoke / ainvoke / astream).
@@ -176,6 +183,7 @@ def get_langfuse_langchain_config(
         metadata=metadata,
         trace_name=effective_name,
         version=version,
+        trace_id=trace_id,
     )
     callbacks = [handler] if handler else []
 
@@ -188,6 +196,8 @@ def get_langfuse_langchain_config(
         clean_metadata["session_id"] = str(session_id)
     if tags:
         clean_metadata["langfuse_tags"] = tags
+    if trace_id:
+        clean_metadata["langfuse_trace_id"] = str(trace_id)
 
     config: Dict[str, Any] = {
         "callbacks": callbacks,
@@ -197,8 +207,72 @@ def get_langfuse_langchain_config(
         config["run_name"] = effective_name
     if tags:
         config["tags"] = tags
+    if trace_id:
+        try:
+            import uuid
+            config["run_id"] = uuid.UUID(str(trace_id)) if not isinstance(trace_id, uuid.UUID) else trace_id
+        except Exception:
+            pass
 
     return config
+
+
+def record_langfuse_score(
+    trace_id: Optional[str],
+    name: str = "user_feedback",
+    value: Optional[float] = 1.0,
+    comment: Optional[str] = None,
+    data_type: Optional[str] = "BOOLEAN",
+    metadata: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """
+    Ghi Score (Like / Dislike / Quality Evaluation / Hủy đánh giá) trực tiếp vào Langfuse Trace.
+
+    Args:
+        trace_id: ID của Langfuse Trace
+        name: Tên tiêu chí đánh giá (mặc định: "user_feedback")
+        value: 1.0 (Like), 0.0 (Dislike), hoặc None (khi người dùng hủy đánh giá)
+        comment: Nội dung góp ý / lý do
+        data_type: "BOOLEAN" | "NUMERIC" | "CATEGORICAL"
+        metadata: Metadata bổ sung
+
+    Returns:
+        True nếu ghi thành công, False nếu thất bại hoặc Langfuse chưa cấu hình.
+    """
+    client = get_langfuse_client()
+    if client is None or not trace_id:
+        return False
+    try:
+        score_kwargs: Dict[str, Any] = {
+            "trace_id": str(trace_id),
+            "name": name,
+        }
+        if value is not None:
+            score_kwargs["value"] = float(value)
+            if data_type:
+                score_kwargs["data_type"] = data_type
+        if comment:
+            score_kwargs["comment"] = str(comment)
+        if metadata:
+            score_kwargs["metadata"] = metadata
+
+        if hasattr(client, "create_score"):
+            client.create_score(**score_kwargs)
+        elif hasattr(client, "score"):
+            client.score(**score_kwargs)
+
+        flush_langfuse()
+        logger.info(
+            "[LANGFUSE] Score '%s'=%s recorded successfully for trace_id='%s'",
+            name, value, trace_id
+        )
+        return True
+    except Exception as ex:
+        logger.warning(
+            "[LANGFUSE] Không thể ghi score lên Langfuse cho trace_id='%s': %s",
+            trace_id, ex
+        )
+        return False
 
 
 def flush_langfuse() -> None:
@@ -209,5 +283,6 @@ def flush_langfuse() -> None:
             _langfuse_client.flush()
         except Exception as ex:
             logger.debug("[LANGFUSE] Flush skipped: %s", ex)
+
 
 

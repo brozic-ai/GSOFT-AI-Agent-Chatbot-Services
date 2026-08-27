@@ -204,7 +204,9 @@ class ChatService:
             # 4. Thiết lập Tracing Langfuse / LangSmith
             from app.ai.orchestration.graph import orchestrator_graph
             from app.core.config import settings
-            from app.llmops.langfuse import get_langfuse_langchain_config
+            from app.llmops.langfuse import get_langfuse_langchain_config, record_langfuse_score
+
+            trace_id = str(uuid.uuid4())
 
             stream_config = get_langfuse_langchain_config(
                 user_id=user_id,
@@ -224,6 +226,7 @@ class ChatService:
                     "retry_message_id": retry_message_id,
                 },
                 trace_name=f"{'[RETRY] ' if is_retry else ''}Orchestrator-Chat: {base_query[:35]}",
+                trace_id=trace_id,
             )
 
             state_input = {
@@ -242,15 +245,28 @@ class ChatService:
 
             # 5. Thực thi Master Orchestrator Graph
             logger.info(
-                "[CHAT] Invoking Master Orchestrator (is_retry=%s, retry_msg_id=%s) for query='%s', history_count=%d...",
+                "[CHAT] Invoking Master Orchestrator (is_retry=%s, retry_msg_id=%s, trace_id='%s') for query='%s', history_count=%d...",
                 is_retry,
                 retry_message_id,
+                trace_id,
                 base_query,
                 len(history),
             )
             orch_result = await orchestrator_graph.ainvoke(
                 state_input, config=stream_config
             )
+
+            # Lấy Trace ID thực tế từ Langfuse Callback Handler nếu có
+            if stream_config.get("callbacks"):
+                for cb in stream_config["callbacks"]:
+                    if hasattr(cb, "get_trace_id") and callable(cb.get_trace_id):
+                        cb_trace_id = cb.get_trace_id()
+                        if cb_trace_id:
+                            trace_id = str(cb_trace_id)
+                            break
+                    elif hasattr(cb, "last_trace_id") and cb.last_trace_id:
+                        trace_id = str(cb.last_trace_id)
+                        break
 
             if request and await request.is_disconnected():
                 return
@@ -274,29 +290,38 @@ class ChatService:
                 await asyncio.sleep(0.015)
 
             # 8. Lưu hoặc cập nhật câu trả lời hoàn chỉnh vào DB sau khi hoàn tất
+            saved_msg_id = None
             if request and await request.is_disconnected():
                 return
 
             if conversation_id and agent_output:
                 if is_retry and retry_message_id:
                     updated = self.chat_repo.update_message_content(
-                        message_id=retry_message_id, content=agent_output
+                        message_id=retry_message_id, content=agent_output, trace_id=trace_id
                     )
+                    saved_msg_id = retry_message_id if updated else None
                     if not updated:
-                        self.chat_repo.save_message(
+                        saved_msg_id = self.chat_repo.save_message(
                             conversation_id=conversation_id,
                             role="assistant",
                             content=agent_output,
+                            trace_id=trace_id,
                         )
                 else:
-                    self.chat_repo.save_message(
+                    saved_msg_id = self.chat_repo.save_message(
                         conversation_id=conversation_id,
                         role="assistant",
                         content=agent_output,
+                        trace_id=trace_id,
                     )
                 self.chat_repo.touch_conversation(conversation_id)
 
-            yield "event: chat_ended\ndata: {}\n\n"
+            ended_payload = {
+                "message_id": saved_msg_id,
+                "trace_id": trace_id,
+                "conversation_id": conversation_id,
+            }
+            yield f"event: chat_ended\ndata: {json.dumps(ended_payload, ensure_ascii=False)}\n\n"
 
         except (asyncio.CancelledError, GeneratorExit):
             # ASGI server / anyio cancels the generator when the client disconnects or clicks Cancel stream.
@@ -325,6 +350,69 @@ class ChatService:
             from app.llmops.langfuse import flush_langfuse
 
             flush_langfuse()
+
+    def save_feedback(
+        self,
+        message_id: int,
+        score: Optional[int],
+        reason: Optional[str] = None,
+        comment: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Lưu phản hồi Feedback (Like/Dislike/Hủy đánh giá) từ người dùng vào CSDL và đồng bộ lên Langfuse.
+        """
+        from app.llmops.langfuse import record_langfuse_score
+
+        feedback_data = self.chat_repo.save_feedback(
+            message_id=message_id,
+            score=score,
+            reason=reason,
+            comment=comment,
+        )
+        if not feedback_data:
+            raise ValueError(f"Không tìm thấy tin nhắn ID={message_id} để ghi nhận đánh giá.")
+
+        trace_id = feedback_data.get("trace_id")
+        if trace_id:
+            if score is None:
+                record_langfuse_score(
+                    trace_id=trace_id,
+                    name="user_feedback",
+                    value=None,
+                    comment="[Đã hủy đánh giá]",
+                    data_type="BOOLEAN",
+                    metadata={
+                        "message_id": message_id,
+                        "conversation_id": feedback_data.get("conversation_id"),
+                        "user_id": user_id,
+                        "is_cancelled": True,
+                    },
+                )
+            else:
+                combined_comment = None
+                if reason and comment:
+                    combined_comment = f"[{reason}] {comment}"
+                elif reason:
+                    combined_comment = f"[{reason}]"
+                elif comment:
+                    combined_comment = comment
+
+                record_langfuse_score(
+                    trace_id=trace_id,
+                    name="user_feedback",
+                    value=float(score),
+                    comment=combined_comment,
+                    data_type="BOOLEAN",
+                    metadata={
+                        "message_id": message_id,
+                        "conversation_id": feedback_data.get("conversation_id"),
+                        "user_id": user_id,
+                        "feedback_reason": reason,
+                    },
+                )
+
+        return feedback_data
 
 
 

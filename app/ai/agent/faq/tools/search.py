@@ -32,14 +32,10 @@ def _get_embedding_service():
 
 
 def _get_faq_repository():
-    """Lazy-initialize FaqRepository với DB session độc lập (module-level singleton)."""
-    global _faq_repository
-    if _faq_repository is None:
-        from app.core.database import SessionLocal
-        from app.modules.faq_knowledge.repository import FaqRepository
-        # Dùng session riêng — tool được gọi từ trong luồng async của LangGraph
-        _faq_repository = FaqRepository(db=SessionLocal())
-    return _faq_repository
+    """Tạo FaqRepository với DB session độc lập cho mỗi lượt gọi."""
+    from app.core.database import SessionLocal
+    from app.modules.faq_knowledge.repository import FaqRepository
+    return FaqRepository(db=SessionLocal())
 
 
 class SearchFaqInput(BaseModel):
@@ -67,6 +63,7 @@ async def search_faq_knowledge_base(query: str, top_k: int = 3) -> str:
     nhiều trang — hãy dùng search_policy_and_manual_docs cho các trường hợp đó.
     """
     top_k = max(1, min(top_k, 5))
+    faq_repo = None
 
     try:
         embedding_service = _get_embedding_service()
@@ -118,6 +115,12 @@ async def search_faq_knowledge_base(query: str, top_k: int = 3) -> str:
             {"found": False, "faqs": [], "error": str(ex)},
             ensure_ascii=False,
         )
+    finally:
+        if faq_repo and hasattr(faq_repo, "db") and faq_repo.db:
+            try:
+                faq_repo.db.close()
+            except Exception:
+                pass
 
 
 # Danh sách các tool sẽ được bind vào LLM trong faq_agent_node
