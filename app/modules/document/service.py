@@ -62,17 +62,27 @@ class DocumentService:
         self,
         doc_id: int,
         document_name: str,
-        category: str | None,
-        access_scope: str,
-        allowed_roles: list[str],
+        category: str | None = None,
+        owner_department: str | None = None,
+        description: str | None = None,
+        tags: str | None = None,
+        access_scope: str = "Public",
+        effective_date: str | None = None,
+        expiration_date: str | None = None,
+        allowed_roles: list[str] | None = None,
     ) -> None:
         """Cập nhật thông tin tài liệu và danh sách vai trò phân quyền."""
         self.repository.update_rag_document(
             doc_id=doc_id,
             document_name=document_name,
             category=category,
+            owner_department=owner_department,
+            description=description,
+            tags=tags,
             access_scope=access_scope,
-            allowed_roles=allowed_roles,
+            effective_date=effective_date,
+            expiration_date=expiration_date,
+            allowed_roles=allowed_roles or [],
         )
 
     def delete_document(self, backend_id: int) -> str | None:

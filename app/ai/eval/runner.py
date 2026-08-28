@@ -97,11 +97,18 @@ def _load_cases(
     for case_file in sorted(cases_dir.glob("*.json")):
         raw_cases = json.loads(case_file.read_text(encoding="utf-8"))
         for raw in raw_cases:
+            expected_val = raw.get("expected")
+            if expected_val is None:
+                exp_out = raw.get("expected_output")
+                expected_val = {"target_agent": exp_out} if exp_out is not None else {}
+            elif isinstance(expected_val, str):
+                expected_val = {"target_agent": expected_val}
+
             cases.append(
                 EvalCase(
                     id=raw["id"],
                     input=raw["input"],
-                    expected=raw["expected"],
+                    expected=expected_val,
                     tags=raw.get("tags", []),
                     index=raw.get("index") or case_counter,
                 )

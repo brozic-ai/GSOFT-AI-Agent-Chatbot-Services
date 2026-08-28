@@ -138,7 +138,12 @@ async def update_document_metadata(
             doc_id=id,
             document_name=request.document_name,
             category=request.category,
+            owner_department=request.owner_department,
+            description=request.description,
+            tags=request.tags,
             access_scope=request.access_scope,
+            effective_date=request.effective_date,
+            expiration_date=request.expiration_date,
             allowed_roles=request.allowed_roles,
         )
         return {"status": "success"}

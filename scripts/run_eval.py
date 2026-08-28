@@ -53,6 +53,14 @@ async def _supervisor_entrypoint(input_: dict[str, Any]) -> dict[str, Any]:
         "tags": ["eval", "supervisor", f"case:{case_id}"],
         "metadata": {"case_id": case_id, "case_index": case_idx},
     }
+    user_query = input_.get("query") or input_.get("user_query") or ""
+    chat_history = input_.get("chat_history") or []
+    if isinstance(chat_history, str):
+        chat_history = []
+    state = {
+        "user_query": user_query,
+        "chat_history": chat_history,
+    }
     result = await supervisor_graph.ainvoke(state, config=config)
     route_obj = result.get("route")
 

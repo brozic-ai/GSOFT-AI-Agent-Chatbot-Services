@@ -126,7 +126,15 @@ class DocumentRepository:
                         "file_size": doc.file_size,
                         "category": doc.category,
                         "owner_department": doc.owner_department,
+                        "description": doc.description,
+                        "tags": doc.tags,
                         "access_scope": doc.access_scope,
+                        "effective_date": doc.effective_date.strftime("%Y-%m-%d")
+                        if doc.effective_date
+                        else None,
+                        "expiration_date": doc.expiration_date.strftime("%Y-%m-%d")
+                        if doc.expiration_date
+                        else None,
                         "ingest_status": doc.ingest_status,
                         "progress_percent": progress,
                         "chunk_count": doc.chunk_count,
@@ -157,7 +165,15 @@ class DocumentRepository:
                 "file_size": doc.file_size,
                 "category": doc.category,
                 "owner_department": doc.owner_department,
+                "description": doc.description,
+                "tags": doc.tags,
                 "access_scope": doc.access_scope,
+                "effective_date": doc.effective_date.strftime("%Y-%m-%d")
+                if doc.effective_date
+                else None,
+                "expiration_date": doc.expiration_date.strftime("%Y-%m-%d")
+                if doc.expiration_date
+                else None,
                 "ingest_status": doc.ingest_status,
                 "chunk_count": doc.chunk_count,
                 "creation_time": str(doc.creation_time) if doc.creation_time else None,
@@ -182,7 +198,7 @@ class DocumentRepository:
     def update_rag_document_status(
         self, doc_id: int, status: str, chunk_count: int, error: str | None = None
     ) -> None:
-        """Cập nhật trạng thái Ingest từ C# Gateway bằng ORM."""
+        """Cập nhật trạng thái Ingestion của tài liệu bằng ORM."""
         db: Session = SessionLocal()
         try:
             doc = db.query(RagDocument).filter(RagDocument.id == doc_id).first()
@@ -206,18 +222,43 @@ class DocumentRepository:
         self,
         doc_id: int,
         document_name: str,
-        category: str | None,
-        access_scope: str,
-        allowed_roles: list[str],
+        category: str | None = None,
+        owner_department: str | None = None,
+        description: str | None = None,
+        tags: str | None = None,
+        access_scope: str = "Public",
+        effective_date: str | None = None,
+        expiration_date: str | None = None,
+        allowed_roles: list[str] | None = None,
     ) -> None:
         """Cập nhật siêu dữ liệu và danh sách vai trò được phép truy cập bằng ORM."""
+        allowed_roles = allowed_roles or []
         db: Session = SessionLocal()
         try:
             doc = db.query(RagDocument).filter(RagDocument.id == doc_id).first()
             if doc:
                 doc.document_name = document_name
                 doc.category = category
+                doc.owner_department = owner_department
+                doc.description = description
+                doc.tags = tags
                 doc.access_scope = access_scope
+                if effective_date:
+                    try:
+                        doc.effective_date = datetime.fromisoformat(effective_date)
+                    except Exception:
+                        pass
+                else:
+                    doc.effective_date = None
+
+                if expiration_date:
+                    try:
+                        doc.expiration_date = datetime.fromisoformat(expiration_date)
+                    except Exception:
+                        pass
+                else:
+                    doc.expiration_date = None
+
                 doc.last_modification_time = datetime.now(UTC)
 
                 # Xóa roles cũ và nạp lại roles mới
@@ -235,8 +276,10 @@ class DocumentRepository:
 
                 db.commit()
                 logger.info(
-                    "[OK] Updated RagDocument ID=%d (ORM) with roles=%s",
+                    "[OK] Updated RagDocument ID=%d (ORM) with dept=%s, scope=%s, roles=%s",
                     doc_id,
+                    owner_department,
+                    access_scope,
                     allowed_roles,
                 )
         except Exception:

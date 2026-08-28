@@ -1,26 +1,565 @@
 [
     {
-        "id": "gio_lam_viec",
+        "index": 1,
+        "id": "faq_001_thoi_gian_lam_viec",
+        "category": "Chính sách & Quy định chung",
         "input": {
-            "user_query": "Chi nhánh BVBank làm việc từ mấy giờ đến mấy giờ?"
+            "user_query": "Thời gian làm việc hành chính tại BVBank quy định như thế nào?"
         },
         "expected": {
-            "reference_answer": "Giờ làm việc thông thường là 8h00 - 17h00 các ngày trong tuần, trừ Chủ nhật và ngày lễ."
+            "target_agent": "faq",
+            "reference_answer": "⏰ Thời gian làm việc từ Thứ 2 đến Thứ 6:\n- Sáng: 08:00 - 12:00\n- Chiều: 13:00 - 17:00\nRiêng sáng Thứ 7 áp dụng cho các Chi nhánh/PGD phục vụ giao dịch từ 08:00 - 12:00.",
+            "category": "Chính sách & Quy định chung"
         },
         "tags": [
-            "easy"
+            "chinh_sach",
+            "quy_dinh",
+            "gio_lam_viec",
+            "faq"
         ]
     },
     {
-        "id": "hotline_ho_tro",
+        "index": 2,
+        "id": "faq_002_quy_dinh_trang_phuc",
+        "category": "Chính sách & Quy định chung",
         "input": {
-            "user_query": "Số hotline hỗ trợ khách hàng của BVBank là gì?"
+            "user_query": "Quy định về trang phục công sở tại BVBank như thế nào?"
         },
         "expected": {
-            "reference_answer": "Hotline hỗ trợ khách hàng 24/7."
+            "target_agent": "faq",
+            "reference_answer": "📌 CBNV mặc đồng phục theo quy định vào các ngày trong tuần (thứ Sáu & thứ Bảy mặc trang phục tự do lịch sự). Đồng phục phải sạch sẽ, gọn gàng, đeo thẻ nhân viên trong suốt giờ làm việc.",
+            "category": "Chính sách & Quy định chung"
         },
         "tags": [
-            "easy"
+            "chinh_sach",
+            "trang_phuc",
+            "dong_phuc",
+            "faq"
+        ]
+    },
+    {
+        "index": 3,
+        "id": "faq_003_cach_thuc_cham_cong",
+        "category": "Chính sách & Quy định chung",
+        "input": {
+            "user_query": "Cách thức chấm công hàng ngày tại Hội sở là gì?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "✔️ CBNV chấm công bằng vân tay/khuôn mặt tại máy chấm công đặt ở sảnh mỗi tầng, thực hiện 2 lần/ngày (giờ vào và giờ ra). Trường hợp quên chấm công cần báo cáo trực tiếp với QLTT trước 17h00 cùng ngày.",
+            "category": "Chính sách & Quy định chung"
+        },
+        "tags": [
+            "chinh_sach",
+            "cham_cong",
+            "hoi_so",
+            "faq"
+        ]
+    },
+    {
+        "index": 4,
+        "id": "faq_004_di_tre_vi_pham",
+        "category": "Chính sách & Quy định chung",
+        "input": {
+            "user_query": "Nhân viên đi trễ quá bao nhiêu phút thì bị tính vi phạm?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "ℹ️ Đi trễ hoặc về sớm từ 15 phút trở lên (không có lý do chính đáng) được tính là vi phạm giờ giấc làm việc và sẽ bị nhắc nhở theo Nội quy lao động. Vi phạm từ 3 lần/tháng sẽ bị lập biên bản.",
+            "category": "Chính sách & Quy định chung"
+        },
+        "tags": [
+            "chinh_sach",
+            "di_tre",
+            "vi_pham",
+            "faq"
+        ]
+    },
+    {
+        "index": 5,
+        "id": "faq_005_xin_nghi_phep_dot_xuat",
+        "category": "Chính sách & Quy định chung",
+        "input": {
+            "user_query": "Quy trình xin nghỉ phép đột xuất trong ngày như thế nào?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📌 Thực hiện theo các bước:\n- Gọi điện thoại báo trực tiếp cho Quản lý trực tiếp (DSNĐ)\n- Tạo đơn xin nghỉ phép trên hệ thống eOffice trong ngày hoặc ngày làm việc kế tiếp.\n- Chờ phê duyệt của cấp quản lý theo đúng quy trình.",
+            "category": "Chính sách & Quy định chung"
+        },
+        "tags": [
+            "chinh_sach",
+            "nghi_phep",
+            "eoffice",
+            "faq"
+        ]
+    },
+    {
+        "index": 6,
+        "id": "faq_006_so_ngay_phep_nam",
+        "category": "Chế độ & Phúc lợi Nhân sự",
+        "input": {
+            "user_query": "Nhân viên chính thức được hưởng bao nhiêu ngày phép năm?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📊 CBNV chính thức được hưởng 12 ngày phép năm/năm làm việc. Cứ mỗi 05 năm thâm niên sẽ được cộng thêm 01 ngày phép theo quy định của Luật Lao động và Quy chế Ngân hàng.",
+            "category": "Chế độ & Phúc lợi Nhân sự"
+        },
+        "tags": [
+            "che_do",
+            "phuc_loi",
+            "phep_nam",
+            "faq"
+        ]
+    },
+    {
+        "index": 7,
+        "id": "faq_007_kham_suc_khoe_dinh_ky",
+        "category": "Chế độ & Phúc lợi Nhân sự",
+        "input": {
+            "user_query": "BVBank có hỗ trợ khám sức khỏe định kỳ cho nhân viên không?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "✔️ Có. BVBank tổ chức khám sức khỏe định kỳ 1 lần/năm cho toàn thể CBNV chính thức tại các bệnh viện/phòng khám liên kết. Lịch khám cụ thể sẽ được thông báo qua email nội bộ và eOffice.",
+            "category": "Chế độ & Phúc lợi Nhân sự"
+        },
+        "tags": [
+            "che_do",
+            "phuc_loi",
+            "kham_suc_khoe",
+            "faq"
+        ]
+    },
+    {
+        "index": 8,
+        "id": "faq_008_bao_hiem_suc_khoe",
+        "category": "Chế độ & Phúc lợi Nhân sự",
+        "input": {
+            "user_query": "Chế độ bảo hiểm sức khỏe (PVI/Bảo Việt) áp dụng cho ai?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "ℹ️ Bảo hiểm sức khỏe bổ sung được áp dụng cho CBNV chính thức sau thời gian thử việc, với mức quyền lợi tùy theo cấp bậc. Người thân (vợ/chồng, con) có thể được mua thêm theo chính sách hàng năm.",
+            "category": "Chế độ & Phúc lợi Nhân sự"
+        },
+        "tags": [
+            "che_do",
+            "phuc_loi",
+            "bao_hiem",
+            "pvi",
+            "bao_viet",
+            "faq"
+        ]
+    },
+    {
+        "index": 9,
+        "id": "faq_009_che_do_thai_san",
+        "category": "Chế độ & Phúc lợi Nhân sự",
+        "input": {
+            "user_query": "Nhân viên nữ sinh con được hưởng chế độ thai sản như thế nào?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📌 Ngoài chế độ thai sản theo Luật BHXH (6 tháng), BVBank hỗ trợ thêm:\n- Trợ cấp sinh con theo quy chế phúc lợi hiện hành.\n- Ưu tiên bố trí công việc phù hợp trong 6 tháng đầu sau khi trở lại làm việc.",
+            "category": "Chế độ & Phúc lợi Nhân sự"
+        },
+        "tags": [
+            "che_do",
+            "phuc_loi",
+            "thai_san",
+            "faq"
+        ]
+    },
+    {
+        "index": 10,
+        "id": "faq_010_phu_cap_an_trua",
+        "category": "Chế độ & Phúc lợi Nhân sự",
+        "input": {
+            "user_query": "Phụ cấp ăn trưa được chi trả như thế nào?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "ℹ️ Phụ cấp ăn trưa được chi trả trực tiếp vào lương hàng tháng, mức phụ cấp áp dụng thống nhất theo quy định hiện hành của Ngân hàng, không phụ thuộc vào số ngày công thực tế.",
+            "category": "Chế độ & Phúc lợi Nhân sự"
+        },
+        "tags": [
+            "che_do",
+            "phuc_loi",
+            "an_trua",
+            "phu_cap",
+            "faq"
+        ]
+    },
+    {
+        "index": 11,
+        "id": "faq_011_nghi_sinh_nhat",
+        "category": "Chế độ & Phúc lợi Nhân sự",
+        "input": {
+            "user_query": "Nhân viên có được nghỉ hưởng nguyên lương ngày sinh nhật không?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "✔️ Có. BVBank áp dụng chính sách 01 ngày nghỉ phép sinh nhật hưởng nguyên lương/năm cho CBNV chính thức, đăng ký nghỉ qua eOffice trong tháng sinh nhật.",
+            "category": "Chế độ & Phúc lợi Nhân sự"
+        },
+        "tags": [
+            "che_do",
+            "phuc_loi",
+            "sinh_nhat",
+            "nghi_phep",
+            "faq"
+        ]
+    },
+    {
+        "index": 12,
+        "id": "faq_012_dang_ky_cap_vpp",
+        "category": "Hành chính & Văn phòng phẩm",
+        "input": {
+            "user_query": "Cách đăng ký cấp phát văn phòng phẩm hàng tháng ra sao?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📌 CBNV thực hiện:\n- Truy cập gAMSPro, chọn mục \"Đề nghị cấp VPP\"\n- Điền danh mục, số lượng cần thiết\n- Trình cấp quản lý phê duyệt trước khi bộ phận Hành chính xuất kho.",
+            "category": "Hành chính & Văn phòng phẩm"
+        },
+        "tags": [
+            "hanh_chinh",
+            "vpp",
+            "gamspro",
+            "faq"
+        ]
+    },
+    {
+        "index": 13,
+        "id": "faq_013_dat_phong_hop",
+        "category": "Hành chính & Văn phòng phẩm",
+        "input": {
+            "user_query": "Cách đặt phòng họp tại Hội sở như thế nào?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "✔️ Truy cập hệ thống đặt phòng họp nội bộ (Booking Room), chọn phòng, khung giờ và mục đích sử dụng. Yêu cầu đặt phòng cần thực hiện trước tối thiểu 30 phút để bộ phận Lễ tân chuẩn bị.",
+            "category": "Hành chính & Văn phòng phẩm"
+        },
+        "tags": [
+            "hanh_chinh",
+            "phong_hop",
+            "booking_room",
+            "faq"
+        ]
+    },
+    {
+        "index": 14,
+        "id": "faq_014_mat_the_nhan_vien",
+        "category": "Hành chính & Văn phòng phẩm",
+        "input": {
+            "user_query": "Bị mất thẻ nhân viên thì cần liên hệ bộ phận nào để làm lại?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📞 Liên hệ Bộ phận Hành chính - Nhân sự tại tầng trệt Hội sở hoặc gửi yêu cầu qua eOffice mục \"Cấp lại thẻ nhân viên\". Phí làm lại thẻ (nếu có) sẽ được khấu trừ theo quy định nội bộ.",
+            "category": "Hành chính & Văn phòng phẩm"
+        },
+        "tags": [
+            "hanh_chinh",
+            "the_nhan_vien",
+            "eoffice",
+            "faq"
+        ]
+    },
+    {
+        "index": 15,
+        "id": "faq_015_tiep_khach_doi_tac",
+        "category": "Hành chính & Văn phòng phẩm",
+        "input": {
+            "user_query": "Quy trình đăng ký tiếp khách đối tác tại phòng họp là gì?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📌 Thực hiện các bước:\n- Đăng ký lịch tiếp khách trên hệ thống Booking Room tối thiểu trước 1 ngày\n- Ghi rõ thông tin khách, mục đích làm việc\n- Báo trước Lễ tân để được hỗ trợ nước uống, hướng dẫn khách.",
+            "category": "Hành chính & Văn phòng phẩm"
+        },
+        "tags": [
+            "hanh_chinh",
+            "tiep_khach",
+            "booking_room",
+            "faq"
+        ]
+    },
+    {
+        "index": 16,
+        "id": "faq_016_nhan_vien_moi_trang_thiet_bi",
+        "category": "Hành chính & Văn phòng phẩm",
+        "input": {
+            "user_query": "Nhân viên mới cần làm gì để nhận bàn làm việc và trang thiết bị?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "ℹ️ Nhân viên mới liên hệ Bộ phận Hành chính trong ngày đầu tiên nhận việc để được bố trí bàn làm việc, bàn phím, màn hình và các vật dụng văn phòng cơ bản theo tiêu chuẩn cấp bậc.",
+            "category": "Hành chính & Văn phòng phẩm"
+        },
+        "tags": [
+            "hanh_chinh",
+            "nhan_vien_moi",
+            "trang_thiet_bi",
+            "faq"
+        ]
+    },
+    {
+        "index": 17,
+        "id": "faq_017_thoi_gian_xu_ly_vpp",
+        "category": "Hành chính & Văn phòng phẩm",
+        "input": {
+            "user_query": "Thời gian xử lý yêu cầu cấp phát VPP thông thường mất bao lâu?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "⏰ Yêu cầu cấp phát VPP thông thường được xử lý trong vòng 1 - 2 ngày làm việc kể từ khi được phê duyệt trên gAMSPro, tùy vào tình trạng tồn kho tại thời điểm yêu cầu.",
+            "category": "Hành chính & Văn phòng phẩm"
+        },
+        "tags": [
+            "hanh_chinh",
+            "vpp",
+            "thoi_gian_xu_ly",
+            "faq"
+        ]
+    },
+    {
+        "index": 18,
+        "id": "faq_018_doi_mat_khau_eoffice",
+        "category": "Hỗ trợ CNTT & Tài khoản",
+        "input": {
+            "user_query": "Cách đổi mật khẩu tài khoản eOffice như thế nào?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📌 Thực hiện các bước:\n- Đăng nhập eOffice, chọn biểu tượng tài khoản góc phải\n- Chọn \"Đổi mật khẩu\"\n- Nhập mật khẩu cũ và mật khẩu mới theo đúng tiêu chuẩn bảo mật (tối thiểu 8 ký tự, có chữ hoa, số, ký tự đặc biệt).",
+            "category": "Hỗ trợ CNTT & Tài khoản"
+        },
+        "tags": [
+            "cntt",
+            "tai_khoan",
+            "eoffice",
+            "mat_khau",
+            "faq"
+        ]
+    },
+    {
+        "index": 19,
+        "id": "faq_019_quen_mat_khau_may_tinh",
+        "category": "Hỗ trợ CNTT & Tài khoản",
+        "input": {
+            "user_query": "Quên mật khẩu đăng nhập máy tính thì liên hệ ai để hỗ trợ?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📞 Liên hệ Hotline IT Helpdesk nội bộ (Ext: 1800) hoặc gửi ticket qua hệ thống hỗ trợ CNTT, cung cấp mã nhân viên để được cấp lại mật khẩu trong vòng 15-30 phút.",
+            "category": "Hỗ trợ CNTT & Tài khoản"
+        },
+        "tags": [
+            "cntt",
+            "tai_khoan",
+            "helpdesk",
+            "mat_khau",
+            "faq"
+        ]
+    },
+    {
+        "index": 20,
+        "id": "faq_020_ket_noi_vpn",
+        "category": "Hỗ trợ CNTT & Tài khoản",
+        "input": {
+            "user_query": "Cách kết nối VPN để làm việc từ xa như thế nào?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "✔️ Tải và cài đặt phần mềm VPN theo hướng dẫn từ IT gửi qua email, sau đó đăng nhập bằng tài khoản domain công ty. Nếu không kết nối được, vui lòng liên hệ IT Helpdesk để được cấp quyền truy cập.",
+            "category": "Hỗ trợ CNTT & Tài khoản"
+        },
+        "tags": [
+            "cntt",
+            "vpn",
+            "lam_viec_tu_xa",
+            "faq"
+        ]
+    },
+    {
+        "index": 21,
+        "id": "faq_021_may_in_loi",
+        "category": "Hỗ trợ CNTT & Tài khoản",
+        "input": {
+            "user_query": "Máy in tại phòng ban bị lỗi không in được thì xử lý ra sao?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📌 Thực hiện các bước:\n- Kiểm tra máy in đã bật nguồn và kết nối mạng\n- Khởi động lại máy tính và thử in lại\n- Nếu vẫn lỗi, tạo ticket hỗ trợ trên hệ thống IT Helpdesk kèm mô tả lỗi cụ thể.",
+            "category": "Hỗ trợ CNTT & Tài khoản"
+        },
+        "tags": [
+            "cntt",
+            "may_in",
+            "helpdesk",
+            "faq"
+        ]
+    },
+    {
+        "index": 22,
+        "id": "faq_022_hotline_it_helpdesk",
+        "category": "Hỗ trợ CNTT & Tài khoản",
+        "input": {
+            "user_query": "Hotline IT Helpdesk hoạt động trong khung giờ nào?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "⏰ Hotline IT Helpdesk hỗ trợ trong giờ hành chính từ Thứ 2 đến Thứ 6 (08:00 - 17:00). Ngoài giờ, sự cố khẩn cấp liên quan hệ thống giao dịch có thể gọi số trực khẩn cấp 24/7 theo thông báo nội bộ.",
+            "category": "Hỗ trợ CNTT & Tài khoản"
+        },
+        "tags": [
+            "cntt",
+            "helpdesk",
+            "hotline",
+            "khung_gio",
+            "faq"
+        ]
+    },
+    {
+        "index": 23,
+        "id": "faq_023_cai_dat_phan_mem_moi",
+        "category": "Hỗ trợ CNTT & Tài khoản",
+        "input": {
+            "user_query": "Cách cài đặt phần mềm mới trên máy tính công ty cần lưu ý gì?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "ℹ️ CBNV không tự ý cài đặt phần mềm ngoài danh mục cho phép. Mọi yêu cầu cài đặt phần mềm mới cần gửi ticket qua IT Helpdesk để được kiểm duyệt bảo mật và cài đặt bởi bộ phận CNTT.",
+            "category": "Hỗ trợ CNTT & Tài khoản"
+        },
+        "tags": [
+            "cntt",
+            "phan_mem",
+            "bao_mat",
+            "helpdesk",
+            "faq"
+        ]
+    },
+    {
+        "index": 24,
+        "id": "faq_024_tao_to_trinh_mua_sam",
+        "category": "Quy trình Mua sắm & gAMSPro",
+        "input": {
+            "user_query": "Cách tạo tờ trình mua sắm trên hệ thống gAMSPro như thế nào?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📌 Thực hiện các bước:\n- Đăng nhập gAMSPro, chọn \"Tạo tờ trình mới\"\n- Điền thông tin hàng hóa/dịch vụ, ngân sách, lý do mua sắm\n- Đính kèm báo giá (nếu có) và trình phê duyệt theo đúng luồng cấp bậc.",
+            "category": "Quy trình Mua sắm & gAMSPro"
+        },
+        "tags": [
+            "mua_sam",
+            "gamspro",
+            "to_trinh",
+            "faq"
+        ]
+    },
+    {
+        "index": 25,
+        "id": "faq_025_han_muc_phe_duyet_to_trinh",
+        "category": "Quy trình Mua sắm & gAMSPro",
+        "input": {
+            "user_query": "Hạn mức phê duyệt tờ trình mua sắm VPP là bao nhiêu?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "ℹ️ Trưởng phòng Bộ phận được phê duyệt tờ trình có giá trị dưới 5 triệu đồng. Tờ trình từ 5 triệu đến dưới 50 triệu đồng cần Giám đốc Khối phê duyệt, trên 50 triệu đồng phải trình Ban Tổng Giám đốc.",
+            "category": "Quy trình Mua sắm & gAMSPro"
+        },
+        "tags": [
+            "mua_sam",
+            "gamspro",
+            "han_muc",
+            "phe_duyet",
+            "faq"
+        ]
+    },
+    {
+        "index": 26,
+        "id": "faq_026_tra_cuu_trang_thai_don_hang",
+        "category": "Quy trình Mua sắm & gAMSPro",
+        "input": {
+            "user_query": "Cách tra cứu trạng thái đơn hàng (PO) trên gAMSPro ra sao?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "✔️ Đăng nhập gAMSPro, vào mục \"Quản lý đơn hàng\", nhập mã PO hoặc lọc theo ngày tạo để xem trạng thái: Đang xử lý, Đã duyệt, Đang giao hàng hoặc Hoàn tất.",
+            "category": "Quy trình Mua sắm & gAMSPro"
+        },
+        "tags": [
+            "mua_sam",
+            "gamspro",
+            "don_hang",
+            "po",
+            "faq"
+        ]
+    },
+    {
+        "index": 27,
+        "id": "faq_027_kiem_tra_ngan_sach_phong_ban",
+        "category": "Quy trình Mua sắm & gAMSPro",
+        "input": {
+            "user_query": "Kiểm tra hạn mức ngân sách còn lại của phòng ban ở đâu?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "📌 Truy cập gAMSPro, chọn mục \"Ngân sách phòng ban\", hệ thống sẽ hiển thị tổng ngân sách được cấp, số đã sử dụng và số dư còn lại theo từng hạng mục chi phí trong kỳ.",
+            "category": "Quy trình Mua sắm & gAMSPro"
+        },
+        "tags": [
+            "mua_sam",
+            "gamspro",
+            "ngan_sach",
+            "faq"
+        ]
+    },
+    {
+        "index": 28,
+        "id": "faq_028_to_trinh_bi_tu_choi",
+        "category": "Quy trình Mua sắm & gAMSPro",
+        "input": {
+            "user_query": "Tờ trình mua sắm bị từ chối trên gAMSPro thì xử lý thế nào?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "ℹ️ Người đề nghị kiểm tra lý do từ chối trong phần ghi chú của người phê duyệt, chỉnh sửa thông tin/ngân sách phù hợp rồi trình lại. Trường hợp cần hỗ trợ, liên hệ Phòng Mua sắm - Quản trị để được hướng dẫn.",
+            "category": "Quy trình Mua sắm & gAMSPro"
+        },
+        "tags": [
+            "mua_sam",
+            "gamspro",
+            "to_trinh",
+            "tu_choi",
+            "faq"
+        ]
+    },
+    {
+        "index": 29,
+        "id": "faq_029_thoi_gian_xu_ly_to_trinh",
+        "category": "Quy trình Mua sắm & gAMSPro",
+        "input": {
+            "user_query": "Thời gian xử lý một tờ trình mua sắm thông thường mất bao lâu?"
+        },
+        "expected": {
+            "target_agent": "faq",
+            "reference_answer": "⏰ Tờ trình mua sắm thông thường được xử lý trong 3 - 5 ngày làm việc kể từ khi trình đầy đủ hồ sơ, tùy theo giá trị và số cấp phê duyệt cần thiết theo quy trình.",
+            "category": "Quy trình Mua sắm & gAMSPro"
+        },
+        "tags": [
+            "mua_sam",
+            "gamspro",
+            "to_trinh",
+            "thoi_gian_xu_ly",
+            "faq"
         ]
     }
 ]
