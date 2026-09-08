@@ -47,10 +47,10 @@ Your sole task is to analyze the user's query and classify it into exactly ONE o
 
 ### 4. OUTPUT FORMAT (STRICT JSON ONLY)
 
-You MUST respond with valid JSON matching this schema:
+You MUST respond with valid JSON matching this schema and NO other surrounding text or markdown formatting:
 
 {
-  "reasoning": "string (short explanation in Vietnamese analyzing the query intent BEFORE making the final decision)",
+  "reasoning": "string (1 short sentence explaining why in Vietnamese analyzing the query intent BEFORE making the final decision)",
   "intent": "faq" | "rag" | "procurement" | "fallback",
   "query": "string (the clean search phrase)",
   "confidence": float (between 0.85 and 1.00)

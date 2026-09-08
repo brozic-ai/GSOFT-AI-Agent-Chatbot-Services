@@ -7,6 +7,7 @@ gọi LLM Streaming và quản lý lịch sử hội thoại (Chat History).
 import asyncio
 import json
 import logging
+import re
 import uuid
 from typing import AsyncGenerator, Optional, List, Dict, Any, Union
 from fastapi import Request
@@ -109,13 +110,15 @@ class ChatService:
         question: Optional[str] = None,
         is_retry: bool = False,
         retry_message_id: Optional[int] = None,
+        is_edit: bool = False,
+        edit_message_id: Optional[int] = None,
     ) -> AsyncGenerator[str, None]:
         """
         Tạo luồng Server-Sent Events (SSE) phản hồi qua Master Orchestrator Graph.
 
         Luồng xử lý Enterprise Multi-Agent:
-        1. Lấy lịch sử tin nhắn từ DB (nếu có conversation_id). Hỗ trợ lấy ngữ cảnh đến đúng mốc retry.
-        2. Lưu câu hỏi mới của User vào DB (nếu không phải là request Retry).
+        1. Lấy lịch sử tin nhắn từ DB (nếu có conversation_id). Hỗ trợ lấy ngữ cảnh đến đúng mốc retry/edit.
+        2. Lưu câu hỏi mới của User vào DB (nếu không phải là request Retry hoặc Edit).
         3. Khởi tạo OrchestratorState kèm messages và user_info (roles, department, user_id).
         4. Thực thi Master Orchestrator Graph:
            - Input Guardrail (Chặn tấn công)
@@ -163,6 +166,21 @@ class ChatService:
                         limit=HISTORY_LIMIT,
                     )
                     is_first_message = False
+                elif is_edit and edit_message_id:
+                    self.chat_repo.update_message_content(
+                        message_id=edit_message_id,
+                        content=base_query,
+                    )
+                    self.chat_repo.truncate_messages_after(
+                        conversation_id=conversation_id,
+                        message_id=edit_message_id,
+                    )
+                    history = self.chat_repo.get_chat_history_up_to(
+                        conversation_id=conversation_id,
+                        target_message_id=edit_message_id,
+                        limit=HISTORY_LIMIT,
+                    )
+                    is_first_message = False
                 else:
                     message_count = self.chat_repo.get_message_count(conversation_id)
                     is_first_message = message_count == 0
@@ -171,8 +189,8 @@ class ChatService:
                             conversation_id=conversation_id, limit=HISTORY_LIMIT
                         )
 
-            # 2. Lưu câu hỏi của User vào DB (Chỉ lưu khi là câu hỏi mới, KHÔNG lưu trùng khi Retry)
-            if conversation_id and not is_retry:
+            # 2. Lưu câu hỏi của User vào DB (Chỉ lưu khi là câu hỏi mới, KHÔNG lưu trùng khi Retry hoặc Edit)
+            if conversation_id and not is_retry and not is_edit:
                 if request and await request.is_disconnected():
                     return
                 self.chat_repo.save_message(
@@ -280,14 +298,38 @@ class ChatService:
             # 6. Phát sự kiện trích dẫn tài liệu (Citations SSE Event)
             yield f"event: citations\ndata: {json.dumps(citations_list, ensure_ascii=False, default=str)}\n\n"
 
-            # 7. Stream từng token/chunk tới Frontend với hiệu ứng typing animation mượt mà
-            chunk_size = 6
-            for i in range(0, len(agent_output), chunk_size):
+            # 7. Stream từng từ/cụm từ (word-by-word) tới Frontend với tốc độ tự nhiên, rõ ràng cho mắt đọc
+            raw_tokens = re.findall(r"\S+\s*|\s+", agent_output)
+            tokens: List[str] = []
+            for tok in raw_tokens:
+                # Nếu từ quá dài (> 18 ký tự như URL dài, chuỗi mã), chia nhỏ ra 6 ký tự để tránh dồn cục
+                if len(tok) > 18:
+                    for j in range(0, len(tok), 6):
+                        tokens.append(tok[j : j + 6])
+                else:
+                    tokens.append(tok)
+
+            total_tokens = len(tokens)
+            # Nhịp độ gõ chữ tối ưu giúp người dùng thoải mái đọc lướt theo từng từ xuất hiện (đã tăng ~1.2x tốc độ)
+            if total_tokens <= 100:
+                base_delay = 0.037  # ~27 từ/giây (rõ ràng từng từ, mắt dễ theo dõi)
+            elif total_tokens <= 250:
+                base_delay = 0.029  # ~34 từ/giây (chuẩn tự nhiên, mượt mà)
+            else:
+                base_delay = 0.020  # ~50 từ/giây (bài dài phản hồi nhanh chóng, không phải chờ lâu)
+
+            for token in tokens:
                 if request and await request.is_disconnected():
                     return
-                chunk = agent_output[i : i + chunk_size]
-                yield f"event: token\ndata: {json.dumps({'text': chunk}, ensure_ascii=False)}\n\n"
-                await asyncio.sleep(0.015)
+                yield f"event: token\ndata: {json.dumps({'text': token}, ensure_ascii=False)}\n\n"
+
+                # Tạm dừng nhẹ ở dấu ngắt câu hoặc xuống dòng để tạo nhịp thở tự nhiên
+                if token.endswith((".", "!", "?", ".\n", "!\n", "?\n", ":\n", "\n\n")):
+                    await asyncio.sleep(base_delay + 0.028)
+                elif token.endswith((", ", "; ", " - ")):
+                    await asyncio.sleep(base_delay + 0.012)
+                else:
+                    await asyncio.sleep(base_delay)
 
             # 8. Lưu hoặc cập nhật câu trả lời hoàn chỉnh vào DB sau khi hoàn tất
             saved_msg_id = None

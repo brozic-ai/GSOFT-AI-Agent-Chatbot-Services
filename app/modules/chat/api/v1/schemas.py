@@ -22,6 +22,8 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[int] = Field(default=None, description="ID phiên hội thoại (int). Nếu None, bot sẽ trả lời không lưu lịch sử.")
     is_retry: Optional[bool] = Field(default=False, description="Cờ đánh dấu request tạo lại câu trả lời (Retry in-place)")
     retry_message_id: Optional[int] = Field(default=None, description="ID tin nhắn AI trong DB cần cập nhật lại nội dung")
+    is_edit: Optional[bool] = Field(default=False, description="Cờ đánh dấu request chỉnh sửa tin nhắn câu hỏi")
+    edit_message_id: Optional[int] = Field(default=None, description="ID tin nhắn User trong DB cần cập nhật")
 
     model_config = {
         "populate_by_name": True
@@ -80,4 +82,12 @@ class ChatFeedbackResponse(BaseModel):
     success: bool = True
     message: str = "Đã ghi nhận phản hồi thành công."
     data: Optional[dict] = None
+
+
+class TranscribeResponse(BaseModel):
+    """Response kết quả chuyển đổi giọng nói thành văn bản."""
+    text: str = Field(..., description="Văn bản đã phiên âm từ giọng nói")
+    status: str = Field("success", description="Trạng thái xử lý")
+    duration_seconds: Optional[float] = Field(None, description="Thời lượng audio tính theo giây")
+
 

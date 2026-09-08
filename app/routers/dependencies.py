@@ -122,12 +122,28 @@ def get_chat_service() -> ChatService:
     return ChatService(retriever=retriever, llm_provider=llm, chat_repository=chat_repo)
 
 
+# 10. Transcribe Service Dependency
+_transcribe_service_cache = None
+
+
+def get_transcribe_service():
+    """FastAPI Dependency trả về TranscribeService instance."""
+    global _transcribe_service_cache
+    if _transcribe_service_cache is None:
+        from app.modules.chat.transcribe_service import TranscribeService
+        _transcribe_service_cache = TranscribeService()
+        logger.info("[OK] TranscribeService initialized.")
+    return _transcribe_service_cache
+
+
 # Lifecycle helper — gọi bởi lifespan.py khi shutdown
 def _reset_caches() -> None:
     """Reset tất cả singleton cache khi shutdown."""
-    global _llm_provider_cache, _document_repository_cache, _tei_embedding_cache, _chat_repository_cache
+    global _llm_provider_cache, _document_repository_cache, _tei_embedding_cache, _chat_repository_cache, _transcribe_service_cache
     _llm_provider_cache = None
     _document_repository_cache = None
     _tei_embedding_cache = None
     _chat_repository_cache = None
+    _transcribe_service_cache = None
     logger.info("[DONE] Dependency caches cleared.")
+

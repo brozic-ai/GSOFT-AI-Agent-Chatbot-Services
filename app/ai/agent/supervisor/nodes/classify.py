@@ -1,7 +1,12 @@
+import json
+import logging
+import re
 from app.ai.agent.supervisor.prompts.registry import get_supervisor_messages
 from app.ai.agent.supervisor.schemas import RouterOutput
 from app.ai.agent.supervisor.state import SupervisorState
 from app.llmops.factory import get_chat_model
+
+logger = logging.getLogger(__name__)
 
 
 async def classify_intent_node(state: SupervisorState) -> dict:
@@ -24,7 +29,24 @@ async def classify_intent_node(state: SupervisorState) -> dict:
     messages = get_supervisor_messages(query=user_query, chat_history=chat_history)
 
     # 3. Gọi LLM suy luận phân loại Intent
-    route_result: RouterOutput = await structured_llm.ainvoke(messages)
+    try:
+        route_result: RouterOutput = await structured_llm.ainvoke(messages)
+    except Exception as ex:
+        logger.warning("[SUPERVISOR-CLASSIFY] with_structured_output failed (%s). Falling back to direct JSON parsing.", ex)
+        raw_res = await llm.ainvoke(messages)
+        raw_text = raw_res.content if hasattr(raw_res, "content") else str(raw_res)
+        # Loại bỏ markdown code blocks (```json ... ```) nếu có
+        clean_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(raw_text).strip(), flags=re.MULTILINE).strip()
+        try:
+            data = json.loads(clean_text)
+            route_result = RouterOutput(**data)
+        except Exception:
+            match = re.search(r"\{.*\}", clean_text, re.DOTALL)
+            if match:
+                data = json.loads(match.group(0))
+                route_result = RouterOutput(**data)
+            else:
+                raise
 
     # 4. Trả về cập nhật thuộc tính route trong State
     return {"route": route_result}

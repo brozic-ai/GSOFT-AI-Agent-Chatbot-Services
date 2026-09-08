@@ -12,7 +12,7 @@ Endpoints:
 
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 
 from app.modules.chat.api.v1.schemas import (
@@ -23,9 +23,10 @@ from app.modules.chat.api.v1.schemas import (
     ConversationUpdateRequest,
     ChatFeedbackRequest,
     ChatFeedbackResponse,
+    TranscribeResponse,
 )
 from app.modules.chat.service import ChatService
-from app.routers.dependencies import get_chat_service
+from app.routers.dependencies import get_chat_service, get_transcribe_service
 
 logger = logging.getLogger(__name__)
 
@@ -190,6 +191,8 @@ async def chat_stream(
         request=http_request,
         is_retry=bool(request.is_retry),
         retry_message_id=request.retry_message_id,
+        is_edit=bool(request.is_edit),
+        edit_message_id=request.edit_message_id,
     )
 
     return StreamingResponse(generator, media_type="text/event-stream")
@@ -231,4 +234,43 @@ def submit_feedback(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(ex),
         )
+
+
+# ── Speech-to-Text (STT) Audio Transcription Endpoint ──
+
+@router.post("/transcribe", response_model=TranscribeResponse, summary="Chuyển đổi giọng nói thành văn bản (Speech-to-Text)")
+async def transcribe_audio(
+    file: UploadFile = File(..., description="File âm thanh từ trình duyệt (.webm, .wav, .mp3, .mp4, .ogg)"),
+    service = Depends(get_transcribe_service),
+):
+    """
+    Nhận file ghi âm giọng nói từ Frontend (Angular) và chuyển đổi thành văn bản tiếng Việt
+    sử dụng mô hình Gemini Multimodal Audio.
+    """
+    try:
+        content_type = file.content_type or "audio/webm"
+        audio_bytes = await file.read()
+
+        if not audio_bytes or len(audio_bytes) < 100:
+            return TranscribeResponse(
+                text="",
+                status="empty",
+                duration_seconds=0.0,
+            )
+
+        text_result = await service.transcribe(audio_bytes=audio_bytes, content_type=content_type)
+        return TranscribeResponse(
+            text=text_result,
+            status="success",
+        )
+    except ValueError as ex:
+        logger.error("[STT] Configuration or validation error: %s", ex)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ex))
+    except Exception as ex:
+        logger.error("[STT] Error during audio transcription: %s", ex, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi xử lý giọng nói: {str(ex)}",
+        )
+
 
