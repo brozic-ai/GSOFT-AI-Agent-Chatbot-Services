@@ -48,5 +48,10 @@ async def classify_intent_node(state: SupervisorState) -> dict:
             else:
                 raise
 
-    # 4. Trả về cập nhật thuộc tính route trong State
-    return {"route": route_result}
+    # 4. Trả về cập nhật thuộc tính route và intent trong State
+    intent_val = (
+        route_result.intent.value
+        if hasattr(route_result.intent, "value")
+        else str(route_result.intent)
+    )
+    return {"route": route_result, "intent": intent_val}

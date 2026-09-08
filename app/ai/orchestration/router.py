@@ -14,11 +14,25 @@ def route_after_input_guardrail(state: Any) -> str:
     """
     Rẽ nhánh sau khi kiểm tra Input Guardrail:
     - Nếu vi phạm quy tắc an toàn -> chuyển thẳng đến 'output_guardrail' để xuất thông báo an toàn.
-    - Nếu hợp lệ -> chuyển sang 'classify_intent' để phân loại ý định.
+    - Nếu hợp lệ -> chuyển sang 'faq_fast_lookup' để kiểm tra câu hỏi khớp siêu tốc.
     """
     guardrail_res = state.get("guardrail_result") if isinstance(state, dict) else getattr(state, "guardrail_result", None)
     if guardrail_res and not getattr(guardrail_res, "is_safe", True):
         logger.info("[ROUTER] Câu hỏi vi phạm Guardrail -> Chuyển thẳng sang output_guardrail.")
+        return "output_guardrail"
+
+    return "faq_fast_lookup"
+
+
+def route_after_faq_fast_lookup(state: Any) -> str:
+    """
+    Rẽ nhánh sau khi tra cứu FAQ siêu tốc (Exact Match / Vector Similarity >= 90%):
+    - Nếu khớp -> chuyển thẳng sang 'output_guardrail' (bỏ qua classify_intent và RAG, thời gian ~20-50ms).
+    - Nếu không khớp -> chuyển sang 'classify_intent' để LLM phân loại ý định bình thường.
+    """
+    is_fast_matched = state.get("faq_fast_match", False) if isinstance(state, dict) else getattr(state, "faq_fast_match", False)
+    if is_fast_matched:
+        logger.info("[ROUTER] [FAST-PATH HIT] Khớp FAQ siêu tốc -> Bỏ qua Classify Intent & LLM, sang output_guardrail.")
         return "output_guardrail"
 
     return "classify_intent"

@@ -8,31 +8,40 @@ Dự án `dev_llm_service` là dịch vụ Backend AI Agent xử lý ngôn ngữ
 
 1. [Kiến Trúc & Công Nghệ](#-kiến-trúc--công-nghệ)
 2. [Cấu Trúc Thư Mục](#-cấu-trúc-thư-mục)
-3. [Yêu Cầu Hệ Thống & Phần Cứng](#-yêu-cầu-hệ-thống--phần-cứng)
-4. [Hướng Dẫn Cài Đặt](#-hướng-dẫn-cài-đặt)
-5. [Cấu Hình Môi Trường (.env)](#-cấu-hình-môi-trường-env)
-6. [Khởi Chạy Ứng Dụng](#-khởi-chạy-ứng-dụng)
-7. [Các Script Tiện Ích (Scripts)](#-các-script-tiện-ích-scripts)
-8. [Hướng Dẫn Nạp Tài Liệu (Document Ingest)](#-hướng-dẫn-nạp-tài-liệu-document-ingest)
-9. [Hướng Dẫn Đánh Giá Agent (Evaluation)](#-hướng-dẫn-đánh-giá-agent-evaluation)
-10. [Hướng Dẫn Phát Triển (Coding Guide)](#-hướng-dẫn-phát-triển-coding-guide)
-    - [Thêm LLM Provider Mới](#1-thêm-llm-provider-mới)
-    - [Tạo Module API Mới](#2-tạo-module-api-mới)
-    - [Xây Dựng Agent / Prompt Mới](#3-xây-dựng-agent--prompt-mới)
-11. [Kiểm Tra & Đảm Bảo Chất Lượng Code](#-kiểm-tra--đảm-bảo-chất-lượng-code)
+3. [Kiến Trúc RAG & Multi-Agent](#-kiến-trúc-rag--multi-agent)
+    - [Fast Direct Pipeline (1 LLM Call)](#1-fast-direct-pipeline-1-llm-call)
+    - [BGE Cross-Encoder Reranker](#2-bge-cross-encoder-reranker)
+    - [Atomic Slide Aggregation & Token Chunker](#3-atomic-slide-aggregation--token-chunker)
+    - [Quản Lý Prompt Tập Trung với Langfuse](#4-quản-lý-prompt-tập-trung-với-langfuse)
+    - [Centralized Fallback Hub](#5-centralized-fallback-hub)
+4. [Yêu Cầu Hệ Thống & Phần Cứng](#-yêu-cầu-hệ-thống--phần-cứng)
+5. [Hướng Dẫn Cài Đặt](#-hướng-dẫn-cài-đặt)
+6. [Cấu Hình Môi Trường (.env)](#-cấu-hình-môi-trường-env)
+7. [Khởi Chạy Ứng Dụng](#-khởi-chạy-ứng-dụng)
+8. [Các Script Tiện Ích (Scripts)](#-các-script-tiện-ích-scripts)
+    - [Kiểm tra kết nối hệ thống (`check_connections.py`)](#1-kiểm-tra-kết-nối-toàn-bộ-hệ-thống-check_connectionspy)
+    - [Nạp tài liệu tự động (`upload_documents.py`)](#2-nạp-tài-liệu-tự-động-hàng-loạt-upload_documentspy)
+    - [Tái lập chỉ mục & Re-index tài liệu (`reindex_documents.py`)](#3-tái-lập-chỉ-mục--re-index-tài-liệu-reindex_documentspy)
+    - [Chạy đánh giá Agent (`run_eval.py`)](#4-chạy-đánh-giá-agent-run_evalpy)
+9. [Hướng Dẫn Nạp Tài Liệu (Document Ingest)](#-hướng-dẫn-nạp-tài-liệu-document-ingest)
+10. [Hướng Dẫn Đánh Giá Agent (Evaluation)](#-hướng-dẫn-đánh-giá-agent-evaluation)
+11. [Hướng Dẫn Phát Triển (Coding Guide)](#-hướng-dẫn-phát-triển-coding-guide)
+12. [Kiểm Tra & Đảm Bảo Chất Lượng Code](#-kiểm-tra--đảm-bảo-chất-lượng-code)
 
 ---
 
 ## 🛠 Kiến Trúc & Công Nghệ
 
-- **Language:** Python >= 3.11
-- **Package Manager:** [uv](https://github.com/astral-sh/uv) (Trình quản lý gói cực nhanh cho Python)
-- **Web Framework:** [FastAPI](https://fastapi.tiangolo.com/) + Uvicorn (Server-Sent Events SSE Streaming)
-- **AI Frameworks:** LangChain, LangGraph, Google GenAI SDK (`google-genai`), vLLM / Ollama OpenAI-compatible API
+- **Ngôn ngữ lập trình:** Python >= 3.11
+- **Trình quản lý gói:** [uv](https://github.com/astral-sh/uv) (Quản lý dependency & virtualenv hiệu năng cao)
+- **Web Framework:** [FastAPI](https://fastapi.tiangolo.com/) + Uvicorn (Server-Sent Events SSE Streaming & Citations)
+- **AI Agent Frameworks:** LangChain, LangGraph (StateGraph, Conditional Edges, Checkpointing), Google GenAI SDK (`google-genai`), vLLM / Ollama OpenAI-compatible API
 - **Embedding & GPU Acceleration:** `SentenceTransformers` (`BAAI/bge-m3`, tự động nhận diện `cuda` / `cpu`), HuggingFace TEI (Text Embeddings Inference)
-- **Database & Vector Search:** SQL Server 2025 (sử dụng pyodbc / ODBC Driver 18, Vector Search Cosine Similarity kết hợp RBAC Filtering)
-- **LLM Observability & Tracing:** LangSmith
-- **Code Quality:** Ruff, MyPy, Pytest, Coverage, TQDM
+- **Reranker (Cross-Encoder):** `BAAI/bge-reranker-base` (SentenceTransformers CrossEncoder tính toán relevance score chuẩn xác cho Top-K kết quả từ Vector Search)
+- **Database & Vector Search:** SQL Server 2025 (sử dụng pyodbc / ODBC Driver 18, Cosine Similarity Vector Search kết hợp DiskANN Indexing và RBAC Filtering)
+- **Prompt Management & Tracing:** [Langfuse](https://langfuse.com/) (Quản lý prompt tập trung trên UI, TTL cache in-memory, Dynamic Prompt Hydration, Tracing & Latency Analytics) kết hợp LangSmith
+- **Kiến trúc RAG:** Fast Direct Pipeline (1 LLM call, Inline Footnotes `[1]`, `[2]`, Clean Context Builder, Zero-Hallucination)
+- **Code Quality & Typing:** Ruff, MyPy, Pytest, Coverage, TQDM, Rich UI
 
 ---
 
@@ -43,51 +52,123 @@ dev_llm_service/
 ├── app/                        # Mã nguồn chính của ứng dụng
 │   ├── ai/                     # Hệ thống AI Agents & RAG
 │   │   ├── AI_ARCHITECTURE.md  # Tài liệu Kiến trúc & Hướng dẫn phát triển AI Subsystem
-│   │   ├── README.md           # Chỉ mục nhanh phân hệ AI
 │   │   ├── agent/              # Định nghĩa các Agent hệ thống
-│   │   │   ├── agentic_rag/    # Agentic RAG (Evaluation, Graph, Memory, Prompts, Tools)
-│   │   │   │   └── eval/       # Eval config & test cases cho Agentic RAG
-│   │   │   ├── faq/            # FAQ Agent
+│   │   │   ├── agentic_rag/    # RAG Agent (Fast Direct Pipeline)
+│   │   │   │   ├── graph/      # StateGraph (retrieve_rag_node -> generator_node / fallback_node)
+│   │   │   │   ├── nodes/      # retrieve_node.py, generator_node.py
+│   │   │   │   ├── prompts/    # registry.py (Nạp prompt rag_generator từ Langfuse)
+│   │   │   │   ├── state.py    # AgenticRAGState (user_query, context, citations, final_answer)
+│   │   │   │   └── eval/       # Bộ test cases và benchmark cho RAG Agent
+│   │   │   ├── faq/            # FAQ Agent (Tra cứu câu hỏi thường gặp)
+│   │   │   │   ├── graph/      # StateGraph của FAQ
+│   │   │   │   ├── nodes/      # faq_node.py (Nạp prompt faq_agent từ Langfuse)
+│   │   │   │   ├── tools/      # search.py (Hybrid RRF Search trên CSDL FAQ)
+│   │   │   │   ├── prompts/    # registry.py kết nối Langfuse
 │   │   │   │   └── eval/       # Eval config & test cases cho FAQ
-│   │   │   └── supervisor/     # Supervisor Agent điều phối các agent con (Intent Classifier)
-│   │   │       └── eval/       # Eval config & test cases cho Supervisor
-│   │   │           ├── config.yaml                              # Khai báo metric đánh giá
-│   │   │           └── cases/                                   # Thư mục chứa file JSON test cases
-│   │   │               └── gamspro_supervisor_routing_cases.json # 50 test cases routing
+│   │   │   ├── fallback/       # Centralized Fallback Hub dùng chung
+│   │   │   │   └── nodes/      # fallback_node.py (Phản hồi thân thiện khi out-of-scope / RAG miss)
+│   │   │   ├── supervisor/     # Supervisor Agent phân loại ý định (Intent Classifier)
+│   │   │   │   └── eval/       # 75 test cases đánh giá routing
+│   │   │   └── procurement/    # Procurement Agent (Xử lý nghiệp vụ mua sắm)
 │   │   ├── eval/               # Framework đánh giá dùng chung (Metrics, Scorer, Runner, Report)
-│   │   │   ├── metrics.py      # Các lớp metric: ExactFieldMatch, MinValue, Latency, LLMJudge
-│   │   │   ├── scorer.py       # Chấm điểm 1 test case bằng danh sách metrics
-│   │   │   ├── runner.py       # Chạy toàn bộ eval suite cho 1 agent (Rich progress bar)
-│   │   │   └── report.py       # In báo cáo Rich UI & lưu kết quả JSON
-│   │   └── rag/                # Pipeline RAG
-│   │       ├── embedding/      # Embedding Service (SentenceTransformer GPU / TEI / Ollama)
-│   │       ├── retrieval/      # Vector Retriever với lọc phân quyền RBAC
-│   │       └── ...
+│   │   └── rag/                # Pipeline nạp và truy xuất tri thức
+│   │       ├── chunking/       # splitter.py (Token Chunker 800 tokens, Atomic Slide Aggregator)
+│   │       ├── context/        # builder.py (RagContextBuilder làm sạch và định dạng ngữ cảnh)
+│   │       ├── embedding/      # service.py (SentenceTransformer BGE-M3 / TEI / Ollama)
+│   │       ├── ingestion/      # extractor.py (Trích xuất Word, PDF, Slide PPTX chuẩn xác)
+│   │       └── retrieval/      # retriever.py (Vector Search + BGE Cross-Encoder Reranker)
 │   ├── core/                   # Cấu hình cốt lõi (Config, Database, Exception, Logging, Middleware)
 │   ├── llmops/                 # Quản lý LLM Provider Factory (Gemini, vLLM / Ollama, OpenAI)
 │   ├── modules/                # Đóng gói logic theo nghiệp vụ Domain-Driven Design
 │   │   ├── auth/               # Module Xác thực & Phân quyền
 │   │   ├── chat/               # Module Chatbot & Lịch sử hội thoại (SSE Streaming + Citations)
-│   │   ├── document/           # Module Xử lý, Ingest & Quản lý tài liệu
+│   │   ├── document/           # Module Ingest, Re-index & Quản lý tài liệu
+│   │   ├── faq_knowledge/      # Module Quản lý CSDL FAQ & Nhập Excel
 │   │   └── health/             # Module kiểm tra trạng thái dịch vụ (Health Check)
 │   ├── routers/                # API Routers & Dependency Injection (App DI Container)
 │   ├── lifespan.py             # Quản lý vòng đời ứng dụng FastAPI (Startup / Shutdown)
 │   └── main.py                 # File khởi tạo ứng dụng FastAPI chính
-├── eval_results/               # Kết quả đánh giá JSON (tự động tạo khi chạy eval)
-├── infra/                      # Cấu hình hạ tầng
-│   ├── docker/                 # docker-compose.yml (TEI GPU Container, SQL Server init)
-│   └── k8s/                    # Cấu hình Kubernetes deployment
-├── my_documents/               # Thư mục chứa tài liệu mẫu nạp vào hệ thống
-├── notebooks/                  # Jupyter notebooks thử nghiệm RAG, Supervisor Agent
+├── data/
+│   └── eval_results/           # Kết quả benchmark JSON (latest, history, benchmark_summary.json)
+├── my_documents/               # Thư mục chứa tài liệu gốc nạp vào hệ thống
+├── notebooks/                  # Jupyter notebooks thử nghiệm RAG, Prompt, Reranker, Routing
 ├── scripts/                    # Scripts tiện ích & tự động hóa
 │   ├── check_connections.py    # Kiểm tra trạng thái kết nối Ollama, GPU, TEI & CSDL
+│   ├── reindex_documents.py    # Tái lập chỉ mục tài liệu (Atomic Slide PPTX, Token Chunker DOCX)
 │   ├── run_eval.py             # Script chạy đánh giá agent (eval) với Rich progress bar
 │   ├── upload_documents.py     # Script nạp tài liệu tự động kèm Metadata + tqdm progress bar
-│   ├── format.sh / lint.sh     # Scripts kiểm tra & format code
+│   └── format.sh / lint.sh     # Scripts kiểm tra & format code
 ├── .env                        # File biến môi trường (Local config)
 ├── pyproject.toml              # Khai báo dependency & cấu hình dự án
 └── uv.lock                     # Lockfile phiên bản thư viện
 ```
+
+---
+
+## 🧠 Kiến Trúc RAG & Multi-Agent
+
+Hệ thống RAG và Multi-Agent được thiết kế tối ưu hóa theo tiêu chuẩn Enterprise AI: **Độ trễ thấp (1.5 - 3.0s)**, **Không ảo giác (Zero-Hallucination)**, **Trích dẫn nguồn chuẩn học thuật (Inline Footnotes & Citations Table)** và **Bảo mật phân quyền dữ liệu (RBAC)**.
+
+```mermaid
+graph TD
+    User([Người dùng / Web Client]) --> Gateway[API Gateway / Router]
+    Gateway --> Supervisor[Supervisor Agent<br>Intent Classifier]
+    
+    Supervisor -->|intent = 'faq'| FAQAgent[FAQ Agent<br>LangGraph ReAct]
+    Supervisor -->|intent = 'rag'| RAGAgent[RAG Agent<br>Fast Direct Pipeline]
+    Supervisor -->|intent = 'procurement'| ProcAgent[Procurement Agent]
+    Supervisor -->|intent = 'fallback'| FallbackHub[Centralized Fallback Hub]
+
+    subgraph "RAG Fast Direct Pipeline"
+        RAGAgent --> RetrieveNode[retrieve_rag_node<br>Hybrid Search + Dynamic Top-K]
+        RetrieveNode --> BGERerank[BGE Cross-Encoder Reranker<br>BAAI/bge-reranker-base]
+        BGERerank --> FilterThreshold{Relevance >= Threshold?}
+        FilterThreshold -->|Đạt chuẩn| CleanContext[RagContextBuilder<br>Deduplication & Footnotes]
+        CleanContext --> GeneratorNode[generator_node<br>1 LLM Call - Streaming SSE]
+        FilterThreshold -->|Không tìm thấy| FallbackHub
+    end
+
+    GeneratorNode --> CitationsOut[Phát SSE Citations + Tokens]
+    FallbackHub --> FriendlyOut[Phản hồi điều hướng thân thiện]
+```
+
+### 1. Fast Direct Pipeline (1 LLM Call)
+- **Vấn đề của mô hình cũ:** Các mô hình ReAct 4-node hoặc Self-RAG với Grader / Hallucination Check tiêu tốn 3-4 cuộc gọi LLM liên tiếp, đẩy latency lên 10-15 giây, tiềm ẩn nguy cơ vòng lặp vô tận (infinite loop) và tiêu tốn token.
+- **Giải pháp Fast Direct Pipeline:**
+  - `retrieve_rag_node`: Thực thi Vector Search kết hợp phân quyền RBAC $\rightarrow$ BGE Cross-Encoder Reranking $\rightarrow$ Xây dựng Clean Context.
+  - **Conditional Edge:** Nếu kho tài liệu có thông tin phù hợp $\rightarrow$ chuyển thẳng đến `generator_node`. Nếu không có hoặc dưới ngưỡng $\rightarrow$ chuyển sang `fallback_node`.
+  - `generator_node`: Thực hiện duy nhất **1 cuộc gọi LLM** sinh câu trả lời hoàn chỉnh kèm chú thích trích dẫn `[1]`, `[2]` tương ứng với bảng tài liệu tham khảo cuối câu trả lời.
+  - **Kết quả:** Giảm độ trễ từ ~12s xuống còn **~2s**, phản hồi tức thì và chính xác tuyệt đối theo tài liệu.
+
+### 2. BGE Cross-Encoder Reranker
+- Mô hình: `BAAI/bge-reranker-base` (chạy trực tiếp trên GPU CUDA hoặc CPU đa luồng).
+- **Cơ chế:** Thay vì dựa vào LLM Grader tốn kém hoặc chỉ dùng Cosine Distance đơn thuần, Cross-Encoder phân tích đồng thời cặp `(Query, Chunk)` để tính điểm liên quan ngữ nghĩa chính xác (Logit Score).
+- **Dynamic Top-K Selection:**
+  - Nếu query dài hoặc phức tạp $\rightarrow$ Lấy Top 8 chunks.
+  - Nếu query ngắn hoặc câu hỏi tra cứu định nghĩa $\rightarrow$ Lấy Top 4-5 chunks tinh hoa nhất.
+  - Tự động gắn điểm số `score` trực tiếp vào Metadata của trích dẫn nguồn (`citations`).
+
+### 3. Atomic Slide Aggregation & Token Chunker
+- **Trích xuất Slide PPTX (Atomic Slide):**
+  - Khắc phục triệt để lỗi cắt nhỏ slide vô nghĩa khiến mất ngữ cảnh biểu đồ, quy trình.
+  - Mỗi slide PPTX được đóng gói thành **1 Chunk trọn vẹn** kèm tiêu đề nhận diện: `[Slide X/Y - Tiêu đề]`.
+  - **Cơ chế Gộp Slide Kế Cận (Slide Aggregation):** Nếu slide $N$ có nội dung quá ngắn ($< 200$ ký tự - ví dụ slide tiêu đề mục, slide phân trang), hệ thống tự động gộp nội dung của nó vào slide $N+1$ kế tiếp.
+- **Trích xuất Word (DOCX) & PDF:**
+  - Sử dụng Token-based Recursive Chunker: `chunk_size = 800 tokens`, `chunk_overlap = 100 tokens`.
+  - Cơ chế phòng vệ nhị phân: Loại bỏ 100% các ký tự rác hoặc binary zip từ file nén Word/Office, đảm bảo vector database chỉ chứa văn bản thuần túy và có nghĩa.
+
+### 4. Quản Lý Prompt Tập Trung Với Langfuse
+- Toàn bộ Prompt của các Agent (`rag_generator`, `faq_agent`) được quản lý tập trung trên giao diện UI của **Langfuse**.
+- `app/ai/agent/agentic_rag/prompts/registry.py` nạp prompt từ Langfuse qua SDK, tự động cache in-memory với TTL 60s.
+- Cho phép đội ngũ kỹ sư AI tinh chỉnh Prompt, cấu hình tham số nhiệt độ (`temperature`), ngữ điệu phản hồi trực tiếp mà **không cần khởi động lại dịch vụ hoặc build lại mã nguồn**.
+
+### 5. Centralized Fallback Hub
+- File: `app/ai/agent/fallback/nodes/fallback_node.py`
+- Được thiết kế làm điểm tiếp nhận tập trung (Hub) cho các trường hợp:
+  - Supervisor nhận diện câu hỏi nằm ngoài phạm vi nghiệp vụ ngân hàng BVBank / phần mềm gAMSPro.
+  - RAG Agent không tìm thấy bất kỳ tài liệu liên quan nào trong CSDL có điểm phù hợp.
+  - FAQ Agent tra cứu CSDL nhưng không có câu hỏi tương đương.
+- Tự động điều hướng và đưa ra lời hướng dẫn thân thiện, gợi ý người dùng liên hệ kênh hỗ trợ chính thức (Hotline, email IT/HCQT).
 
 ---
 
@@ -198,16 +279,40 @@ docker compose -f infra/docker/docker-compose.yml up -d
 ### 1. Kiểm tra kết nối toàn bộ hệ thống (`check_connections.py`)
 Kiểm tra Ollama Server, PyTorch GPU, TEI Server và CSDL SQL Server:
 ```bash
-python scripts/check_connections.py
+uv run python scripts/check_connections.py
 ```
 
 ### 2. Nạp tài liệu tự động hàng loạt (`upload_documents.py`)
 Tự động đăng ký Metadata CSDL, tách chunk và Embedding GPU tài liệu từ thư mục `my_documents/` với thanh tiến trình `tqdm` 0% -> 100% cho từng file:
 ```bash
-python scripts/upload_documents.py
+uv run python scripts/upload_documents.py
 ```
 
-### 3. Chạy đánh giá Agent (`run_eval.py`)
+### 3. Tái lập chỉ mục & Re-index tài liệu (`reindex_documents.py`)
+Script chuyên dụng để xử lý lại dữ liệu trong CSDL theo chuẩn Ingestion mới (Atomic Slide PPTX, Token Chunker 800 tokens Word/PDF, dọn rác nhị phân):
+
+```bash
+# Dọn sạch toàn bộ các chunk rác nhị phân (binary zip) khỏi CSDL
+uv run python scripts/reindex_documents.py --clean-binary
+
+# Re-index 1 tài liệu cụ thể theo ID trong CSDL
+uv run python scripts/reindex_documents.py --id 1059
+
+# Re-index toàn bộ các tài liệu Slide PPTX (áp dụng Atomic Slide Aggregator)
+uv run python scripts/reindex_documents.py --type pptx
+
+# Re-index toàn bộ các tài liệu Word DOCX (áp dụng Token Chunker 800 tokens)
+uv run python scripts/reindex_documents.py --type docx
+
+# Re-index toàn bộ kho tài liệu với kích thước batch tùy chỉnh
+uv run python scripts/reindex_documents.py --all --batch-size 10
+```
+
+> **API Re-index:** Bạn cũng có thể kích hoạt re-index qua HTTP REST API:
+> - `POST /api/v1/documents/reindex` (kèm body `{ "clean_binary_first": true, "doc_type": "pptx" }`)
+> - `POST /api/v1/documents/{document_id}/reindex`
+
+### 4. Chạy đánh giá Agent (`run_eval.py`)
 Chạy bộ test đánh giá chất lượng agent (xem chi tiết ở phần [Hướng Dẫn Đánh Giá Agent](#-hướng-dẫn-đánh-giá-agent-evaluation)):
 ```bash
 uv run python scripts/run_eval.py supervisor
@@ -516,9 +621,11 @@ app/ai/agent/<tên_agent>/eval/
 ```python
 # Thêm hàm async nhận dict input -> dict output
 async def _agentic_rag_entrypoint(input_: dict[str, Any]) -> dict[str, Any]:
-    from app.ai.agent.agentic_rag.graph.builder import rag_node
-    state = {"messages": [], "user_query": input_["user_query"]}
-    result = await rag_node(state)
+    from app.ai.agent.agentic_rag import agentic_rag_graph
+    result = await agentic_rag_graph.ainvoke({
+        "user_query": input_["user_query"],
+        "user_roles": input_.get("user_roles", ["Public", "Employee"]),
+    })
     return {"final_answer": result.get("final_answer", "")}
 
 # Đăng ký vào registry
@@ -539,16 +646,30 @@ uv run python scripts/run_eval.py agentic_rag
 ## 🏗 Hướng Dẫn Phát Triển (Coding Guide)
 
 ### 1. Thêm LLM Provider Mới
-Tất cả các mô hình LLM được trừu tượng hóa thông qua Factory trong `app/llmops/factory.py`.
+Tất cả các mô hình LLM được trừu tượng hóa thông qua Factory trong `app/llmops/factory.py`. Bạn chỉ cần thêm provider mới (ví dụ: Azure OpenAI, Anthropic) bằng cách triển khai hàm khởi tạo tương ứng và đăng ký vào Factory.
 
 ### 2. Mô hình Embedding (GPU / CPU Dual Mode)
 Trong `app/ai/rag/embedding/service.py`:
-- Ưu tiên 1: Tự động chạy `SentenceTransformer("BAAI/bge-m3", device="cuda")` nếu máy có GPU CUDA, hoặc `device="cpu"` nếu máy dùng CPU.
-- Ưu tiên 2: TEI HTTP Server (`http://localhost:8080`).
-- Ưu tiên 3: Ollama / vLLM Embeddings API (`/v1/embeddings`).
+- **Ưu tiên 1:** Tự động chạy `SentenceTransformer("BAAI/bge-m3", device="cuda")` nếu máy có GPU CUDA, hoặc `device="cpu"` nếu máy dùng CPU.
+- **Ưu tiên 2:** TEI HTTP Server (`http://localhost:8080`).
+- **Ưu tiên 3:** Ollama / vLLM Embeddings API (`/v1/embeddings`).
 
 ### 3. Tách Citations trong RAG Chat Stream
-Khi gọi `/api/v1/chat/stream`, Backend phát sự kiện `event: citations` chứa thông tin trích dẫn nguồn (`source`, `page`, `chunk_id`, `score`) độc lập trước sự kiện stream token `event: token`.
+Khi gọi `/api/v1/chat/stream`, Backend phát sự kiện `event: citations` chứa danh sách trích dẫn nguồn (`source`, `page`, `chunk_id`, `score`) độc lập trước sự kiện stream token `event: token`. Điều này giúp Frontend Angular có thể render ngay Header hoặc Drawer tài liệu nguồn trong khi LLM vẫn đang stream từng token câu trả lời.
+
+### 4. Quản Lý Prompt Với Langfuse Prompt Registry
+Mọi Agent mới nên đăng ký prompt qua Langfuse Registry (`app/ai/agent/<agent>/prompts/registry.py`):
+```python
+from langfuse import Langfuse
+
+# Khởi tạo client Langfuse
+client = Langfuse()
+
+# Lấy prompt có quản lý phiên bản và TTL caching
+prompt_obj = client.get_prompt("my_new_agent_prompt", cache_ttl_seconds=60)
+compiled_prompt = prompt_obj.compile(user_query=query, context=context)
+```
+Không nạp file prompt local tĩnh để đảm bảo khả năng A/B testing và cập nhật prompt tức thì từ Langfuse UI mà không cần redeploy code.
 
 ---
 

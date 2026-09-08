@@ -47,6 +47,9 @@ class DocumentRepository:
     ) -> int:
         """Tạo bản ghi tài liệu mới kèm khai báo Vai trò (Roles) truy cập bằng ORM."""
         allowed_roles = allowed_roles or []
+        clean_dept = owner_department.strip() if owner_department else None
+        if clean_dept and len(clean_dept) > 2000:
+            clean_dept = None
 
         db: Session = SessionLocal()
         try:
@@ -56,7 +59,7 @@ class DocumentRepository:
                 file_path=file_path,
                 file_size=file_size,
                 category=category,
-                owner_department=owner_department,
+                owner_department=clean_dept,
                 description=description,
                 tags=tags,
                 access_scope=access_scope,
@@ -239,7 +242,10 @@ class DocumentRepository:
             if doc:
                 doc.document_name = document_name
                 doc.category = category
-                doc.owner_department = owner_department
+                clean_dept = owner_department.strip() if owner_department else None
+                if clean_dept and len(clean_dept) > 2000:
+                    clean_dept = None
+                doc.owner_department = clean_dept
                 doc.description = description
                 doc.tags = tags
                 doc.access_scope = access_scope
@@ -366,16 +372,47 @@ class DocumentRepository:
             raw_conn.close()
 
         # 3. Tái tạo lại Vector Index bằng kết nối autocommit độc lập (tránh lỗi transaction 574 của SQL Server 2025)
+        self._recreate_vector_index()
+
+    def _recreate_vector_index(self) -> None:
+        """Tái tạo Vector Index an toàn bằng autocommit connection có đầy đủ ODBC Driver."""
         try:
-            conn = pyodbc.connect(settings.SQLSERVER_CONNECTIONSTRING, autocommit=True)
+            available_drivers = pyodbc.drivers()
+            preferred_drivers = [
+                "ODBC Driver 18 for SQL Server",
+                "ODBC Driver 17 for SQL Server",
+                "ODBC Driver 13 for SQL Server",
+                "SQL Server",
+            ]
+            conn_str = settings.SQLSERVER_CONNECTIONSTRING
+            if "driver=" not in conn_str.lower():
+                fallback_driver = next(
+                    (d for d in preferred_drivers if d in available_drivers), None
+                )
+                if fallback_driver:
+                    if not conn_str.rstrip().endswith(";"):
+                        conn_str += ";"
+                    conn_str = f"Driver={{{fallback_driver}}};{conn_str}"
+
+            conn = pyodbc.connect(conn_str, autocommit=True)
             with conn.cursor() as cursor:
+                # Kiểm tra xem index đã tồn tại chưa
                 cursor.execute(
-                    "CREATE VECTOR INDEX idx_documents_embedding ON dbo.Documents(embedding) WITH (METRIC = 'cosine');"
+                    """
+                    IF NOT EXISTS (
+                        SELECT 1 FROM sys.indexes 
+                        WHERE name = 'idx_documents_embedding' AND object_id = OBJECT_ID('dbo.Documents')
+                    )
+                    BEGIN
+                        CREATE VECTOR INDEX idx_documents_embedding ON dbo.Documents(embedding) WITH (METRIC = 'cosine');
+                    END
+                    """
                 )
             conn.close()
+            logger.info("[OK] Recreated Vector Index idx_documents_embedding successfully.")
         except Exception as idx_ex:  # noqa: BLE001
             logger.warning(
-                "[WARN] Exception recreating vector index after DELETE: %s", idx_ex
+                "[WARN] Exception recreating vector index: %s", idx_ex
             )
 
     def upsert_documents(
@@ -424,6 +461,9 @@ class DocumentRepository:
             logger.info("[OK] Upserted %d vector chunks", len(ids))
         finally:
             raw_conn.close()
+
+        # 3. Tái tạo lại Vector Index sau khi hoàn tất upsert
+        self._recreate_vector_index()
 
     def upsert_ingestion_file(
         self,
@@ -734,8 +774,12 @@ class DocumentRepository:
                       ISNULL(JSON_VALUE(metadata, '$.owner_department'), '') = ''
                       AND ISNULL(JSON_VALUE(metadata, '$.ownerDepartment'), '') = ''
                   )
+                  OR EXISTS (
+                      SELECT 1
+                      FROM STRING_SPLIT(LOWER(ISNULL(NULLIF(JSON_VALUE(metadata, '$.owner_department'), ''), JSON_VALUE(metadata, '$.ownerDepartment'))), ',')
+                      WHERE LTRIM(RTRIM(value)) = LOWER(?)
+                  )
                   OR LOWER(JSON_VALUE(metadata, '$.owner_department')) = LOWER(?)
-                  OR LOWER(JSON_VALUE(metadata, '$.ownerDepartment')) = LOWER(?)
               )
         )"""
 
@@ -801,7 +845,7 @@ class DocumentRepository:
                 SELECT fd.id_int, fts.[RANK] AS fts_score
                 FROM FilteredDocuments fd
                 INNER JOIN CONTAINSTABLE(dbo.Documents, document, ?, LANGUAGE 0, ?) AS fts
-                    ON fd.id_int = fts.[KEY]
+                    ON fd.id = fts.[KEY]
             ),
             FtsRanked AS (
                 SELECT
@@ -935,4 +979,78 @@ class DocumentRepository:
             "distances": [distances],
             "citations": [citations],
         }
+
+    def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
+        """
+        Lấy thông tin chi tiết các chunk theo danh sách chunk_id.
+        Dùng cho Section / Sibling Chunk Expansion khi truy vấn Exhaustive.
+        """
+        if not chunk_ids:
+            return []
+
+        chunk_ids_unique = list(dict.fromkeys(chunk_ids))[:100]
+        placeholders = ",".join(["?"] * len(chunk_ids_unique))
+        sql = f"""
+            SELECT id, document, metadata
+            FROM Documents
+            WHERE id IN ({placeholders})
+        """
+        results = []
+        raw_conn = engine.raw_connection()
+        try:
+            with raw_conn.cursor() as cursor:
+                cursor.execute(sql, chunk_ids_unique)
+                for row in cursor.fetchall():
+                    cid, doc_text, meta_json = row
+                    meta = json.loads(meta_json) if meta_json else {}
+                    results.append({
+                        "id": cid,
+                        "document": doc_text,
+                        "metadata": meta,
+                    })
+        finally:
+            raw_conn.close()
+        return results
+
+    def get_adjacent_chunks(
+        self, backend_id: int | str, chunk_indices: list[int]
+    ) -> list[dict[str, Any]]:
+        """
+        Lấy các chunk liền kề (adjacent / sequence gaps) trong cùng tài liệu backend_id.
+        Giúp không bỏ sót các bước quy trình hoặc mục danh sách khi truy vấn mang tính liệt kê.
+        """
+        if not chunk_indices:
+            return []
+
+        min_idx = max(0, min(chunk_indices) - 1)
+        max_idx = max(chunk_indices) + 1
+
+        sql = """
+            SELECT id, document, metadata
+            FROM Documents
+            WHERE (
+                JSON_VALUE(metadata, '$.backendId') = ?
+                OR JSON_VALUE(metadata, '$.backend_document_id') = ?
+                OR JSON_VALUE(metadata, '$.backend_id') = ?
+            )
+            AND TRY_CAST(JSON_VALUE(metadata, '$.chunk_index') AS INT) BETWEEN ? AND ?
+            ORDER BY TRY_CAST(JSON_VALUE(metadata, '$.chunk_index') AS INT) ASC
+        """
+        results = []
+        raw_conn = engine.raw_connection()
+        try:
+            with raw_conn.cursor() as cursor:
+                cursor.execute(sql, (str(backend_id), str(backend_id), str(backend_id), min_idx, max_idx))
+                for row in cursor.fetchall():
+                    cid, doc_text, meta_json = row
+                    meta = json.loads(meta_json) if meta_json else {}
+                    results.append({
+                        "id": cid,
+                        "document": doc_text,
+                        "metadata": meta,
+                    })
+        finally:
+            raw_conn.close()
+        return results
+
 

@@ -24,14 +24,50 @@ FALLBACK_GUIDANCE_MESSAGE = (
     "Anh/chị vui lòng nhập câu hỏi hoặc yêu cầu cụ thể để tôi hỗ trợ nhé!"
 )
 
+RAG_NO_DOCS_MESSAGE = (
+    "Tôi không tìm thấy thông tin phù hợp trong tài liệu quy chế/HDSD được cấp quyền truy cập."
+)
+
+FAQ_NO_MATCH_MESSAGE = (
+    "ℹ️ Hiện tại tôi chưa tìm thấy thông tin liên quan đến câu hỏi của bạn trong cơ sở dữ liệu FAQ nội bộ BVBank.\n"
+    "Bạn vui lòng kiểm tra lại câu hỏi hoặc liên hệ **Bộ phận Hỗ trợ Nội bộ BVBank** để được hỗ trợ chi tiết nhé! 😊"
+)
+
 
 async def fallback_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Xử lý phản hồi khi Intent được phân loại là Fallback hoặc không xác định được.
+    Xử lý phản hồi Fallback đa ngữ cảnh (Central Fallback Hub):
+    - Khi được gọi từ RAG Agent (AgenticRagState có 'documents' rỗng): Trả về thông báo Zero-Hallucination không tìm thấy tài liệu.
+    - Khi được gọi từ FAQ Agent: Trả về thông báo không tìm thấy FAQ.
+    - Mặc định (Orchestrator Intent): Trả về menu hướng dẫn nghiệp vụ toàn diện.
     """
-    logger.info("[FALLBACK AGENT] Đang xử lý câu hỏi ngoài phạm vi hoặc chào hỏi...")
+    # 1. Ngữ cảnh RAG Agent (AgenticRagState)
+    if "documents" in state and not state.get("documents"):
+        logger.info("[FALLBACK] Xử lý ngữ cảnh RAG Miss: không tìm thấy tài liệu quy chế.")
+        return {
+            "final_answer": RAG_NO_DOCS_MESSAGE,
+            "agent_output": RAG_NO_DOCS_MESSAGE,
+            "messages": [AIMessage(content=RAG_NO_DOCS_MESSAGE)],
+            "documents": [],
+            "citations": [],
+            "is_relevant": False,
+        }
 
+    # 2. Ngữ cảnh FAQ Agent (FAQState)
+    if "retrieved_faqs" in state and not state.get("retrieved_faqs"):
+        logger.info("[FALLBACK] Xử lý ngữ cảnh FAQ Miss: không tìm thấy câu hỏi FAQ phù hợp.")
+        return {
+            "final_answer": FAQ_NO_MATCH_MESSAGE,
+            "agent_output": FAQ_NO_MATCH_MESSAGE,
+            "messages": [AIMessage(content=FAQ_NO_MATCH_MESSAGE)],
+            "citations": [],
+        }
+
+    # 3. Ngữ cảnh Orchestrator Chitchat / Out-of-scope
+    logger.info("[FALLBACK AGENT] Đang xử lý câu hỏi ngoài phạm vi hoặc chào hỏi...")
     return {
+        "final_answer": FALLBACK_GUIDANCE_MESSAGE,
         "agent_output": FALLBACK_GUIDANCE_MESSAGE,
         "messages": [AIMessage(content=FALLBACK_GUIDANCE_MESSAGE)],
     }
+

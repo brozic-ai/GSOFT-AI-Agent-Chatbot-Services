@@ -35,6 +35,18 @@ _VALID_ANSWER_COLS = {"câu trả lời", "answer", "a", "tra loi", "cau tra loi
 _EMBED_BATCH_SIZE = 16
 
 
+def format_faq_for_embedding(question: str, answer: str) -> str:
+    """
+    Tạo nội dung composite chuẩn hóa để embedding cả câu hỏi và câu trả lời.
+    Giúp mô hình vector nhận diện được các câu hỏi liên quan đến nội dung chi tiết trong câu trả lời.
+    """
+    q = (question or "").strip()
+    a = (answer or "").strip()
+    if a:
+        return f"Câu hỏi: {q}\nCâu trả lời: {a}"
+    return f"Câu hỏi: {q}"
+
+
 def _find_column(columns: list[str], valid_names: set[str]) -> str | None:
     """Tìm tên cột thực tế trong DataFrame dựa trên danh sách tên hợp lệ (case-insensitive)."""
     for col in columns:
@@ -60,7 +72,7 @@ class FaqService:
     # Internal helpers
     # -------------------------------------------------------------------------
     async def _try_upsert_vector(self, faq: FaqKnowledge) -> None:
-        """Tạo embedding và upsert vào FaqVectors. Ghi warning nếu lỗi (không crash)."""
+        """Tạo embedding composite (câu hỏi + câu trả lời) và upsert vào FaqVectors. Ghi warning nếu lỗi (không crash)."""
         if not self.embedding_service:
             logger.warning(
                 "[FAQ VECTOR] EmbeddingService không được cấu hình. Bỏ qua vectorize faq_id=%d.",
@@ -68,7 +80,8 @@ class FaqService:
             )
             return
         try:
-            embeddings = await self.embedding_service.embed_texts([faq.question])
+            text_to_embed = format_faq_for_embedding(faq.question, faq.answer)
+            embeddings = await self.embedding_service.embed_texts([text_to_embed])
             if not embeddings or not embeddings[0]:
                 logger.warning("[FAQ VECTOR] Embedding rỗng cho faq_id=%d. Bỏ qua.", faq.id)
                 return
@@ -78,7 +91,7 @@ class FaqService:
                 answer=faq.answer,
                 embedding=embeddings[0],
             )
-            logger.info("[FAQ VECTOR] Đã upsert vector cho faq_id=%d.", faq.id)
+            logger.info("[FAQ VECTOR] Đã upsert composite vector cho faq_id=%d.", faq.id)
         except Exception as ex:  # noqa: BLE001
             logger.warning(
                 "[FAQ VECTOR] Không thể vectorize faq_id=%d: %s. "
@@ -411,13 +424,13 @@ class FaqService:
             return
 
         total = len(faqs)
-        logger.info("[FAQ VECTOR] Bắt đầu batch embed %d câu hỏi...", total)
+        logger.info("[FAQ VECTOR] Bắt đầu batch embed %d câu hỏi (composite question + answer)...", total)
 
         for batch_start in range(0, total, _EMBED_BATCH_SIZE):
             batch = faqs[batch_start: batch_start + _EMBED_BATCH_SIZE]
-            questions = [f.question for f in batch]
+            texts = [format_faq_for_embedding(f.question, f.answer) for f in batch]
             try:
-                embeddings = await self.embedding_service.embed_texts(questions)
+                embeddings = await self.embedding_service.embed_texts(texts)
                 items = [
                     (f.id, f.question, f.answer, embeddings[i])
                     for i, f in enumerate(batch)
@@ -425,7 +438,7 @@ class FaqService:
                 ]
                 self.repo.bulk_upsert_faq_vectors(items)
                 logger.info(
-                    "[FAQ VECTOR] Batch %d-%d/%d: upserted %d vectors.",
+                    "[FAQ VECTOR] Batch %d-%d/%d: upserted %d composite vectors.",
                     batch_start + 1,
                     min(batch_start + _EMBED_BATCH_SIZE, total),
                     total,
@@ -438,36 +451,44 @@ class FaqService:
                     ex,
                 )
 
-    async def sync_all_vectors(self, limit: int = 500) -> dict[str, Any]:
+    async def sync_all_vectors(self, limit: int = 500, reindex_all: bool = False) -> dict[str, Any]:
         """
-        Quét toàn bộ FAQ chưa có vector trong FaqVectors và tạo embedding hàng loạt.
-        Dùng cho endpoint POST /api/v1/faq/sync-vectors sau khi import dữ liệu cũ.
+        Quét FAQ và tạo embedding hàng loạt bằng định dạng composite (câu hỏi + câu trả lời).
+        Dùng cho endpoint POST /api/v1/faq/sync-vectors.
 
         Args:
             limit: Số FAQ tối đa cần sync trong một lần gọi.
+            reindex_all: Nếu True, đồng bộ lại toàn bộ FAQ (kể cả đã có vector) để cập nhật composite embedding.
+                         Nếu False, chỉ đồng bộ các FAQ chưa có bản ghi trong FaqVectors.
 
         Returns:
-            Dict thống kê: {'synced': int, 'failed': int, 'total_missing': int}.
+            Dict thống kê: {'synced': int, 'failed': int, 'total': int}.
         """
-        faqs = self.repo.get_faqs_without_vector(limit=limit)
-        total_missing = len(faqs)
+        if reindex_all:
+            faqs = self.repo.get_all_faqs(limit=limit)
+            logger.info("[FAQ VECTOR] Reindex toàn bộ FAQ (limit=%d): tìm thấy %d bản ghi.", limit, len(faqs))
+        else:
+            faqs = self.repo.get_faqs_without_vector(limit=limit)
+            logger.info("[FAQ VECTOR] Quét FAQ chưa có vector (limit=%d): tìm thấy %d bản ghi.", limit, len(faqs))
+
+        total_target = len(faqs)
 
         if not faqs:
-            logger.info("[FAQ VECTOR] Tất cả FAQ đã có vector. Không cần sync.")
-            return {"synced": 0, "failed": 0, "total_missing": 0}
+            logger.info("[FAQ VECTOR] Không có FAQ nào cần đồng bộ.")
+            return {"synced": 0, "failed": 0, "total": 0}
 
         if not self.embedding_service:
             logger.warning("[FAQ VECTOR] EmbeddingService không được cấu hình. Không thể sync.")
-            return {"synced": 0, "failed": total_missing, "total_missing": total_missing}
+            return {"synced": 0, "failed": total_target, "total": total_target}
 
         synced = 0
         failed = 0
 
-        for batch_start in range(0, total_missing, _EMBED_BATCH_SIZE):
+        for batch_start in range(0, total_target, _EMBED_BATCH_SIZE):
             batch = faqs[batch_start: batch_start + _EMBED_BATCH_SIZE]
-            questions = [f.question for f in batch]
+            texts = [format_faq_for_embedding(f.question, f.answer) for f in batch]
             try:
-                embeddings = await self.embedding_service.embed_texts(questions)
+                embeddings = await self.embedding_service.embed_texts(texts)
                 items = [
                     (f.id, f.question, f.answer, embeddings[i])
                     for i, f in enumerate(batch)
@@ -480,9 +501,10 @@ class FaqService:
                 failed += len(batch)
 
         logger.info(
-            "[FAQ VECTOR] sync_all_vectors hoàn thành: synced=%d, failed=%d, total_missing=%d.",
+            "[FAQ VECTOR] sync_all_vectors hoàn thành (reindex_all=%s): synced=%d, failed=%d, total=%d.",
+            reindex_all,
             synced,
             failed,
-            total_missing,
+            total_target,
         )
-        return {"synced": synced, "failed": failed, "total_missing": total_missing}
+        return {"synced": synced, "failed": failed, "total": total_target}

@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 TEXT_EXTENSIONS = {".txt", ".md", ".rst", ".log", ".json", ".xml", ".html", ".htm"}
@@ -179,51 +181,146 @@ class FileTextExtractor:
         return pages
 
     def _extract_pptx(self, path: str, file_name: str) -> list[PageContent]:
-        """Trích xuất PPTX từng slide bằng python-pptx."""
+        """
+        Trích xuất PPTX từng slide bằng python-pptx theo cơ chế Atomic Slide & Slide Aggregation.
+        Nếu Slide N quá ngắn (< 200 ký tự), tự động gộp nội dung của Slide N vào Slide N+1
+        hoặc gộp theo cụm slide liên kề để đảm bảo trọn vẹn ngữ cảnh cho vector embedding.
+        """
         from pptx import Presentation
 
         prs = Presentation(path)
-        pages: list[PageContent] = []
         total_slides = len(prs.slides)
+        min_slide_chars = getattr(settings, "RAG_MIN_SLIDE_CHARS", 200)
 
+        # 1. Trích xuất thô từng slide ban đầu
+        raw_slides: list[dict[str, Any]] = []
         for slide_idx, slide in enumerate(prs.slides, start=1):
             title = ""
             if slide.shapes.title and slide.shapes.title.text:
                 title = slide.shapes.title.text.strip()
 
-            texts: list[str] = []
-            if title:
-                texts.append(f"### {title}")
-
+            body_lines: list[str] = []
             for shape in slide.shapes:
                 if shape.has_text_frame:
                     for para in shape.text_frame.paragraphs:
                         line = para.text.strip()
+                        # Tránh lặp lại tiêu đề slide trong phần thân
                         if line and line != title:
-                            texts.append(line)
+                            body_lines.append(line)
 
-            slide_text = "\n".join(texts).strip()
+            raw_slides.append(
+                {
+                    "slide_idx": slide_idx,
+                    "title": title,
+                    "body_lines": body_lines,
+                }
+            )
 
-            # [FUTURE HOOK] Vision OCR cho slide chỉ chứa hình ảnh:
-            # if not slide_text and settings.INGESTION_ENABLE_VISION_OCR:
-            #     image_bytes = self._render_slide_to_image(slide)
-            #     slide_text = await self._ocr_with_vision(image_bytes)
+        # 2. Thuật toán Slide Aggregation: Gộp slide ngắn (< 200 chars) vào slide kế tiếp N+1
+        aggregated_groups: list[dict[str, Any]] = []
+        buf_indices: list[int] = []
+        buf_titles: list[str] = []
+        buf_texts: list[str] = []
+
+        for s in raw_slides:
+            s_idx = s["slide_idx"]
+            s_title = s["title"]
+            lines = s["body_lines"]
+
+            slide_parts: list[str] = []
+            if s_title:
+                slide_parts.append(f"### Tiêu đề: {s_title}")
+            if lines:
+                slide_parts.extend(lines)
+
+            slide_body = "\n".join(slide_parts).strip()
+
+            buf_indices.append(s_idx)
+            if s_title and s_title not in buf_titles:
+                buf_titles.append(s_title)
+            if slide_body:
+                buf_texts.append(slide_body)
+
+            total_buf_len = sum(len(t) for t in buf_texts)
+
+            # Nếu tổng ký tự tích lũy đạt ngưỡng >= min_slide_chars thì đóng gói group
+            if total_buf_len >= min_slide_chars:
+                aggregated_groups.append(
+                    {
+                        "indices": list(buf_indices),
+                        "titles": list(buf_titles),
+                        "body": "\n\n".join(buf_texts).strip(),
+                    }
+                )
+                buf_indices.clear()
+                buf_titles.clear()
+                buf_texts.clear()
+
+        # Xử lý phần dư trong buffer nếu slide cuối cùng < min_slide_chars
+        if buf_texts:
+            if aggregated_groups:
+                # Gộp vào slide group liền trước
+                last_grp = aggregated_groups[-1]
+                last_grp["indices"].extend(buf_indices)
+                for t in buf_titles:
+                    if t not in last_grp["titles"]:
+                        last_grp["titles"].append(t)
+                last_grp["body"] = (
+                    last_grp["body"] + "\n\n" + "\n\n".join(buf_texts)
+                ).strip()
+            else:
+                # Trường hợp đặc biệt: toàn bộ file PPTX có nội dung rất ngắn
+                aggregated_groups.append(
+                    {
+                        "indices": list(buf_indices),
+                        "titles": list(buf_titles),
+                        "body": "\n\n".join(buf_texts).strip(),
+                    }
+                )
+
+        # 3. Đóng gói thành các PageContent với tiền tố ngữ cảnh chuẩn hóa
+        pages: list[PageContent] = []
+        for grp in aggregated_groups:
+            indices = grp["indices"]
+            start_slide = indices[0]
+            end_slide = indices[-1]
+            slide_label = (
+                f"{start_slide}-{end_slide}"
+                if start_slide != end_slide
+                else str(start_slide)
+            )
+            combined_title = " | ".join(grp["titles"]) if grp["titles"] else ""
+
+            # Tiền tố: [Tài liệu: {file_name}] [Slide {slide_label}/{total_slides}]
+            prefix_header = (
+                f"[Tài liệu: {file_name}] [Slide {slide_label}/{total_slides}]"
+            )
+            full_text = f"{prefix_header}\n{grp['body']}".strip()
 
             pages.append(
                 PageContent(
-                    text=slide_text,
-                    page_number=slide_idx,
+                    text=full_text,
+                    page_number=start_slide,
                     metadata={
                         "source": file_name,
-                        "slide": slide_idx,
-                        "slide_title": title,
+                        "slide": slide_label,
+                        "slide_start": start_slide,
+                        "slide_end": end_slide,
+                        "slide_title": combined_title,
                         "total_slides": total_slides,
+                        "is_atomic_slide": True,
+                        "is_aggregated": len(indices) > 1,
+                        "aggregated_slide_count": len(indices),
+                        "content_format": "pptx_slide",
                     },
                 )
             )
 
         logger.info(
-            "[EXTRACT] Extracted %d slides from PPTX '%s'", len(pages), file_name
+            "[EXTRACT] Extracted %d atomic/aggregated slides from %d original slides in PPTX '%s'",
+            len(pages),
+            total_slides,
+            file_name,
         )
         return pages
 
@@ -236,7 +333,7 @@ class FileTextExtractor:
             doc_obj = docx.Document(path)
         except Exception as docx_ex:  # noqa: BLE001
             logger.warning(
-                "[WARN] python-docx failed for '%s': %s. Trying zip/binary fallback...",
+                "[WARN] python-docx failed for '%s': %s. Trying zip/XML fallback...",
                 file_name,
                 docx_ex,
             )
@@ -253,19 +350,29 @@ class FileTextExtractor:
                             fallback_text = "\n".join(
                                 [t.strip() for t in texts if t.strip()]
                             )
-            except Exception:  # noqa: BLE001, S110
-                pass
+            except Exception as zip_ex:  # noqa: BLE001
+                logger.warning(
+                    "[WARN] Zip XML fallback also failed for '%s': %s", file_name, zip_ex
+                )
 
+            # Tuyệt đối không đọc file nhị phân zip bằng open(path, "rb") decode utf-8
+            # để tránh đẩy hàng loạt chunk rác PK\x03\x04 vào CSDL
             if not fallback_text:
-                try:
-                    with open(path, "rb") as f:
-                        raw_bytes = f.read()
-                        fallback_text = raw_bytes.decode("utf-8", errors="replace")
-                        fallback_text = re.sub(
-                            r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", fallback_text
-                        )
-                except Exception:  # noqa: BLE001
-                    fallback_text = ""
+                logger.error(
+                    "[FAIL] Không thể trích xuất văn bản từ file DOCX '%s'. Đánh dấu tài liệu không hợp lệ thay vì đọc nhị phân rác.",
+                    file_name,
+                )
+                return [
+                    PageContent(
+                        text="",
+                        page_number=1,
+                        metadata={
+                            "source": file_name,
+                            "section": 1,
+                            "error": "unreadable_docx",
+                        },
+                    )
+                ]
 
             return [
                 PageContent(

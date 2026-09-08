@@ -34,13 +34,16 @@ class SearchPolicyDocsInput(BaseModel):
     query: str = Field(
         description="Câu hỏi hoặc từ khóa tra cứu quy chế, chính sách, HDSD gAMSPro"
     )
-    top_k: int = Field(default=5, description="Số lượng đoạn văn bản trả về (1-10)")
+    top_k: Optional[int] = Field(
+        default=None,
+        description="Số lượng đoạn văn bản trả về (3-15). Để None để hệ thống tự động áp dụng Dynamic Top-K theo độ bao quát của câu hỏi (Specific: 3-5, Liệt kê/toàn bộ: 10-15).",
+    )
 
 
 async def _search_policy_and_manual_docs_impl(
-    query: str, top_k: int = 5
+    query: str, top_k: Optional[int] = None
 ) -> str:
-    """Hàm thực thi tra cứu ngữ cảnh tài liệu quy chế và HDSD."""
+    """Hàm thực thi tra cứu ngữ cảnh tài liệu quy chế và HDSD với Dynamic Top-K."""
     try:
         retriever = _get_retriever()
         result = await retriever.retrieve_context(
@@ -64,7 +67,7 @@ async def _search_policy_and_manual_docs_impl(
 
 
 @tool("search_policy_and_manual_docs", args_schema=SearchPolicyDocsInput)
-async def search_policy_and_manual_docs(query: str, top_k: int = 5) -> str:
+async def search_policy_and_manual_docs(query: str, top_k: Optional[int] = None) -> str:
     """Tìm kiếm trong kho tài liệu quy chế, chính sách nội bộ, sổ tay HDSD gAMSPro.
 
     Dùng tool này khi cần tra cứu quy trình, thủ tục, điều kiện nghiệp vụ từ văn bản.
@@ -73,10 +76,10 @@ async def search_policy_and_manual_docs(query: str, top_k: int = 5) -> str:
 
 
 @tool("vector_search_tool", args_schema=SearchPolicyDocsInput)
-async def vector_search_tool(query: str, top_k: int = 5) -> str:
+async def vector_search_tool(query: str, top_k: Optional[int] = None) -> str:
     """Công cụ tìm kiếm ngữ nghĩa Vector Search trong kho dữ liệu tài liệu chính sách, quy chế và HDSD gAMSPro.
 
-    Tra cứu các đoạn tài liệu liên quan phù hợp nhất kèm phân quyền truy cập RBAC.
+    Tra cứu các đoạn tài liệu liên quan phù hợp nhất kèm phân quyền truy cập RBAC và Dynamic Top-K.
     """
     return await _search_policy_and_manual_docs_impl(query=query, top_k=top_k)
 

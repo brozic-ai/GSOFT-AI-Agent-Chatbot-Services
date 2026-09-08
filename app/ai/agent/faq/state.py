@@ -25,5 +25,9 @@ class FAQState(TypedDict, total=False):
     # Danh sách FAQ tìm được từ Hybrid Search (do tool trả về, dùng trong logging/debug)
     retrieved_faqs: list[dict]
 
+    # Danh sách citations chuẩn hóa để emit sang SSE stream cho frontend
+    citations: list[dict]
+
     # Output cuối cùng để Supervisor đọc
     final_answer: str
+

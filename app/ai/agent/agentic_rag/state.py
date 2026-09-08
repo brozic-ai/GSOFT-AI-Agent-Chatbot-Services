@@ -5,12 +5,12 @@ from langgraph.graph.message import add_messages
 
 
 class AgenticRagState(TypedDict):
-    """State quản lý ngữ cảnh hội thoại và dữ liệu của RAG Knowledge Agent."""
+    """State quản lý ngữ cảnh hội thoại và dữ liệu của RAG Knowledge Agent (Fast Pipeline)."""
 
-    # Lịch sử tin nhắn (Human, AI, ToolMessage) — add_messages reducer
+    # Lịch sử tin nhắn (Human, AI) — add_messages reducer
     messages: Annotated[list[BaseMessage], add_messages]
 
-    # Câu hỏi gốc (dùng bởi grader_node & generator_node, không thay đổi sau retry)
+    # Câu hỏi gốc (dùng bởi retrieve_rag_node & generator_node)
     user_query: str
 
     # Mã phiên làm việc
@@ -20,11 +20,11 @@ class AgenticRagState(TypedDict):
     user_roles: Optional[str]
     user_department: Optional[str]
 
-    # Retrieval state (grader_node set các giá trị này)
+    # Retrieval state (retrieve_rag_node set các giá trị này qua Hybrid Search + BGE Cross-Encoder)
     documents: list[str]
     citations: list[dict[str, Any]]
     is_relevant: bool
-    retry_count: int  # Max = 2, chống loop vô hạn
 
-    # Output
+    # Output tổng hợp cuối cùng từ generator_node
     final_answer: str
+

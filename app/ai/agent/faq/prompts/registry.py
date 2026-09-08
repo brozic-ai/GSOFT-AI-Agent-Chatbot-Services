@@ -1,52 +1,64 @@
 import logging
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from typing import Any, Optional
 
 from app.llmops.langfuse import get_langfuse_client
 
 logger = logging.getLogger(__name__)
 
-PROMPTS_DIR = Path(__file__).parent
+
+def _extract_prompt_text(prompt_obj: Any, role_target: str = "system") -> str:
+    """Helper trích xuất nội dung text từ Langfuse Chat/Text Prompt."""
+    if not prompt_obj:
+        return ""
+    if hasattr(prompt_obj, "prompt"):
+        prompt_data = prompt_obj.prompt
+    else:
+        prompt_data = prompt_obj
+
+    if isinstance(prompt_data, list):
+        for msg in prompt_data:
+            if isinstance(msg, dict) and msg.get("role") == role_target:
+                return msg.get("content", "")
+        if prompt_data and isinstance(prompt_data[0], dict):
+            return prompt_data[0].get("content", "")
+    elif isinstance(prompt_data, str):
+        return prompt_data
+    return str(prompt_data)
+
+
+def get_system_prompt() -> str:
+    """
+    Nạp System Prompt cho FAQ Agent trực tiếp từ Langfuse ('faq').
+    Tự động cache 60s và fallback an toàn nếu không kết nối được Langfuse.
+    Hoàn toàn không nạp file prompt local.
+    """
+    try:
+        client = get_langfuse_client()
+        if client:
+            prompt_obj = client.get_prompt("faq", cache_ttl_seconds=60)
+            content = _extract_prompt_text(prompt_obj, role_target="system")
+            if content:
+                return content
+    except Exception as ex:
+        logger.warning("[FAQ-PROMPT] Lỗi lấy prompt 'faq' từ Langfuse: %s", ex)
+
+    # Fallback dự phòng tối thiểu khi không kết nối được Langfuse
+    return (
+        "You are the internal AI assistant of BVBank, specialized in answering simple, "
+        "fixed-answer FAQs about company policies, workplace rules, internal services, "
+        "and general company information."
+    )
 
 
 class PromptLoader:
-    def __init__(self, task: str = "faq", version: str = "v1"):
-        if (PROMPTS_DIR / version).exists():
-            self.task_dir = PROMPTS_DIR / version
-        elif task and (PROMPTS_DIR / task / version).exists():
-            self.task_dir = PROMPTS_DIR / task / version
-        else:
-            self.task_dir = PROMPTS_DIR / version
+    """Class tương thích ngược (deprecated) - chuyển tiếp trực tiếp đến Langfuse prompt."""
 
-        if not self.task_dir.exists():
-            raise FileNotFoundError(f"Không tìm thấy prompt: {task}/{version}")
+    def __init__(self, task: str = "faq", version: str = "v1"):
+        self.task = task
+        self.version = version
 
     def load_system(self) -> str:
-        # Thử lấy từ Langfuse trước nếu có cấu hình
-        try:
-            client = get_langfuse_client()
-            if client:
-                prompt_obj = client.get_prompt("faq", cache_ttl_seconds=60)
-                if prompt_obj:
-                    if isinstance(prompt_obj.prompt, list):
-                        for m in prompt_obj.prompt:
-                            if m.get("role") == "system":
-                                return m.get("content", "")
-                    elif isinstance(prompt_obj.prompt, str):
-                        return prompt_obj.prompt
-        except Exception:
-            pass
-
-        sys_file = self.task_dir / "system.md"
-        if sys_file.exists():
-            return sys_file.read_text(encoding="utf-8")
-        return "Bạn là Trợ lý AI trả lời câu hỏi thường gặp (FAQ)."
+        return get_system_prompt()
 
     def load_user(self, **kwargs) -> str:
-        user_file = self.task_dir / "user.md"
-        if user_file.exists():
-            template = user_file.read_text(encoding="utf-8")
-            return template.format(**kwargs) if kwargs else template
         return kwargs.get("query", "")
-

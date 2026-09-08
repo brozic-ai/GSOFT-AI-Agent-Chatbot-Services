@@ -110,36 +110,43 @@ async def _startup() -> None:
         logger.error("[FAIL] Failed to create Documents table: %s", ex, exc_info=True)
 
     # 4. Tạo Full-Text Catalog & Index cho cột `document` của bảng Documents
-    # Dùng LANGUAGE 0 (Neutral) — SQL Server không có word-breaker tiếng Việt native;
-    # Neutral tách theo khoảng trắng, phù hợp nhất cho văn bản tiếng Việt đã chuẩn hóa.
-    try:
-        import pyodbc as _pyodbc
-
-        _conn = _pyodbc.connect(settings.SQLSERVER_CONNECTIONSTRING, autocommit=True)
+    if getattr(settings, "FTS_ENABLED", True):
         try:
-            with _conn.cursor() as _cur:
-                # 4a. Tạo Full-Text Catalog nếu chưa có
-                _cur.execute(
-                    "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs "
-                    "WHERE name = 'FtCatalog_Documents') "
-                    "CREATE FULLTEXT CATALOG FtCatalog_Documents AS DEFAULT;"
-                )
-                # 4b. Tạo Full-Text Index trên cột document (dùng UQ_Documents_id làm unique key)
-                _cur.execute(
-                    "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_indexes "
-                    "WHERE object_id = OBJECT_ID('dbo.Documents')) "
-                    "CREATE FULLTEXT INDEX ON dbo.Documents(document LANGUAGE 0) "
-                    "KEY INDEX UQ_Documents_id ON FtCatalog_Documents "
-                    "WITH CHANGE_TRACKING AUTO;"
-                )
-            logger.info("[OK] Full-Text Catalog and Index on 'Documents.document' are ready.")
-        finally:
-            _conn.close()
-    except Exception as ex:
-        logger.warning(
-            "[WARN] Full-Text Search setup skipped (FTS may not be supported on this SQL Server edition): %s",
-            ex,
-        )
+            raw_conn_fts = engine.raw_connection()
+            try:
+                # Kiểm tra SQL Server có cài đặt tính năng FTS không
+                with raw_conn_fts.cursor() as check_cur:
+                    check_cur.execute("SELECT CAST(SERVERPROPERTY('IsFullTextInstalled') AS INT);")
+                    row = check_cur.fetchone()
+                    is_fts_installed = bool(row and row[0] == 1)
+
+                if not is_fts_installed:
+                    logger.info("[INFO] SQL Server chưa cài đặt tính năng Full-Text Search (IsFullTextInstalled=0). Bỏ qua tạo FTS Catalog cho Documents.")
+                else:
+                    if hasattr(raw_conn_fts, "driver_connection"):
+                        raw_conn_fts.driver_connection.autocommit = True
+                    with raw_conn_fts.cursor() as _cur:
+                        _cur.execute(
+                            "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs "
+                            "WHERE name = 'FtCatalog_Documents') "
+                            "CREATE FULLTEXT CATALOG FtCatalog_Documents AS DEFAULT;"
+                        )
+                        _cur.execute(
+                            "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_indexes "
+                            "WHERE object_id = OBJECT_ID('dbo.Documents')) "
+                            "CREATE FULLTEXT INDEX ON dbo.Documents(document LANGUAGE 0) "
+                            "KEY INDEX UQ_Documents_id ON FtCatalog_Documents "
+                            "WITH CHANGE_TRACKING AUTO;"
+                        )
+                    logger.info("[OK] Full-Text Catalog and Index on 'Documents.document' are ready.")
+            finally:
+                raw_conn_fts.close()
+        except Exception as ex:
+            logger.warning(
+                "[WARN] Documents Full-Text Search setup skipped: %s", ex
+            )
+    else:
+        logger.info("[INFO] FTS_ENABLED=False trong cấu hình. Bỏ qua khởi tạo Full-Text Search cho Documents.")
 
 
     # 5. Tạo bảng FaqVectors (Vector Store riêng cho FAQ Knowledge Base)
@@ -171,33 +178,42 @@ async def _startup() -> None:
         logger.error("[FAIL] Failed to create FaqVectors table: %s", ex, exc_info=True)
 
     # 6. Tạo Full-Text Catalog & Index cho bảng FaqVectors (cột question và answer)
-    try:
-        import pyodbc as _pyodbc2
-
-        _conn2 = _pyodbc2.connect(settings.SQLSERVER_CONNECTIONSTRING, autocommit=True)
+    if getattr(settings, "FTS_ENABLED", True):
         try:
-            with _conn2.cursor() as _cur2:
-                # 6a. Tạo Full-Text Catalog nếu chưa có
-                _cur2.execute(
-                    "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs "
-                    "WHERE name = 'FtCatalog_FaqVectors') "
-                    "CREATE FULLTEXT CATALOG FtCatalog_FaqVectors AS DEFAULT;"
-                )
-                # 6b. Tạo Full-Text Index trên cột question và answer
-                _cur2.execute(
-                    "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_indexes "
-                    "WHERE object_id = OBJECT_ID('dbo.FaqVectors')) "
-                    "CREATE FULLTEXT INDEX ON dbo.FaqVectors(question LANGUAGE 0, answer LANGUAGE 0) "
-                    "KEY INDEX UQ_FaqVectors_faq_id ON FtCatalog_FaqVectors "
-                    "WITH CHANGE_TRACKING AUTO;"
-                )
-            logger.info("[OK] Full-Text Catalog and Index on 'FaqVectors' are ready.")
-        finally:
-            _conn2.close()
-    except Exception as ex:
-        logger.warning(
-            "[WARN] FaqVectors Full-Text Search setup skipped: %s", ex
-        )
+            raw_conn_faq_fts = engine.raw_connection()
+            try:
+                with raw_conn_faq_fts.cursor() as check_cur2:
+                    check_cur2.execute("SELECT CAST(SERVERPROPERTY('IsFullTextInstalled') AS INT);")
+                    row2 = check_cur2.fetchone()
+                    is_fts_installed2 = bool(row2 and row2[0] == 1)
+
+                if not is_fts_installed2:
+                    logger.info("[INFO] SQL Server chưa cài đặt tính năng Full-Text Search (IsFullTextInstalled=0). Bỏ qua tạo FTS Catalog cho FaqVectors.")
+                else:
+                    if hasattr(raw_conn_faq_fts, "driver_connection"):
+                        raw_conn_faq_fts.driver_connection.autocommit = True
+                    with raw_conn_faq_fts.cursor() as _cur2:
+                        _cur2.execute(
+                            "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs "
+                            "WHERE name = 'FtCatalog_FaqVectors') "
+                            "CREATE FULLTEXT CATALOG FtCatalog_FaqVectors AS DEFAULT;"
+                        )
+                        _cur2.execute(
+                            "IF NOT EXISTS (SELECT 1 FROM sys.fulltext_indexes "
+                            "WHERE object_id = OBJECT_ID('dbo.FaqVectors')) "
+                            "CREATE FULLTEXT INDEX ON dbo.FaqVectors(question LANGUAGE 0, answer LANGUAGE 0) "
+                            "KEY INDEX UQ_FaqVectors_faq_id ON FtCatalog_FaqVectors "
+                            "WITH CHANGE_TRACKING AUTO;"
+                        )
+                    logger.info("[OK] Full-Text Catalog and Index on 'FaqVectors' are ready.")
+            finally:
+                raw_conn_faq_fts.close()
+        except Exception as ex:
+            logger.warning(
+                "[WARN] FaqVectors Full-Text Search setup skipped: %s", ex
+            )
+    else:
+        logger.info("[INFO] FTS_ENABLED=False trong cấu hình. Bỏ qua khởi tạo Full-Text Search cho FaqVectors.")
 
 
 async def _shutdown() -> None:

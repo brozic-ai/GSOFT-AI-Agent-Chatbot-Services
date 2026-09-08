@@ -1,73 +1,69 @@
 """
-FAQ Agent Graph — Đồ thị trạng thái độc lập cho FAQ Agent.
+FAQ Agent Graph — Đồ thị trạng thái tối ưu cho FAQ Agent.
 
-Kiến trúc ReAct (Reason + Act) 2 node:
-  ┌──────────────────┐
-  │  faq_agent_node  │ ←─────────────────┐
-  └────────┬─────────┘                   │
-           │ tool_calls?                 │
-     ┌─────┴──────┐                      │
-     │ (có tool)  │ (không tool)         │
-     ▼            ▼                      │
- tools_node    END                       │
-     │                                   │
-     └───────────────────────────────────┘
-           (tool result → quay lại agent)
+Kiến trúc Direct Pipeline (Retrieve -> Rerank -> Generate / Fallback):
+  ┌───────────────────────┐
+  │   retrieve_faq_node   │ (Hybrid Search + Multilingual Cross-Encoder Rerank)
+  └──────────┬────────────┘
+             │
+      ┌──────┴──────┐
+      │ có FAQ?     │ không có FAQ?
+      ▼             ▼
+┌──────────────┐ ┌───────────────┐
+│generate_node │ │ fallback_node │ (Zero LLM latency, trả kết quả tức thì)
+└──────┬───────┘ └───────┬───────┘
+       ▼                 ▼
+      END               END
 
-Export `faq_graph` để Supervisor chính gọi trực tiếp khi intent = 'faq'.
+Giảm từ 2 lượt LLM ReAct (3-4s) xuống 1 lượt LLM duy nhất (< 1s) hoặc 0 lượt nếu fallback!
+Không còn nguy cơ LLM quên gọi tool hoặc hallucination.
 """
 
 from langgraph.graph import END, StateGraph
-from langgraph.prebuilt import ToolNode
 
-from app.ai.agent.faq.nodes.faq_node import faq_agent_node
+from app.ai.agent.faq.nodes.faq_node import (
+    fallback_faq_node,
+    generate_faq_node,
+    retrieve_faq_node,
+)
 from app.ai.agent.faq.state import FAQState
-from app.ai.agent.faq.tools import FAQ_TOOLS
 
 
-def _should_continue(state: FAQState) -> str:
-    """Điều hướng sau `faq_agent_node`:
-
-    - Nếu LLM sinh tool_calls → chuyển sang 'tools_node' để thực thi tìm kiếm.
-    - Nếu không có tool_calls → LLM đã tổng hợp xong câu trả lời → kết thúc tại END.
+def _route_after_retrieval(state: FAQState) -> str:
+    """Điều hướng sau `retrieve_faq_node`:
+    - Nếu tìm thấy FAQ phù hợp -> chuyển sang 'generate_faq_node' để LLM tổng hợp lời đáp.
+    - Nếu không tìm thấy FAQ nào -> chuyển thẳng sang 'fallback_faq_node' để trả lời lịch sự.
     """
-    messages = (
-        list(state.get("messages", []))
-        if isinstance(state, dict)
-        else list(state.messages)
-    )
-    if not messages:
-        return END
-
-    last_message = messages[-1]
-    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-        return "tools_node"
-
-    return END
+    faqs = state.get("retrieved_faqs", [])
+    if faqs:
+        return "generate_faq_node"
+    return "fallback_faq_node"
 
 
 # ── 1. Khởi tạo StateGraph ──
 _graph = StateGraph(FAQState)
 
 # ── 2. Đăng ký các Nodes ──
-_graph.add_node("faq_agent_node", faq_agent_node)
-_graph.add_node("tools_node", ToolNode(FAQ_TOOLS))
+_graph.add_node("retrieve_faq_node", retrieve_faq_node)
+_graph.add_node("generate_faq_node", generate_faq_node)
+_graph.add_node("fallback_faq_node", fallback_faq_node)
 
 # ── 3. Entry Point ──
-_graph.set_entry_point("faq_agent_node")
+_graph.set_entry_point("retrieve_faq_node")
 
-# ── 4. Cạnh điều kiện: Sau faq_agent_node ──
+# ── 4. Cạnh điều kiện sau retrieve_faq_node ──
 _graph.add_conditional_edges(
-    "faq_agent_node",
-    _should_continue,
+    "retrieve_faq_node",
+    _route_after_retrieval,
     {
-        "tools_node": "tools_node",
-        END: END,
+        "generate_faq_node": "generate_faq_node",
+        "fallback_faq_node": "fallback_faq_node",
     },
 )
 
-# ── 5. Sau khi tool chạy xong → quay lại faq_agent_node để tổng hợp câu trả lời ──
-_graph.add_edge("tools_node", "faq_agent_node")
+# ── 5. Kết thúc sau generate hoặc fallback ──
+_graph.add_edge("generate_faq_node", END)
+_graph.add_edge("fallback_faq_node", END)
 
 # ── 6. Compile ──
 faq_graph = _graph.compile()

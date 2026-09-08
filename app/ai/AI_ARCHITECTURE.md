@@ -23,16 +23,17 @@ Hệ thống được thiết kế theo mô hình **Supervisor-Worker Pattern** 
           │ (intent: faq)         │ (intent: rag)         │ (intent: procurement) │ (intent: fallback)
           ▼                       ▼                       ▼                       ▼
  ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
- │    FAQ AGENT    │     │  AGENTIC RAG    │     │PROCUREMENT AGENT│     │ FALLBACK HANDLER│
- │  (Quick Lookup) │     │ (Deep Document) │     │(gAMSPro ReAct)  │     │(Chitchat/Refuse)│
+ │    FAQ AGENT    │     │  AGENTIC RAG    │     │PROCUREMENT AGENT│     │  FALLBACK HUB   │
+ │ (Direct Pipeline│     │ (Fast Pipeline  │     │(gAMSPro ReAct)  │     │(Central Guidance│
+ │  Hybrid Search) │     │ + BGE Reranker) │     │                 │     │ & Out-of-scope) │
  └─────────────────┘     └────────┬────────┘     └─────────────────┘     └─────────────────┘
-                                 │
-                                 │
-                                 ▼
-                    ┌─────────────────────────┐
-                    │  RAG RETRIEVAL SUBSYSTEM│
-                    │ (SQL Vector + RBAC Filter)│
-                    └─────────────────────────┘
+                                  │
+                                  ▼
+                     ┌─────────────────────────┐
+                     │  RAG RETRIEVAL SUBSYSTEM│
+                     │(Hybrid + BGE Rerank +   │
+                     │      RBAC Filter)       │
+                     └─────────────────────────┘
 ```
 
 ---
@@ -45,24 +46,48 @@ app/ai/
 │   ├── supervisor/                # Supervisor Router Node (Phân loại Intent)
 │   │   ├── graph/                 # LangGraph / Node workflow
 │   │   ├── nodes/                 # Logic node classify_intent_node
-│   │   ├── prompts/               # System & User prompts (v1/system.md)
+│   │   ├── prompts/               # Prompt registry kết nối Langfuse (supervisor)
 │   │   ├── schemas.py             # Pydantic RouterOutput & IntentType Enum
 │   │   └── state.py               # SupervisorState Schema
 │   │
-│   ├── faq/                       # Agent xử lý quy trình nhanh / tra cứu atomic
-│   │   ├── graph/                 # Graph workflow
-│   │   ├── prompts/               # Prompt registry
-│   │   └── tools/                 # Tool tra cứu FAQ
+│   ├── faq/                       # Agent tra cứu câu hỏi thường gặp FAQ (Direct Pipeline)
+│   │   ├── graph/                 # Direct Pipeline (retrieve_faq_node -> generate_faq_node / fallback_faq_node)
+│   │   ├── nodes/                 # faq_node.py (suy luận và sinh câu trả lời)
+│   │   ├── prompts/               # Prompt registry kết nối Langfuse (faq)
+│   │   └── tools/                 # Tool tra cứu FAQ & Services
 │   │
-│   └── agentic_rag/               # RAG Knowledge Agent (Sub-graph Node 4-Node)
-│       ├── graph/                 # Sub-graph (Agent -> Tool -> Grader -> Generator)
-│       ├── nodes/                 # 4 Nodes: rag_agent_node, tools_node, grader_node, generator_node
-│       ├── prompts/               # Prompt registry (system.md, grader.md, generator.md, user.md)
-│       ├── schemas.py             # DocumentGradeOutput Schema
-│       ├── state.py               # AgenticRagState TypedDict Schema
-│       └── tools/                 # Tools: search_policy_docs, vector_search, doc_metadata, list_categories
-
+│   ├── agentic_rag/               # RAG Knowledge Agent (Fast Direct Pipeline: 1 LLM call)
+│   │   ├── graph/                 # StateGraph (retrieve_rag_node -> generator_node / fallback_node)
+│   │   ├── nodes/                 # 2 Nodes: retrieve_node.py & generator_node.py
+│   │   ├── prompts/               # Prompt registry kết nối Langfuse (rag_generator, có cache 60s)
+│   │   └── state.py               # AgenticRagState TypedDict Schema
+│   │
+│   ├── procurement/               # Procurement & Asset Operations Agent (gAMSPro Multi-turn Slot Filling)
+│   │   ├── graph/                 # ReAct StateGraph điều khiển tool gAMSPro
+│   │   ├── nodes/                 # agent_node.py (LLM bind tools)
+│   │   ├── prompts/               # Prompt registry kết nối Langfuse (procurement)
+│   │   └── tools/                 # 4 nhóm tool gAMSPro (Tờ trình, Kế hoạch, Mua sắm, TSCĐ)
+│   │
+│   └── fallback/                  # Central Fallback Hub dùng chung toàn hệ thống
+│       └── nodes/                 # fallback_node.py (xử lý đa ngữ cảnh: Orchestrator, RAG Miss, FAQ Miss)
 │
+├── memory/                        # Bộ nhớ hội thoại & Rewrite Query
+│   └── conversation/
+│       └── schemas.py             # ContextualizedQuery Pydantic Model
+│
+├── rag/                           # Subsystem RAG, Context Builder & Vector Store
+│   ├── chunking/                  # TextChunker (RecursiveCharacterTextSplitter 800 tokens, 100 overlap)
+│   ├── context/                   # RagContextBuilder (làm sạch rác, lọc near-duplicate, dynamic max tokens)
+│   ├── embedding/                 # TeiEmbeddingService (BAAI/bge-m3 qua GPU / TEI Server)
+│   ├── ingestion/                 # IngestionPipeline (Atomic Slide Extraction, Slide Aggregation)
+│   ├── reranker/                  # CrossEncoderReranker (BAAI/bge-reranker-base tiếng Việt)
+│   └── retrieval/                 # VectorRetriever (Hybrid FTS + Vector Cosine + RBAC Filtering)
+│
+└── eval/                          # Khung đánh giá tự động (LLM Evaluation Framework)
+    ├── metrics.py                 # Metric chấm điểm (ExactMatch, MinValue, LLMJudge)
+    ├── report.py                  # Xuất báo cáo Rich Console & JSON Dashboard
+    ├── runner.py                  # Trình thực thi Eval Test Cases
+    └── scorer.py                  # Đánh giá & tính score tổng hợp
 ├── memory/                        # Bộ nhớ hội thoại & Rewrite Query
 │   └── conversation/
 │       └── schemas.py             # ContextualizedQuery Pydantic Model

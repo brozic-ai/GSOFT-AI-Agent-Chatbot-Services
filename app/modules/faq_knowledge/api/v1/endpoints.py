@@ -169,14 +169,18 @@ async def upload_excel(
     status_code=status.HTTP_200_OK,
     summary="Đồng bộ Vector Store hàng loạt",
     description=(
-        "Quét toàn bộ FAQ chưa có vector trong bảng FaqVectors và tự động tạo embedding. "
-        "Hữu ích sau khi import dữ liệu cũ hoặc khi EmbeddingService bị gián đoạn. "
+        "Quét FAQ và tự động tạo embedding composite (câu hỏi + câu trả lời) trong FaqVectors. "
+        "Nếu `reindex_all=true`, tái tạo embedding cho toàn bộ FAQ trong cơ sở dữ liệu. "
         "Mỗi lần gọi xử lý tối đa `limit` bản ghi (mặc định 500)."
     ),
 )
 async def sync_faq_vectors(
     limit: int = Query(500, ge=1, le=5000, description="Số FAQ tối đa cần sync trong một lần gọi."),
+    reindex_all: bool = Query(
+        False,
+        description="Nếu True, cập nhật lại toàn bộ vector hiện có bằng format composite (question + answer)."
+    ),
     service: FaqService = Depends(_get_service),
 ) -> dict[str, Any]:
-    logger.info("[API] Kích hoạt sync-vectors FAQ, limit=%d.", limit)
-    return await service.sync_all_vectors(limit=limit)
+    logger.info("[API] Kích hoạt sync-vectors FAQ, limit=%d, reindex_all=%s.", limit, reindex_all)
+    return await service.sync_all_vectors(limit=limit, reindex_all=reindex_all)

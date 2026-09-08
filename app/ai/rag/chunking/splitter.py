@@ -31,15 +31,45 @@ class TextChunker:
         re.IGNORECASE,
     )
 
-    def __init__(self, chunk_size: int | None = None, chunk_overlap: int | None = None):
-        self.chunk_size = chunk_size or settings.RAG_CHUNK_SIZE
-        self.chunk_overlap = chunk_overlap or settings.RAG_CHUNK_OVERLAP
-        self.splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.chunk_size,
-            chunk_overlap=self.chunk_overlap,
-            separators=["\n\n", "\n", ".", " ", ""],
-            length_function=len,
+    def __init__(
+        self,
+        chunk_size: int | None = None,
+        chunk_overlap: int | None = None,
+        chunk_by_tokens: bool | None = None,
+    ):
+        self.chunk_size = chunk_size or getattr(settings, "RAG_CHUNK_SIZE", 800)
+        self.chunk_overlap = chunk_overlap or getattr(settings, "RAG_CHUNK_OVERLAP", 100)
+        self.chunk_by_tokens = (
+            chunk_by_tokens
+            if chunk_by_tokens is not None
+            else getattr(settings, "RAG_CHUNK_BY_TOKENS", True)
         )
+
+        if self.chunk_by_tokens:
+            try:
+                self.splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+                    chunk_size=self.chunk_size,
+                    chunk_overlap=self.chunk_overlap,
+                    separators=["\n\n", "\n", ".", " ", ""],
+                )
+            except Exception as ex:
+                logger.warning(
+                    "[CHUNKER] Không thể khởi tạo tiktoken encoder (%s). Fallback về RecursiveCharacterTextSplitter ký tự.",
+                    ex,
+                )
+                self.splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=int(self.chunk_size * 3.5),
+                    chunk_overlap=int(self.chunk_overlap * 3.5),
+                    separators=["\n\n", "\n", ".", " ", ""],
+                    length_function=len,
+                )
+        else:
+            self.splitter = RecursiveCharacterTextSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap,
+                separators=["\n\n", "\n", ".", " ", ""],
+                length_function=len,
+            )
 
     def split_text(self, text: str) -> list[str]:
         """

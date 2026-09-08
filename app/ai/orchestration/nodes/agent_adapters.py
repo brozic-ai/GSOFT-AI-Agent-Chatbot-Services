@@ -9,7 +9,6 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from app.ai.agent.fallback.nodes.fallback_node import fallback_node
 from app.ai.agent.faq.graph.graph import faq_graph
-from app.ai.agent.agentic_rag.nodes.rag_node import rag_node
 from app.ai.agent.agentic_rag.prompts.registry import get_user_prompt as get_rag_user_prompt
 from app.ai.agent.procurement.graph.graph import procurement_graph
 from app.ai.agent.procurement.prompts.registry import get_user_prompt as get_procurement_user_prompt
@@ -138,6 +137,8 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 
         rag_result = await agentic_rag_graph.ainvoke(rag_input)
 
+        docs = rag_result.get("documents", [])
+        citations = rag_result.get("citations", [])
         final_answer = rag_result.get("final_answer", "")
         res_messages = rag_result.get("messages", [])
 
@@ -147,14 +148,46 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                     final_answer = str(msg.content)
                     break
 
+        # Theo sơ đồ kiến trúc: Khi RAG không tìm thấy tài liệu -> Tự động thử tra cứu FAQ
+        no_doc_signals = ["không tìm thấy", "chưa tìm thấy", "không có thông tin", "chưa có tài liệu"]
+        is_rag_miss = (
+            (not docs and not citations)
+            or (final_answer and any(kw in final_answer.lower() for kw in no_doc_signals))
+        )
+
+        if is_rag_miss:
+            logger.info("[ORCHESTRATOR -> RAG] Không tìm thấy tài liệu quy chế -> Kích hoạt fallback thử tra cứu kho FAQ...")
+            try:
+                from app.ai.agent.faq.services.faq_retriever import retrieve_and_rerank_faqs
+
+                faq_retrieval = await retrieve_and_rerank_faqs(query=user_query, top_k=2)
+                if faq_retrieval.get("found") and faq_retrieval.get("faqs"):
+                    top_faq = faq_retrieval["faqs"][0]
+                    faq_msg = (
+                        f"ℹ️ Tôi không tìm thấy thông tin trong tài liệu quy chế nội bộ, "
+                        f"nhưng có hướng dẫn thường gặp (FAQ) liên quan sau đây:\n\n"
+                        f"**{top_faq['question']}**\n\n"
+                        f"{top_faq['answer']}"
+                    )
+                    logger.info("[ORCHESTRATOR -> RAG -> FAQ HIT] Đã tìm thấy FAQ bổ trợ cho câu hỏi của người dùng.")
+                    return {
+                        "agent_output": faq_msg,
+                        "final_answer": faq_msg,
+                        "rag_context": [],
+                        "citations": faq_retrieval.get("citations", []),
+                        "messages": [AIMessage(content=faq_msg)],
+                    }
+            except Exception as faq_fallback_err:
+                logger.warning("[ORCHESTRATOR -> RAG -> FAQ ERROR] Lỗi khi tra cứu fallback FAQ: %s", faq_fallback_err)
+
         if not final_answer:
             final_answer = "Tôi không tìm thấy thông tin phù hợp trong tài liệu quy chế/HDSD được cấp quyền truy cập."
 
         return {
             "agent_output": final_answer,
             "final_answer": final_answer,
-            "rag_context": rag_result.get("documents", []),
-            "citations": rag_result.get("citations", []),
+            "rag_context": docs,
+            "citations": citations,
             "messages": res_messages,
         }
 
@@ -192,18 +225,25 @@ async def call_faq_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(state, dict)
             else getattr(state, "messages", [])
         )
-        messages = list(raw_msgs or [])
-        if not messages and user_query:
-            messages = [HumanMessage(content=user_query)]
+        messages_list = list(raw_msgs or [])
+        if not messages_list and user_query:
+            messages_list = [HumanMessage(content=user_query)]
 
-        faq_result = await faq_graph.ainvoke({"messages": messages})
+        faq_input = {
+            "messages": messages_list,
+            "user_query": user_query,
+            "session_id": str(state.get("session_id", "orchestrator-faq-session")),
+        }
+        faq_result = await faq_graph.ainvoke(faq_input)
         res_messages = faq_result.get("messages", [])
+        final_answer = faq_result.get("final_answer", "")
 
-        last_ai_msg = ""
-        for msg in reversed(res_messages):
-            if isinstance(msg, AIMessage) and msg.content:
-                last_ai_msg = str(msg.content)
-                break
+        last_ai_msg = final_answer
+        if not last_ai_msg:
+            for msg in reversed(res_messages):
+                if isinstance(msg, AIMessage) and msg.content:
+                    last_ai_msg = str(msg.content)
+                    break
 
         if not last_ai_msg:
             from langchain_core.messages import ToolMessage
@@ -215,9 +255,13 @@ async def call_faq_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         if not last_ai_msg:
             last_ai_msg = "Tôi chưa tìm thấy câu trả lời phù hợp trong danh mục câu hỏi thường gặp (FAQ)."
 
+        citations = faq_result.get("citations", [])
+
         return {
             "agent_output": last_ai_msg,
             "final_answer": last_ai_msg,
+            "citations": citations,
+            "retrieved_faqs": faq_result.get("retrieved_faqs", []),
             "messages": res_messages,
         }
 

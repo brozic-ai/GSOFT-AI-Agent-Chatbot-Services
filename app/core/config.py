@@ -83,13 +83,31 @@ class Settings(BaseSettings):
     SEARCH_RRF_CONSTANT: int = 60
     INGESTION_ENABLE_OCR: bool = True
     INGESTION_TESSDATA_PATH: str = "tessdata"
-    RAG_CHUNK_SIZE: int = 600
-    RAG_CHUNK_OVERLAP: int = 120
+    RAG_CHUNK_SIZE: int = 800
+    RAG_CHUNK_OVERLAP: int = 100
+    RAG_CHUNK_BY_TOKENS: bool = True
+    RAG_MIN_SLIDE_CHARS: int = 200
+    RAG_MAX_SLIDE_CHARS: int = 2000
     INGESTION_ENABLE_VISION_OCR: bool = False
-    RERANKER_TYPE: str = "disabled"
-    RERANKER_TOP_K: int = 5
+    RERANKER_TYPE: str = "bge"
+    RERANKER_MODEL: str = "BAAI/bge-reranker-base"
+    RERANKER_TOP_K: int = 4
+    RERANKER_SCORE_THRESHOLD: float = 0.35
     HYBRID_TOP_K_CANDIDATES: int = 20
+    FAQ_SEARCH_CANDIDATES_K: int = 10
+    FAQ_RERANKER_TOP_K: int = 3
+    FAQ_FAST_MATCH_ENABLED: bool = True
+    FAQ_FAST_MATCH_THRESHOLD: float = 0.80
     CHAT_HISTORY_LIMIT: int = 10
+
+    # --- RAG Dynamic Top-K Config (Min = 3, Max = 15) ---
+    RAG_DYNAMIC_TOP_K_ENABLED: bool = True
+    RAG_MIN_TOP_K: int = 3
+    RAG_MAX_TOP_K: int = 15
+    RAG_DEFAULT_TOP_K: int = 5
+    RAG_SPECIFIC_TOP_K: int = 3
+    RAG_EXHAUSTIVE_TOP_K: int = 12
+    RAG_CANDIDATE_MULTIPLIER: int = 3
 
     # --- Full-Text Search (FTS) Config ---
     # Bật/tắt Full-Text Search. Nếu False, fallback về Vector-only search.

@@ -28,7 +28,7 @@ app/modules/faq_knowledge/
 
 ## 🗄️ 2. Thiết Kế Cơ Sở Dữ Liệu (`FAQ_Knowledge_Base`)
 
-File: [model.py](file:///c:/Users/Admin/Documents/GSOFT_Projects/Main_system/GSOFT-AI-Agent-Chatbot-Services/app/modules/faq_knowledge/model.py)
+File: [model.py](file:///c:/2_Company/GSOFT/Enterprice-Chatbot/BVBank-Chatbot/dev_llm_service/app/modules/faq_knowledge/model.py)
 
 Bảng **`dbo.FAQ_Knowledge_Base`** bao gồm các trường dữ liệu và chỉ mục ràng buộc sau:
 
@@ -54,14 +54,14 @@ Hệ thống kết hợp **2 lớp bảo vệ chống trùng lặp**:
    - Ví dụ: `" Chi nhánh  BVBank mấy giờ mở cửa? "` $\rightarrow$ `"chi nhánh bvbank mấy giờ mở cửa?"`.
 
 2. **Xử lý 2 lớp**:
-   - **Tầng Application**: Trong [repository.py](file:///c:/Users/Admin/Documents/GSOFT_Projects/Main_system/GSOFT-AI-Agent-Chatbot-Services/app/modules/faq_knowledge/repository.py), hàm `exists_normalized()` kiểm tra nhanh trong CSDL trước khi thêm mới.
+   - **Tầng Application**: Trong [repository.py](file:///c:/2_Company/GSOFT/Enterprice-Chatbot/BVBank-Chatbot/dev_llm_service/app/modules/faq_knowledge/repository.py), hàm `exists_normalized()` kiểm tra nhanh trong CSDL trước khi thêm mới.
    - **Tầng Database**: Ràng buộc `UniqueConstraint("QuestionNormalized")` đóng vai trò safety net đảm bảo không thể lọt dữ liệu trùng dù gọi song song (concurrent requests).
 
 ---
 
 ## 📊 4. Service Nhập Dữ Liệu File Excel (Pandas Ingestion)
 
-File: [service.py](file:///c:/Users/Admin/Documents/GSOFT_Projects/Main_system/GSOFT-AI-Agent-Chatbot-Services/app/modules/faq_knowledge/service.py)
+File: [service.py](file:///c:/2_Company/GSOFT/Enterprice-Chatbot/BVBank-Chatbot/dev_llm_service/app/modules/faq_knowledge/service.py)
 
 Hàm `import_from_excel(file: UploadFile)` thực hiện các bước:
 
@@ -90,7 +90,7 @@ Hàm `import_from_excel(file: UploadFile)` thực hiện các bước:
 
 ## 🚀 5. Danh Sách API Endpoints (RESTful API)
 
-File: [endpoints.py](file:///c:/Users/Admin/Documents/GSOFT_Projects/Main_system/GSOFT-AI-Agent-Chatbot-Services/app/modules/faq_knowledge/api/v1/endpoints.py)
+File: [endpoints.py](file:///c:/2_Company/GSOFT/Enterprice-Chatbot/BVBank-Chatbot/dev_llm_service/app/modules/faq_knowledge/api/v1/endpoints.py)
 
 Đã đăng ký tất cả các endpoint tại prefix `/api/v1/faq`:
 
@@ -107,9 +107,9 @@ File: [endpoints.py](file:///c:/Users/Admin/Documents/GSOFT_Projects/Main_system
 
 ## 🔗 6. Các Tích Hợp Hệ Thống
 
-1. **Router Registration** ([router.py](file:///c:/Users/Admin/Documents/GSOFT_Projects/Main_system/GSOFT-AI-Agent-Chatbot-Services/app/routers/router.py)):
+1. **Router Registration** ([router.py](file:///c:/2_Company/GSOFT/Enterprice-Chatbot/BVBank-Chatbot/dev_llm_service/app/routers/router.py)):
    - Đăng ký `faq_router` vào `api_v1_router` với tag `"FAQ Knowledge Base"`.
-2. **Auto Database Migration** ([database.py](file:///c:/Users/Admin/Documents/GSOFT_Projects/Main_system/GSOFT-AI-Agent-Chatbot-Services/app/core/database.py)):
+2. **Auto Database Migration** ([database.py](file:///c:/2_Company/GSOFT/Enterprice-Chatbot/BVBank-Chatbot/dev_llm_service/app/core/database.py)):
    - Thêm `import app.modules.faq_knowledge.model` vào hàm `init_db()` để bảng `FAQ_Knowledge_Base` tự động được khởi tạo khi ứng dụng khởi động.
 
 ---

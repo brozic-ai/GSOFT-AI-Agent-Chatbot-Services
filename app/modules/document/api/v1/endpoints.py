@@ -333,3 +333,59 @@ async def search_documents(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(ex)
         )
+
+
+@router.post("/reindex")
+async def reindex_documents_api(
+    doc_id: Optional[int] = None,
+    file_type: Optional[str] = None,
+    clean_binary: bool = False,
+    reindex_all: bool = False,
+    background_tasks: BackgroundTasks = None,
+    service: DocumentService = Depends(get_document_service),
+):
+    """
+    Kích hoạt Re-index tài liệu (chạy ngầm qua BackgroundTasks hoặc trực tiếp)
+    theo chuẩn Atomic Slide Aggregation và Token Chunker mới.
+    """
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    script_path = Path(__file__).resolve().parent.parent.parent.parent.parent / "scripts" / "reindex_documents.py"
+    if not script_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Re-index script not found.",
+        )
+
+    cmd = [sys.executable, str(script_path)]
+    if clean_binary:
+        cmd.append("--clean-binary")
+    if doc_id:
+        cmd.extend(["--id", str(doc_id)])
+    elif file_type:
+        cmd.extend(["--type", file_type])
+    elif reindex_all:
+        cmd.append("--all")
+
+    # Chạy subprocess trong BackgroundTasks để không block HTTP request
+    def _run_reindex_proc(command: list[str]):
+        try:
+            logger.info("[REINDEX API] Bắt đầu chạy: %s", " ".join(command))
+            subprocess.run(command, check=True)
+            logger.info("[REINDEX API] Hoàn tất reindex thành công.")
+        except Exception as ex:
+            logger.error("[REINDEX API] Lỗi khi chạy reindex script: %s", ex)
+
+    if background_tasks:
+        background_tasks.add_task(_run_reindex_proc, cmd)
+    else:
+        _run_reindex_proc(cmd)
+
+    return {
+        "status": "Accepted",
+        "message": "Re-index process started in background.",
+        "command": " ".join(cmd),
+    }
+

@@ -102,6 +102,64 @@ class FaqRepository:
         """Trả về True nếu câu hỏi (sau chuẩn hóa) đã tồn tại trong DB."""
         return self.get_by_normalized_question(question) is not None
 
+    def find_exact_match(self, query: str) -> dict | None:
+        """
+        Tìm kiếm câu hỏi khớp chính xác 100% (sau chuẩn hóa ký tự tiếng Việt và khoảng trắng).
+        Độ trễ gần như bằng 0 (< 3ms).
+        """
+        faq = self.get_by_normalized_question(query)
+        if faq:
+            return {
+                "faq_id": faq.id,
+                "question": faq.question,
+                "answer": faq.answer,
+                "score": 1.0,
+                "match_type": "exact",
+            }
+        return None
+
+    def find_top_vector_similarity(
+        self,
+        query_embedding: list[float],
+        min_similarity: float = 0.90,
+    ) -> dict | None:
+        """
+        Tìm kiếm câu hỏi FAQ có độ tương đồng Cosine cực cao (>= min_similarity, mặc định 0.90 / 90%).
+        Cosine Similarity = 1.0 - Cosine Distance.
+        Thời gian thực thi trong SQL Server Vector Index: ~10-20ms.
+        """
+        import json
+        from app.core.database import engine
+
+        query_embedding_json = json.dumps(query_embedding)
+        sql = """
+            SELECT TOP 1
+                faq_id, question, answer,
+                VECTOR_DISTANCE('cosine', embedding,
+                    CAST(CAST(? AS VARCHAR(MAX)) AS VECTOR(1024))) AS distance
+            FROM FaqVectors
+            ORDER BY distance ASC;
+        """
+        raw_conn = engine.raw_connection()
+        try:
+            with raw_conn.cursor() as cursor:
+                cursor.execute(sql, (query_embedding_json,))
+                row = cursor.fetchone()
+                if row:
+                    faq_id, question, answer, dist = row[0], row[1], row[2], float(row[3])
+                    similarity = 1.0 - dist
+                    if similarity >= min_similarity:
+                        return {
+                            "faq_id": faq_id,
+                            "question": question,
+                            "answer": answer,
+                            "score": round(similarity, 4),
+                            "match_type": "vector_similarity",
+                        }
+        finally:
+            raw_conn.close()
+        return None
+
     # -------------------------------------------------------------------------
     # UPDATE
     # -------------------------------------------------------------------------
@@ -298,12 +356,20 @@ class FaqRepository:
         stmt = select(FaqKnowledge).where(FaqKnowledge.id.in_(ids))
         return list(self.db.execute(stmt).scalars())
 
+    def get_all_faqs(self, limit: int = 2000) -> list[FaqKnowledge]:
+        """
+        Lấy danh sách tất cả FAQ trong bảng FAQ_Knowledge_Base.
+        Dùng để phục vụ tính năng re-index / re-embed toàn bộ vector (POST /sync-vectors?reindex_all=true).
+        """
+        stmt = select(FaqKnowledge).order_by(FaqKnowledge.id.asc()).limit(limit)
+        return list(self.db.execute(stmt).scalars())
+
     def search_faq_hybrid(
         self,
         query_embedding: list[float],
         query: str,
         top_k: int = 5,
-        rrf_min_score: float = 0.01,
+        rrf_min_score: float = 0.003,
     ) -> list[dict]:
         """
         Hybrid Search trên bảng dbo.FaqVectors bằng thuật toán RRF có trọng số.
@@ -313,6 +379,7 @@ class FaqRepository:
         - Full-Text Search: CONTAINSTABLE trên cột question + answer (LANGUAGE 0).
         RRF Score = α * 1/(k + vector_rank) + β * 1/(k + fts_rank_pos)
         Lọc kết quả có RRF Score < rrf_min_score (Fallback Threshold).
+        Mặc định rrf_min_score=0.003 để đảm bảo các kết quả FTS-only (Rank 1-5) không bị loại bỏ hoàn toàn.
 
         Args:
             query_embedding: Vector 1024 chiều của câu truy vấn.
@@ -463,15 +530,61 @@ class FaqRepository:
 
     def _build_faq_fts_query(self, query: str) -> str:
         """
-        Xây dựng query string phù hợp cho CONTAINSTABLE từ câu truy vấn tự nhiên.
-        Nối các từ hợp lệ (≥2 ký tự) bằng toán tử OR để tìm kiếm toàn văn linh hoạt.
+        Chuyển đổi câu hỏi tự nhiên của người dùng thành chuỗi FTS query an toàn và tối ưu cho SQL Server CONTAINSTABLE.
+        Tái sử dụng tư tưởng tiền xử lý và bộ lọc stopwords chuẩn từ hệ thống RAG Core:
+        - Chuẩn hóa Unicode và làm sạch ký tự đặc biệt.
+        - Lọc bỏ stop words tiếng Việt, bao gồm các từ nghi vấn thường gặp ("làm sao", "thế nào", "bao nhiêu"...).
+        - Ưu tiên các mã số nghiệp vụ / hotline (chuỗi số ≥ 4 chữ số).
+        - Escape dấu ngoặc kép an toàn cho cú pháp SQL CONTAINSTABLE.
+        - Nối các terms bằng toán tử OR để tăng recall, để RRF và Cross-Encoder Reranker chấm điểm chính xác.
         """
         import re
-        tokens = re.findall(r"\w+", query.lower())
-        stop_words = {"và", "hoặc", "của", "cho", "với", "về", "là", "có", "không", "the", "and", "or", "a"}
-        valid_tokens = [t for t in tokens if len(t) >= 2 and t not in stop_words]
-        if not valid_tokens:
+
+        try:
+            from app.ai.rag.text.normalizer import VietnameseNormalizer
+            normalized_query = VietnameseNormalizer.normalize(query, expand_acronyms=True)
+        except Exception:
+            normalized_query = query
+
+        # Danh sách stopwords tiếng Việt và từ nghi vấn hay gặp trong FAQ
+        stop_words = {
+            "là", "và", "của", "có", "không", "được", "trong", "cho", "một",
+            "các", "với", "từ", "về", "tôi", "bạn", "này", "đó", "đã", "sẽ",
+            "thì", "mà", "hay", "hoặc", "nếu", "hãy", "cần", "nên", "như",
+            "vì", "khi", "ai", "gì", "sao", "thế", "đâu", "nào", "bao",
+            "nhiêu", "nhé", "ạ", "ơi", "dạ", "hỏi", "xin", "làm", "cách",
+            "the", "a", "an", "is", "of", "in", "to", "for", "on", "at",
+            "how", "what", "where", "when", "why",
+        }
+
+        # Ưu tiên nhận diện mã số quan trọng hoặc hotline (≥ 4 chữ số)
+        priority_codes = re.findall(r"\b\d{4,}\b", normalized_query)
+
+        # Tách từ, loại bỏ ký tự đặc biệt gây xung đột cú pháp FTS
+        raw_tokens = re.split(r"[\s\-,./\\\"'()[\]{}|+*?!@#$%^&=<>:;]+", normalized_query)
+        tokens: list[str] = []
+        for tok in raw_tokens:
+            tok = tok.strip()
+            if len(tok) >= 2 and tok.lower() not in stop_words:
+                escaped = tok.replace('"', '""')
+                tokens.append(f'"{escaped}"')
+
+        # Đưa các mã số lên đầu truy vấn (nếu có)
+        priority_terms = [f'"{c}"' for c in priority_codes if len(c) >= 4]
+        all_terms = priority_terms + [t for t in tokens if t not in priority_terms]
+
+        # Deduplicate terms giữ nguyên thứ tự
+        seen: set[str] = set()
+        unique_terms: list[str] = []
+        for t in all_terms:
+            if t not in seen:
+                seen.add(t)
+                unique_terms.append(t)
+
+        if not unique_terms:
             return ""
-        return " OR ".join(f'"{t}"' for t in valid_tokens[:10])
+
+        # Lấy tối đa 25 terms quan trọng nhất (không cắt cụt cứng ở 10)
+        return " OR ".join(unique_terms[:25])
 
 

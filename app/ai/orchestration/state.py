@@ -25,13 +25,18 @@ class OrchestratorState(TypedDict, total=False):
 
     # Kết quả phân loại Intent từ Supervisor
     route: Optional[RouterOutput]
+    intent: Optional[str]
 
     # Kết quả kiểm duyệt an toàn Guardrail
     guardrail_result: Optional[GuardrailResult]
+
+    # Cờ đánh dấu đã match FAQ siêu tốc (Zero-LLM Fast-Path)
+    faq_fast_match: Optional[bool]
 
     # Kết quả đầu ra của Sub-Agent
     agent_output: Optional[str]
     rag_context: Optional[List[str]]
     citations: Optional[List[Dict[str, Any]]]
     error_state: Optional[str]
+
 
