@@ -273,10 +273,11 @@ class ChatRepository:
             msgs = (
                 db.query(ChatMessage)
                 .filter(ChatMessage.conversation_id == int_id)
-                .order_by(ChatMessage.id.asc())
+                .order_by(ChatMessage.id.desc())
                 .limit(limit)
                 .all()
             )
+            msgs.reverse()
             return [
                 {
                     "id": msg.id,

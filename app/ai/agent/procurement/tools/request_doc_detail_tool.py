@@ -10,40 +10,35 @@ logger = logging.getLogger(__name__)
 class GetRequestDocDetailInput(BaseModel):
     doc_identifier: Optional[str] = Field(
         default=None,
-        description="Mã số tờ trình (ví dụ: 'PUR/2025/000052') HOẶC Mã định danh hệ thống REQ_ID (ví dụ: 'TRRD00000269630').",
-    )
-    req_id: Optional[str] = Field(
-        default=None,
-        description="Mã REQ_ID hoặc Số tờ trình mua sắm.",
-    )
-    so_to_trinh: Optional[str] = Field(
-        default=None,
-        description="Số tờ trình mua sắm (ví dụ: 'PUR/2025/000052').",
+        description="Mã số tờ trình (ví dụ: 'PUR/2026/000097') hoặc Mã hệ thống REQ_ID (ví dụ: 'TRRD00000269727').",
     )
     user_name: Optional[str] = Field(
         default=None,
-        description="Username cán bộ đang tra cứu (nếu không truyền sẽ dùng tài khoản đăng nhập hiện tại 'baotq').",
+        description="Username cán bộ đang tra cứu (mặc định 'baotq').",
     )
 
 
 @tool("get_request_doc_detail", args_schema=GetRequestDocDetailInput)
 async def get_request_doc_detail(
     doc_identifier: Optional[str] = None,
-    req_id: Optional[str] = None,
-    so_to_trinh: Optional[str] = None,
     user_name: Optional[str] = None,
+    **kwargs,
 ) -> str:
     """Tra cứu thông tin chi tiết đầy đủ của một Tờ trình mua sắm cụ thể trên hệ thống gAMSPro.
 
     Dùng tool này khi người dùng muốn:
-    - Xem chi tiết chỉ tiêu của 1 tờ trình (như 'PUR/2025/000052' hoặc 'TRRD00000269630').
+    - Xem chi tiết 1 tờ trình (ví dụ: 'PUR/2026/000097' hoặc 'TRRD00000269727').
     - Xem người lập, phòng ban chịu phí, tổng số tiền đề xuất, kế hoạch liên kết, nội dung lý do từ API.
     - Kiểm tra trạng thái phê duyệt chi tiết để đối soát ngân sách.
     """
     try:
-        target_id = (doc_identifier or req_id or so_to_trinh or "").strip()
+        target_id = (doc_identifier or kwargs.get("req_id") or kwargs.get("so_to_trinh") or kwargs.get("doc_no") or "").strip()
         if not target_id:
-            return "Vui lòng cung cấp Mã số Tờ trình (ví dụ: 'PUR/2025/000052') hoặc Mã hệ thống REQ_ID để tra cứu chi tiết."
+            return (
+                "⚠️ THÔNG BÁO CHO NGƯỜI DÙNG: Không xác định được mã Tờ trình cần xem chi tiết. "
+                "Vui lòng hướng dẫn người dùng cung cấp chính xác mã số Tờ trình (ví dụ: 'PUR/2026/000097') hoặc mã REQ_ID. "
+                "Tuyệt đối không tự ý gọi lại tool này."
+            )
 
         clean_id = target_id
         resolved_req_id = clean_id
@@ -97,17 +92,32 @@ async def get_request_doc_detail(
         create_dt = item.get("creatE_DT") or item.get("reQ_DT") or "N/A"
         req_sys_id = item.get("reQ_ID") or "N/A"
 
+        # Gợi ý hành động thông minh theo trạng thái
+        suggestion_lines = []
+        is_draft = "lưu nháp" in status_display.lower() or "draft" in status_display.lower()
+        if is_draft:
+            suggestion_lines.append(f"- Tờ trình đang ở trạng thái **Lưu Nháp**. Bạn có thể gửi phê duyệt ngay bằng cách nói: *\"Gửi duyệt tờ trình {item.get('reQ_CODE', doc_code)}\"*.")
+        elif "chờ" in status_display.lower() or "trình duyệt" in status_display.lower():
+            suggestion_lines.append("- Tờ trình đang chờ cấp thẩm quyền phê duyệt. Bạn có thể theo dõi tiến độ hoặc liên hệ người duyệt tiếp theo.")
+        if plan_code and "chưa" not in plan_code.lower():
+            suggestion_lines.append(f"- Bạn có thể kiểm tra hạn mức ngân sách bằng cách nói: *\"Kiểm tra ngân sách kế hoạch {plan_code}\"*.")
+
+        suggestions_text = ""
+        if suggestion_lines:
+            suggestions_text = "\n\n💡 **Hành động gợi ý:**\n" + "\n".join(suggestion_lines)
+
         detail_info = (
-            f"📋 CHI TIẾT TỜ TRÌNH: {item.get('reQ_CODE', doc_code)}\n"
-            f"- Mã định danh hệ thống (REQ_ID): `{req_sys_id}`\n"
-            f"- Người lập: {maker} (Phòng: {dep} — {branch})\n"
-            f"- Đơn vị chịu chi phí: {branch} — {dep}\n"
-            f"- Tổng tiền đề xuất: {amt_str}\n"
-            f"- Ngày tạo tờ trình: {create_dt}\n"
-            f"- Trạng thái: {status_display}\n"
-            f"- Nội dung / Lý do: {reason}\n"
-            f"- Kế hoạch liên kết: 📌 `{plan_code}`\n"
-            f"- Đường dẫn xem và ký duyệt trên web: `/app/admin/request-doc-view;id={req_sys_id}`"
+            f"📋 **CHI TIẾT TỜ TRÌNH: {item.get('reQ_CODE', doc_code)}**\n\n"
+            f"- **Mã định danh hệ thống (REQ_ID):** `{req_sys_id}`\n"
+            f"- **Trạng thái phê duyệt:** {status_display}\n"
+            f"- **Người lập:** {maker} (Phòng: {dep} — {branch})\n"
+            f"- **Đơn vị chịu chi phí:** {branch} — {dep}\n"
+            f"- **Tổng tiền đề xuất:** **{amt_str}**\n"
+            f"- **Ngày tạo tờ trình:** {create_dt}\n"
+            f"- **Trích yếu / Lý do:** {reason}\n"
+            f"- **Kế hoạch liên kết:** 📌 `{plan_code}`\n\n"
+            f"👉 [Nhấn vào đây để xem chi tiết và thao tác trên gAMSPro](/app/admin/request-doc-view;id={req_sys_id})"
+            f"{suggestions_text}"
         )
         return detail_info
 

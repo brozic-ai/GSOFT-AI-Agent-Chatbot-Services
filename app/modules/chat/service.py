@@ -189,8 +189,12 @@ class ChatService:
                             conversation_id=conversation_id, limit=HISTORY_LIMIT
                         )
 
-            # 2. Lưu câu hỏi của User vào DB (Chỉ lưu khi là câu hỏi mới, KHÔNG lưu trùng khi Retry hoặc Edit)
-            if conversation_id and not is_retry and not is_edit:
+            # 2. Lưu câu hỏi của User vào DB (Chỉ lưu khi là câu hỏi mới, hoặc khi phiên chưa có tin nhắn nào)
+            should_save_user_msg = (
+                conversation_id
+                and (not is_retry and not is_edit or is_first_message)
+            )
+            if should_save_user_msg:
                 if request and await request.is_disconnected():
                     return
                 self.chat_repo.save_message(

@@ -1,10 +1,24 @@
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 from app.llmops.langfuse import get_langfuse_client
 
 logger = logging.getLogger(__name__)
+
+_DIR = Path(__file__).parent / "v1"
+
+
+def _load_local_system_prompt() -> str:
+    """Nạp trực tiếp prompt từ file local v1/system.md."""
+    local_path = _DIR / "system.md"
+    if local_path.exists():
+        try:
+            return local_path.read_text(encoding="utf-8")
+        except Exception as e:
+            logger.warning("[SUPERVISOR-PROMPT] Lỗi đọc file %s: %s", local_path, e)
+    return ""
 
 
 def _extract_prompt_text(prompt_obj: Any, role_target: str = "system") -> str:
@@ -96,7 +110,7 @@ def get_system_prompt() -> str:
     except Exception as ex:
         logger.warning("[SUPERVISOR-SYSTEM-PROMPT] Lỗi lấy prompt từ Langfuse: %s", ex)
 
-    return "You are an expert Intent Classifier for the BVBank AI Assistant system."
+    return _load_local_system_prompt() or "You are an expert Intent Classifier for the BVBank AI Assistant system."
 
 
 def get_user_prompt(query: str, chat_history: list[dict] | None = None) -> str:

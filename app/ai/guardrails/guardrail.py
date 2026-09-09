@@ -169,8 +169,37 @@ class OutputGuardrail:
         if not response_text or not response_text.strip():
             return GuardrailResult(is_safe=True, sanitized_text=response_text)
 
+        cleaned = response_text
+
+        # 1. Chặn rò rỉ cú pháp JSON Tool Calling hoặc các khối lệnh gọi tool kỹ thuật
+        if re.search(r'\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:', cleaned, re.IGNORECASE):
+            logger.warning("[OUTPUT GUARDRAIL] Phát hiện và lọc bỏ mã JSON tool call kỹ thuật trong phản hồi của LLM.")
+            cleaned = re.sub(
+                r'```(?:json)?\s*\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:.*?\}\s*```',
+                "",
+                cleaned,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
+            cleaned = re.sub(
+                r'\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:.*?\}',
+                "",
+                cleaned,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
+            cleaned = re.sub(
+                r"(?:hãy\s+gọi|tham\s+số\s+như|trong\s+hàm)\s*`?[a-zA-Z0-9_]+`?.*?:?",
+                "",
+                cleaned,
+                flags=re.IGNORECASE,
+            )
+            cleaned = cleaned.strip()
+
+        # 2. Lọc bỏ các thẻ kỹ thuật XML như <error>, </error>, <warning>, </warning>, <output>, v.v.
+        cleaned = re.sub(r"</?(?:error|warning|result|output|response|final_answer|call)[^>]*>", "", cleaned, flags=re.IGNORECASE)
+        cleaned = cleaned.strip()
+
         for pattern, violation_type in _SENSITIVE_OUTPUT_PATTERNS:
-            if pattern.search(response_text):
+            if pattern.search(cleaned):
                 logger.error(
                     "[OUTPUT GUARDRAIL BLOCKED] Phát hiện rò rỉ '%s' trong kết quả sinh ra của LLM!",
                     violation_type,
@@ -182,4 +211,4 @@ class OutputGuardrail:
                     sanitized_text=SAFE_FALLBACK_MESSAGE,
                 )
 
-        return GuardrailResult(is_safe=True, sanitized_text=response_text)
+        return GuardrailResult(is_safe=True, sanitized_text=cleaned)

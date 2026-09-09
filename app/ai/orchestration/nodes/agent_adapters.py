@@ -3,7 +3,8 @@ Agent Adapters: Cầu nối điều phối giữa Orchestrator Graph và các Su
 """
 
 import logging
-from typing import Any, Dict
+import re
+from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
 
@@ -16,37 +17,175 @@ from app.ai.agent.procurement.prompts.registry import get_user_prompt as get_pro
 logger = logging.getLogger(__name__)
 
 
+def resolve_procurement_anaphora(query: str, chat_history: Optional[List[Dict[str, Any]]]) -> str:
+    """
+    Giải quyết tham chiếu chiếu ngữ (Anaphora Resolution) và phân trang cho câu hỏi tiếp nối:
+    - 'Cho tôi xem chi tiết tờ trình đầu tiên' -> 'Cho tôi xem chi tiết tờ trình PUR/2026/000097'
+    - 'Xem tờ thứ 2' -> 'Cho tôi xem chi tiết tờ trình PUR/2026/000096'
+    - 'Xem tiếp trang 2' -> 'Xem tiếp trang 2 danh sách tờ trình mua sắm trên hệ thống gAMSPro'
+    """
+    if not chat_history:
+        return query
+
+    clean_q = (query or "").strip().lower().strip("*_\"'")
+
+    # 1. Xử lý phân trang
+    if re.search(r"^(xem\s+)?(tiếp\s+)?trang\s+(\d+)", clean_q):
+        m = re.search(r"trang\s+(\d+)", clean_q)
+        if m:
+            page_num = m.group(1)
+            return f"Xem tiếp trang {page_num} danh sách tờ trình mua sắm trên hệ thống gAMSPro."
+
+    # 2. Xử lý tham chiếu "tờ trình này", "tờ này", "hồ sơ này", "tờ vừa rồi", "tờ đó"
+    this_doc_pattern = r"(chi\s+tiết\s+)?(tờ\s+trình|hồ\s+sơ|tờ|đơn|mục|cái)\s+(này|đó|đấy|vừa\s+rồi|vừa\s+nhắc|trên)"
+    if re.search(this_doc_pattern, clean_q):
+        for h in reversed(chat_history):
+            content = h.get("content", "")
+            m = re.search(r"(PUR/\d{4}/\d{6}|TRRD\d{8,})", content, re.IGNORECASE)
+            if m:
+                selected_code = m.group(1).upper()
+                logger.info("[ANAPHORA] Đã giải quyết anaphora '%s' thành mã gần nhất '%s'", query, selected_code)
+                return f"Cho tôi xem chi tiết tờ trình {selected_code} trên hệ thống gAMSPro."
+
+    # 3. Xử lý tham chiếu thứ tự tờ trình
+    ordinal_pattern = r"(chi\s+tiết\s+)?(tờ\s+trình|hồ\s+sơ|đơn|mục|cái)\s+(đầu\s+tiên|thứ\s+\d+|thứ\s+[a-zà-ỹ]+|số\s+\d+|đầu)"
+    if not re.search(ordinal_pattern, clean_q):
+        return query
+
+    # Tìm tin nhắn gần nhất của Assistant
+    last_ai_content = ""
+    for h in reversed(chat_history):
+        if h.get("role") in ("assistant", "ai"):
+            last_ai_content = h.get("content", "")
+            break
+
+    if not last_ai_content:
+        return query
+
+    # Trích xuất danh sách mã Tờ trình theo thứ tự xuất hiện (ví dụ PUR/2026/000097)
+    pur_matches = []
+    for m in re.finditer(r"(PUR/\d{4}/\d{6}|TRRD\d{8,})", last_ai_content, re.IGNORECASE):
+        code = m.group(1).upper()
+        if code not in pur_matches:
+            pur_matches.append(code)
+
+    if not pur_matches:
+        return query
+
+    # Bản đồ chỉ số thứ tự tiếng Việt
+    ordinal_map = {
+        "đầu tiên": 0, "thứ nhất": 0, "số 1": 0, "dòng 1": 0, "mục 1": 0, "cái đầu": 0,
+        "thứ 2": 1, "thứ hai": 1, "số 2": 1, "dòng 2": 1, "mục 2": 1,
+        "thứ 3": 2, "thứ ba": 2, "số 3": 2, "dòng 3": 2, "mục 3": 2,
+        "thứ 4": 3, "thứ tư": 3, "số 4": 3, "dòng 4": 3, "mục 4": 3,
+        "thứ 5": 4, "thứ năm": 4, "số 5": 4, "dòng 5": 4, "mục 5": 4,
+        "thứ 6": 5, "thứ sáu": 5, "số 6": 5,
+        "thứ 7": 6, "thứ bảy": 6, "số 7": 6,
+        "thứ 8": 7, "thứ tám": 7, "số 8": 7,
+        "thứ 9": 8, "thứ chín": 8, "số 9": 8,
+        "thứ 10": 9, "thứ mười": 9, "số 10": 9,
+    }
+
+    target_idx = None
+    for k, idx in ordinal_map.items():
+        if k in clean_q:
+            target_idx = idx
+            break
+
+    if target_idx is not None and target_idx < len(pur_matches):
+        selected_code = pur_matches[target_idx]
+        logger.info("[ANAPHORA] Đã giải quyết anaphora '%s' thành mã '%s'", query, selected_code)
+        return f"Cho tôi xem chi tiết tờ trình {selected_code} trên hệ thống gAMSPro."
+
+    return query
+
+
 async def call_procurement_agent(state: Any) -> Dict[str, Any]:
     """Adapter kích hoạt Procurement Agent (gAMSPro Multi-turn Slot Filling)."""
     user_query = state.get("user_query", "") if isinstance(state, dict) else getattr(state, "user_query", "")
     chat_history = state.get("chat_history", []) if isinstance(state, dict) else getattr(state, "chat_history", [])
-    logger.info("[ORCHESTRATOR -> PROCUREMENT] Điều phối câu hỏi: '%s'", str(user_query)[:80])
+
+    # 1. Giải quyết tham chiếu anaphora / phân trang trước khi đưa vào Procurement Graph
+    resolved_query = resolve_procurement_anaphora(query=user_query, chat_history=chat_history)
+    logger.info("[ORCHESTRATOR -> PROCUREMENT] Điều phối: '%s' (resolved: '%s')", str(user_query)[:60], str(resolved_query)[:60])
+
+    clean_q = (user_query or "").strip().lower().strip("*_\"'")
 
     try:
         # Chuẩn bị tin nhắn đầu vào cho Procurement Graph từ Langfuse Prompt
         raw_msgs = state.get("messages", []) if isinstance(state, dict) else getattr(state, "messages", [])
         messages = list(raw_msgs or [])
         if not messages:
-            formatted_prompt = get_procurement_user_prompt(query=user_query, chat_history=chat_history)
+            formatted_prompt = get_procurement_user_prompt(query=resolved_query, chat_history=chat_history)
             messages = [HumanMessage(content=formatted_prompt)]
+        else:
+            # Cập nhật tin nhắn Human cuối cùng với resolved_query nếu có sự thay đổi
+            if resolved_query != user_query and isinstance(messages[-1], HumanMessage):
+                messages[-1] = HumanMessage(content=resolved_query)
 
         # Chạy Procurement Sub-graph
         procurement_result = await procurement_graph.ainvoke({"messages": messages})
         res_messages = procurement_result.get("messages", [])
         
-        last_ai_msg = ""
-        for msg in reversed(res_messages):
-            if isinstance(msg, AIMessage) and msg.content:
-                last_ai_msg = str(msg.content)
+        # 1. Cô lập chỉ các tin nhắn thuộc lượt hội thoại hiện tại (Current-turn Isolation)
+        # Tuyệt đối không duyệt lùi qua HumanMessage cuối cùng để tránh lấy nhầm AIMessage của các lượt cũ trong quá khứ!
+        last_human_idx = -1
+        for i in range(len(res_messages) - 1, -1, -1):
+            if isinstance(res_messages[i], HumanMessage):
+                last_human_idx = i
                 break
 
-        # Fallback: Nếu LLM không sinh text tổng hợp, lấy trực tiếp nội dung từ ToolMessage
+        current_turn_messages = (
+            res_messages[last_human_idx + 1:]
+            if last_human_idx != -1
+            else res_messages
+        )
+
+        last_ai_msg = ""
+        for msg in reversed(current_turn_messages):
+            if isinstance(msg, AIMessage) and msg.content and str(msg.content).strip():
+                last_ai_msg = str(msg.content).strip()
+                break
+
+        # 2. Fallback: Nếu LLM ở lượt này chỉ gọi tool mà không sinh text tổng hợp (hoặc bị chạm loop guard),
+        # lấy trực tiếp nội dung chi tiết từ ToolMessage gần nhất của lượt hiện tại
+        from langchain_core.messages import ToolMessage
         if not last_ai_msg:
-            from langchain_core.messages import ToolMessage
-            for msg in reversed(res_messages):
-                if isinstance(msg, ToolMessage) and msg.content:
-                    last_ai_msg = str(msg.content)
+            for msg in reversed(current_turn_messages):
+                if isinstance(msg, ToolMessage) and msg.content and str(msg.content).strip():
+                    last_ai_msg = str(msg.content).strip()
                     break
+
+        # 3. Bảo toàn thông tin nghiệp vụ: Nếu trong lượt có ToolMessage kết quả tra cứu quan trọng
+        # (kế hoạch ngân sách, chi tiết tờ trình, đơn hàng PO, tạo tờ trình thành công...) mà last_ai_msg bị thiếu,
+        # ưu tiên dùng thông tin đầy đủ từ ToolMessage
+        business_keywords = (
+            "THÔNG TIN KẾ HOẠCH NGÂN SÁCH LIÊN KẾT:",
+            "CHI TIẾT TỜ TRÌNH:",
+            "THÔNG TIN ĐƠN ĐẶT HÀNG PO:",
+            "Đơn hàng PO trên gAMSPro",
+            "TẠO MỚI TỜ TRÌNH MUA SẮM THÀNH CÔNG",
+            "GỬI PHÊ DUYỆT TỜ TRÌNH THÀNH CÔNG",
+        )
+        for msg in reversed(current_turn_messages):
+            if isinstance(msg, ToolMessage) and any(kw in str(msg.content) for kw in business_keywords):
+                matched_kw = next(kw for kw in business_keywords if kw in str(msg.content))
+                if not last_ai_msg or matched_kw not in last_ai_msg:
+                    last_ai_msg = str(msg.content).strip()
+                break
+
+        # 4. Khử lặp văn bản (Trường hợp LLM nhỏ sinh lặp nguyên văn nội dung bảng biểu 2 lần liên tiếp)
+        if len(last_ai_msg) > 60:
+            half = len(last_ai_msg) // 2
+            # So khớp 2 nửa chuỗi
+            part1 = last_ai_msg[:half].strip()
+            part2 = last_ai_msg[half:].strip()
+            if part1 == part2:
+                last_ai_msg = part1
+
+        # 5. Lọc bỏ các thẻ XML kỹ thuật như <error>, </error>, <warning>, v.v.
+        if last_ai_msg:
+            last_ai_msg = re.sub(r"</?(?:error|warning|result|output|response|final_answer|call)[^>]*>", "", last_ai_msg, flags=re.IGNORECASE).strip()
 
         if not last_ai_msg:
             last_ai_msg = "Tôi đã xử lý yêu cầu nghiệp vụ mua sắm của bạn trên hệ thống gAMSPro."
@@ -142,10 +281,18 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         final_answer = rag_result.get("final_answer", "")
         res_messages = rag_result.get("messages", [])
 
+        # Cô lập chỉ tin nhắn của lượt hiện tại
+        last_human_idx = -1
+        for i in range(len(res_messages) - 1, -1, -1):
+            if isinstance(res_messages[i], HumanMessage):
+                last_human_idx = i
+                break
+        current_turn_messages = res_messages[last_human_idx + 1:] if last_human_idx != -1 else res_messages
+
         if not final_answer:
-            for msg in reversed(res_messages):
-                if isinstance(msg, AIMessage) and msg.content:
-                    final_answer = str(msg.content)
+            for msg in reversed(current_turn_messages):
+                if isinstance(msg, AIMessage) and msg.content and str(msg.content).strip():
+                    final_answer = str(msg.content).strip()
                     break
 
         # Theo sơ đồ kiến trúc: Khi RAG không tìm thấy tài liệu -> Tự động thử tra cứu FAQ
@@ -238,18 +385,26 @@ async def call_faq_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         res_messages = faq_result.get("messages", [])
         final_answer = faq_result.get("final_answer", "")
 
+        # Cô lập chỉ tin nhắn của lượt hiện tại
+        last_human_idx = -1
+        for i in range(len(res_messages) - 1, -1, -1):
+            if isinstance(res_messages[i], HumanMessage):
+                last_human_idx = i
+                break
+        current_turn_messages = res_messages[last_human_idx + 1:] if last_human_idx != -1 else res_messages
+
         last_ai_msg = final_answer
         if not last_ai_msg:
-            for msg in reversed(res_messages):
-                if isinstance(msg, AIMessage) and msg.content:
-                    last_ai_msg = str(msg.content)
+            for msg in reversed(current_turn_messages):
+                if isinstance(msg, AIMessage) and msg.content and str(msg.content).strip():
+                    last_ai_msg = str(msg.content).strip()
                     break
 
         if not last_ai_msg:
             from langchain_core.messages import ToolMessage
-            for msg in reversed(res_messages):
-                if isinstance(msg, ToolMessage) and msg.content:
-                    last_ai_msg = str(msg.content)
+            for msg in reversed(current_turn_messages):
+                if isinstance(msg, ToolMessage) and msg.content and str(msg.content).strip():
+                    last_ai_msg = str(msg.content).strip()
                     break
 
         if not last_ai_msg:
