@@ -27,6 +27,7 @@ from app.modules.chat.api.v1.schemas import (
 )
 from app.modules.chat.service import ChatService
 from app.routers.dependencies import get_chat_service, get_transcribe_service
+from app.core.user_context import set_user_context
 
 logger = logging.getLogger(__name__)
 
@@ -148,8 +149,10 @@ async def chat_stream(
     request: ChatRequest,
     http_request: Request,
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    x_user_name: Optional[str] = Header(None, alias="X-User-Name"),
     x_user_roles: Optional[str] = Header(None, alias="X-User-Roles"),
     x_user_department: Optional[str] = Header(None, alias="X-User-Department"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     service: ChatService = Depends(get_chat_service),
 ):
     """
@@ -157,8 +160,18 @@ async def chat_stream(
 
     - Nhận `conversation_id` trong body để load/lưu lịch sử hội thoại.
     - Nhận vai trò từ Body hoặc Header `X-User-Roles` để thực thi RBAC Vector Search.
+    - Nhận username từ Header `X-User-Name` để phân quyền và lọc dữ liệu chính xác.
     - Nếu không có `conversation_id`, bot vẫn hoạt động nhưng không lưu lịch sử.
     """
+    # Thiết lập ngữ cảnh người dùng (ContextVars) xuyên suốt toàn bộ lifecycle của request
+    set_user_context(
+        user_name=x_user_name,
+        user_id=x_user_id or request.user_id,
+        auth_token=authorization,
+        roles=request.user_roles or x_user_roles,
+        department=request.user_department or x_user_department,
+    )
+
     # Kiểm tra quyền sở hữu conversation nếu có truyền conversation_id
     if request.conversation_id and x_user_id:
         conv = service.get_conversation(
@@ -175,8 +188,9 @@ async def chat_stream(
     department = request.user_department or x_user_department
     user_id = request.user_id or x_user_id
     logger.info(
-        "[CHAT] Received POST /stream request | query='%s' | roles='%s' | dept='%s' | user_id='%s'",
+        "[CHAT] Received POST /stream request | query='%s' | user_name='%s' | roles='%s' | dept='%s' | user_id='%s'",
         request.message,
+        x_user_name,
         roles,
         department,
         user_id,

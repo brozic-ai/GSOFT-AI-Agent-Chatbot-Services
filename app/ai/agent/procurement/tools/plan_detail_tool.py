@@ -4,51 +4,40 @@ import httpx
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from app.core.config import settings
-from app.ai.agent.procurement.tools.client import get_backend_auth_token, post_backend_api
+from app.ai.agent.procurement.tools.client import get_backend_api, post_backend_api
+from app.ai.agent.procurement.tools.status_formatter import format_status_badge
+from app.core.user_context import get_resolved_user_name
 
 logger = logging.getLogger(__name__)
 
 
 class CheckPlanBudgetInput(BaseModel):
-    ma_ke_hoach: Optional[str] = Field(
-        default=None,
-        description="Mã Kế hoạch mua sắm cần tra cứu (ví dụ: '0049/2025/TTr-0690905' hoặc 'PLRD00001117972').",
-    )
-    plan_no: Optional[str] = Field(
-        default=None,
-        description="Mã số Kế hoạch mua sắm (alias của ma_ke_hoach).",
-    )
-    plan_code: Optional[str] = Field(
-        default=None,
-        description="Mã số Kế hoạch mua sắm (alias của ma_ke_hoach).",
-    )
-    user_name: Optional[str] = Field(
-        default=None,
-        description="Username cán bộ tra cứu ngân sách kế hoạch (nếu không truyền sẽ dùng tài khoản đăng nhập hiện tại 'baotq').",
+    plan_code: str = Field(
+        description="Mã Kế hoạch mua sắm cần tra cứu (ví dụ dạng: '.../TTr-...' hoặc 'PLRD...'). Bắt buộc.",
     )
 
 
 @tool("check_plan_budget_detail", args_schema=CheckPlanBudgetInput)
 async def check_plan_budget_detail(
-    ma_ke_hoach: Optional[str] = None,
-    plan_no: Optional[str] = None,
     plan_code: Optional[str] = None,
-    user_name: Optional[str] = None,
+    **kwargs,
 ) -> str:
     """Tra cứu Kế hoạch Mua sắm và đối soát hạn mức Ngân sách của đơn vị trên hệ thống gAMSPro.
 
     Dùng tool này khi người dùng muốn:
-    - Tra cứu thông tin chi tiết một Kế hoạch mua sắm theo mã (như '0049/2025/TTr-0690905' hoặc 'PLRD00001117972').
+    - Tra cứu thông tin chi tiết một Kế hoạch mua sắm theo mã (ví dụ dạng: '.../TTr-...' hoặc 'PLRD...').
     - Kiểm tra tổng hạn mức ngân sách được duyệt, ngân sách đã dùng, và số dư khả dụng còn lại từ dữ liệu API.
     - Đối soát xem ngân sách của Kế hoạch có đủ cover cho Tờ trình mua sắm hay không (Budget Compliance).
     """
     try:
-        raw_code = plan_no or plan_code or ma_ke_hoach or ""
-        clean_code = raw_code.strip()
-        uname = (user_name or "").strip() or "baotq"
+        raw_code = plan_code or kwargs.get("ma_ke_hoach") or kwargs.get("plan_no") or ""
+        clean_code = str(raw_code).strip().strip("<>").strip()
+        uname = get_resolved_user_name()
+        if not uname:
+            return "⚠️ Bạn chưa đăng nhập tài khoản gAMSPro. Vui lòng đăng nhập để tra cứu Kế hoạch mua sắm."
 
         if not clean_code:
-            return "Vui lòng cung cấp Mã Kế hoạch mua sắm (ví dụ: '0049/2025/TTr-0690905') để tra cứu."
+            return "Vui lòng cung cấp Mã Kế hoạch mua sắm (ví dụ dạng: '.../TTr-...') để tra cứu."
 
         plan_id = clean_code
 
@@ -78,54 +67,48 @@ async def check_plan_budget_detail(
                 logger.warning(f"Error mapping plan code from RequestDoc: {ex}")
 
         # 2. Gọi API GET /api/PlanRequestDoc/PL_REQUEST_DOC_ById
-        token = await get_backend_auth_token()
-        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
-        url_plan = f"{settings.NET_BACKEND_URL}/api/PlanRequestDoc/PL_REQUEST_DOC_ById"
         params = {"reQ_ID": plan_id, "userLogin": uname}
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.get(url_plan, params=params, headers=headers)
-                if res.status_code == 200:
-                    raw_data = res.json()
-                    plan_data = raw_data.get("result", raw_data) if isinstance(raw_data, dict) else {}
-                    if plan_data and plan_data.get("reQ_ID"):
-                        rpt = plan_data.get("reporT_INFOS") or {}
-                        p_code = plan_data.get("reQ_CODE") or clean_code
-                        p_name = plan_data.get("reQ_NAME") or "Không có"
-                        branch_name = plan_data.get("brancH_FEE_NAME") or plan_data.get("brancH_NAME") or "Hội sở"
-                        dep_name = plan_data.get("deP_NAME") or plan_data.get("deP_FEE_NAME") or "Phòng Hỗ trợ"
-                        branch = f"{branch_name} — {dep_name}"
-                        status = plan_data.get("autH_STATUS_NAME") or "Đã duyệt"
-                        app_dt = plan_data.get("approvE_DT") or plan_data.get("creatE_DT") or "N/A"
+            raw_data = await get_backend_api("/api/PlanRequestDoc/PL_REQUEST_DOC_ById", params=params)
+            plan_data = raw_data.get("result", raw_data) if isinstance(raw_data, dict) else {}
+            if plan_data and plan_data.get("reQ_ID"):
+                rpt = plan_data.get("reporT_INFOS") or {}
+                p_code = plan_data.get("reQ_CODE") or clean_code
+                p_name = plan_data.get("reQ_NAME") or "Không có"
+                branch_name = plan_data.get("brancH_FEE_NAME") or plan_data.get("brancH_NAME") or "Hội sở"
+                dep_name = plan_data.get("deP_NAME") or plan_data.get("deP_FEE_NAME") or "Phòng Hỗ trợ"
+                branch = f"{branch_name} — {dep_name}"
+                status = plan_data.get("autH_STATUS_NAME") or "Đã duyệt"
+                app_dt = plan_data.get("approvE_DT") or plan_data.get("creatE_DT") or "N/A"
 
-                        # Đọc trực tiếp từ API report_infos
-                        total_app = rpt.get("totaL_AMT_APP")
-                        total_exe = rpt.get("totaL_AMT_EXE")
-                        total_remain = rpt.get("totaL_AMT_REMAIN")
+                # Đọc trực tiếp từ API report_infos
+                total_app = rpt.get("totaL_AMT_APP")
+                total_exe = rpt.get("totaL_AMT_EXE")
+                total_remain = rpt.get("totaL_AMT_REMAIN")
 
-                        if total_app is not None and str(total_app).replace(".", "", 1).isdigit():
-                            total_amt = float(total_app)
-                        else:
-                            total_amt = float(plan_data.get("totaL_AMT") or 0)
+                if total_app is not None and str(total_app).replace(".", "", 1).isdigit():
+                    total_amt = float(total_app)
+                else:
+                    total_amt = float(plan_data.get("totaL_AMT") or 0)
 
-                        used_amt = float(total_exe) if (total_exe is not None and str(total_exe).replace(".", "", 1).isdigit()) else 0.0
-                        remain_amt = float(total_remain) if (total_remain is not None and str(total_remain).replace(".", "", 1).isdigit()) else (total_amt - used_amt)
+                used_amt = float(total_exe) if (total_exe is not None and str(total_exe).replace(".", "", 1).isdigit()) else 0.0
+                remain_amt = float(total_remain) if (total_remain is not None and str(total_remain).replace(".", "", 1).isdigit()) else (total_amt - used_amt)
 
-                        info = (
-                            f"📊 THÔNG TIN KẾ HOẠCH NGÂN SÁCH LIÊN KẾT:\n"
-                            f"- Mã Kế hoạch: `{p_code}`\n"
-                            f"- Tên Kế hoạch: {p_name}\n"
-                            f"- Đơn vị quản lý / thụ hưởng: {branch}\n"
-                            f"- Trạng thái Kế hoạch: {status} (Ngày duyệt: {app_dt})\n"
-                            f"- Tổng hạn mức ngân sách: {total_amt:,.0f} VNĐ\n"
-                            f"- Ngân sách đã thực hiện: {used_amt:,.0f} VNĐ\n"
-                            f"- Ngân sách còn lại khả dụng: 🟩 {remain_amt:,.0f} VNĐ\n\n"
-                            f"🟢 ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH:\n"
-                            f"Kế hoạch đã được phê duyệt hợp lệ. Ngân sách còn lại khả dụng ({remain_amt:,.0f} VNĐ) "
-                            f"hoàn toàn đủ để cover khoản đề xuất của Tờ trình mua sắm."
-                        )
-                        return info
+                info = (
+                    f"📊 THÔNG TIN KẾ HOẠCH NGÂN SÁCH LIÊN KẾT:\n"
+                    f"- Mã Kế hoạch: `{p_code}`\n"
+                    f"- Tên Kế hoạch: {p_name}\n"
+                    f"- Đơn vị quản lý / thụ hưởng: {branch}\n"
+                    f"- Trạng thái Kế hoạch: {status} (Ngày duyệt: {app_dt})\n"
+                    f"- Tổng hạn mức ngân sách: {total_amt:,.0f} VNĐ\n"
+                    f"- Ngân sách đã thực hiện: {used_amt:,.0f} VNĐ\n"
+                    f"- Ngân sách còn lại khả dụng: 🟩 {remain_amt:,.0f} VNĐ\n\n"
+                    f"🟢 ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH:\n"
+                    f"Kế hoạch đã được phê duyệt hợp lệ. Ngân sách còn lại khả dụng ({remain_amt:,.0f} VNĐ) "
+                    f"hoàn toàn đủ để cover khoản đề xuất của Tờ trình mua sắm."
+                )
+                return info
         except Exception as e:
             logger.warning(f"PlanRequestDoc check fallback: {e}")
 
@@ -153,12 +136,13 @@ async def check_plan_budget_detail(
             plan_name = item.get("pL_NAME") or "Không có"
             branch = item.get("brancH_NAME") or "Không có"
             status = item.get("autH_STATUS_NAME") or "Không xác định"
+            status_badge = format_status_badge(status)
 
             info = (
                 f"{idx}. Mã Kế hoạch: `{p_code}`\n"
                 f"   - Tên Kế hoạch: {plan_name}\n"
                 f"   - Đơn vị quản lý / lập: {branch}\n"
-                f"   - Trạng thái Kế hoạch: {status}\n"
+                f"   - Trạng thái Kế hoạch: {status_badge}\n"
                 f"   - Tổng hạn mức ngân sách: {total_amt:,.0f} VNĐ\n"
                 f"   - Ngân sách đã dùng: {used_amt:,.0f} VNĐ\n"
                 f"   - Ngân sách còn lại: {remain_amt:,.0f} VNĐ"

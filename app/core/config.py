@@ -146,7 +146,7 @@ class Settings(BaseSettings):
     LANGFUSE_HOST: str = "http://localhost:3000"
     LANGFUSE_BASE_URL: str | None = None
 
-    # --- Net Backend URL ---
+    # --- Net Backend URL & gAMSPro Service Account ---
     NET_BACKEND_URL: str = "http://localhost:5000"
 
 

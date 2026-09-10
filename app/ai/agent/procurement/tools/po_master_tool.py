@@ -3,38 +3,38 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from app.ai.agent.procurement.tools.client import post_backend_api
+from app.ai.agent.procurement.tools.status_formatter import format_status_badge
+from app.core.user_context import get_resolved_user_name
 
 logger = logging.getLogger(__name__)
 
 
 class GetPoMasterStatusInput(BaseModel):
-    ma_po: Optional[str] = Field(
+    po_code: Optional[str] = Field(
         default=None,
-        description="Mã Đơn đặt hàng PO (ví dụ: 'PO069/26/0006'). Nếu người dùng muốn xem danh sách các đơn hàng PO gần đây, hãy để trống.",
-    )
-    user_name: Optional[str] = Field(
-        default=None,
-        description="Username cán bộ đang tra cứu (mặc định 'baotq').",
+        description="Mã Đơn đặt hàng PO (ví dụ dạng tương đối: 'PO...' hoặc để trống nếu muốn xem danh sách các đơn hàng PO gần đây).",
     )
 
 
 @tool("get_po_master_status", args_schema=GetPoMasterStatusInput)
 async def get_po_master_status(
-    ma_po: Optional[str] = None,
-    user_name: Optional[str] = None,
+    po_code: Optional[str] = None,
     **kwargs,
 ) -> str:
     """Tra cứu Đơn đặt hàng PO (Purchase Order / Phiếu gọi hàng) và tiến độ giao hàng trên hệ thống gAMSPro.
 
     Dùng tool này khi người dùng muốn:
-    - Tra cứu tình trạng đơn đặt hàng PO theo mã PO (ví dụ: 'PO069/26/0006').
+    - Tra cứu tình trạng đơn đặt hàng PO theo mã PO (ví dụ dạng: 'PO...').
     - Xem danh sách các PO đang triển khai, giá trị đơn hàng, Nhà cung cấp và hạn giao hàng từ API.
     - TUYỆT ĐỐI KHÔNG dùng tool này để xem chi tiết Tờ trình mua sắm (hãy dùng get_request_doc_detail).
     """
     try:
-        raw_code = ma_po or kwargs.get("po_code") or kwargs.get("po_no") or kwargs.get("doc_no") or ""
-        clean_code = raw_code.strip()
-        uname = (user_name or "").strip() or "baotq"
+        raw_code = po_code or kwargs.get("ma_po") or kwargs.get("po_no") or kwargs.get("doc_no") or ""
+        clean_code = str(raw_code).strip().strip("<>").strip()
+        uname = get_resolved_user_name()
+        if not uname:
+            return "⚠️ Bạn chưa đăng nhập tài khoản gAMSPro. Vui lòng đăng nhập để tra cứu Đơn đặt hàng PO."
+
         is_request_doc = clean_code.upper().startswith("PUR/") or clean_code.upper().startswith("TRRD")
 
         payload = {
@@ -83,12 +83,7 @@ async def get_po_master_status(
             status = item.get("autH_STATUS_NAME") or item.get("statusName") or "Không xác định"
             po_dt = (item.get("pO_DT") or item.get("creatE_DT") or "N/A")[:10]
 
-            if "Đã duyệt" in status or "Hoàn tất" in status:
-                status_badge = "✅ Đã duyệt"
-            elif "Chờ" in status or "Đang" in status:
-                status_badge = f"⏳ {status}"
-            else:
-                status_badge = status
+            status_badge = format_status_badge(status)
 
             table_rows.append(
                 f"| {idx} | `{p_code}` | {po_name} | {supplier} | {amt_str} | {status_badge} | {po_dt} |"

@@ -152,6 +152,7 @@ class ChatService:
             # 1. Lấy lịch sử hội thoại từ DB
             history: List[Dict[str, Any]] = []
             is_first_message = True
+            user_msg_id: Optional[int] = None
             if conversation_id:
                 if request and await request.is_disconnected():
                     return
@@ -166,21 +167,35 @@ class ChatService:
                         limit=HISTORY_LIMIT,
                     )
                     is_first_message = False
-                elif is_edit and edit_message_id:
-                    self.chat_repo.update_message_content(
-                        message_id=edit_message_id,
-                        content=base_query,
-                    )
-                    self.chat_repo.truncate_messages_after(
-                        conversation_id=conversation_id,
-                        message_id=edit_message_id,
-                    )
-                    history = self.chat_repo.get_chat_history_up_to(
-                        conversation_id=conversation_id,
-                        target_message_id=edit_message_id,
-                        limit=HISTORY_LIMIT,
-                    )
-                    is_first_message = False
+                elif is_edit:
+                    if not edit_message_id:
+                        last_user_msg = self.chat_repo.get_last_user_message(conversation_id)
+                        if last_user_msg:
+                            edit_message_id = last_user_msg["id"]
+
+                    if edit_message_id:
+                        self.chat_repo.update_message_content(
+                            message_id=edit_message_id,
+                            content=base_query,
+                        )
+                        self.chat_repo.truncate_messages_after(
+                            conversation_id=conversation_id,
+                            message_id=edit_message_id,
+                        )
+                        history = self.chat_repo.get_chat_history_up_to(
+                            conversation_id=conversation_id,
+                            target_message_id=edit_message_id,
+                            limit=HISTORY_LIMIT,
+                        )
+                        user_msg_id = edit_message_id
+                        is_first_message = False
+                    else:
+                        message_count = self.chat_repo.get_message_count(conversation_id)
+                        is_first_message = message_count == 0
+                        if message_count > 0:
+                            history = self.chat_repo.get_chat_history(
+                                conversation_id=conversation_id, limit=HISTORY_LIMIT
+                            )
                 else:
                     message_count = self.chat_repo.get_message_count(conversation_id)
                     is_first_message = message_count == 0
@@ -197,7 +212,7 @@ class ChatService:
             if should_save_user_msg:
                 if request and await request.is_disconnected():
                     return
-                self.chat_repo.save_message(
+                user_msg_id = self.chat_repo.save_message(
                     conversation_id=conversation_id,
                     role="user",
                     content=base_query,
@@ -364,6 +379,7 @@ class ChatService:
 
             ended_payload = {
                 "message_id": saved_msg_id,
+                "user_message_id": user_msg_id,
                 "trace_id": trace_id,
                 "conversation_id": conversation_id,
             }

@@ -295,6 +295,29 @@ class ChatRepository:
         finally:
             db.close()
 
+    def get_last_user_message(self, conversation_id: int) -> Optional[Dict[str, Any]]:
+        """Lấy tin nhắn gần nhất của user trong phiên hội thoại."""
+        int_id = self._to_int_id(conversation_id)
+        if int_id is None:
+            return None
+        db: Session = SessionLocal()
+        try:
+            msg = (
+                db.query(ChatMessage)
+                .filter(ChatMessage.conversation_id == int_id, ChatMessage.role == "user")
+                .order_by(ChatMessage.id.desc())
+                .first()
+            )
+            if not msg:
+                return None
+            return {
+                "id": msg.id,
+                "role": msg.role,
+                "content": msg.content,
+            }
+        finally:
+            db.close()
+
     def truncate_messages_after(self, conversation_id: int, message_id: int) -> int:
         """Xóa tất cả các tin nhắn trong conversation có ID > message_id khi retry mốc ở giữa."""
         int_id = self._to_int_id(conversation_id)

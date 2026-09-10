@@ -170,7 +170,7 @@ async def call_procurement_agent(state: Any) -> Dict[str, Any]:
         for msg in reversed(current_turn_messages):
             if isinstance(msg, ToolMessage) and any(kw in str(msg.content) for kw in business_keywords):
                 matched_kw = next(kw for kw in business_keywords if kw in str(msg.content))
-                if not last_ai_msg or matched_kw not in last_ai_msg:
+                if not last_ai_msg or (len(last_ai_msg) < 50 and matched_kw not in last_ai_msg):
                     last_ai_msg = str(msg.content).strip()
                 break
 

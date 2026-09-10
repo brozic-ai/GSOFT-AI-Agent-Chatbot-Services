@@ -1,13 +1,10 @@
 import logging
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 from app.llmops.langfuse import get_langfuse_client
 
 logger = logging.getLogger(__name__)
-
-_DIR = Path(__file__).parent / "v1"
 
 
 def _extract_prompt_text(prompt_obj, role_target: str = "system") -> str:
@@ -27,62 +24,24 @@ def _extract_prompt_text(prompt_obj, role_target: str = "system") -> str:
 
 def get_system_prompt() -> str:
     """
-    Nạp System Prompt cho Procurement Agent:
-    - Ở môi trường local dev (ENVIRONMENT=local): Luôn ưu tiên nạp trực tiếp từ file local 'v1/system.md'
-      và tự động bổ sung few-shot examples từ 'v1/example.json' để phản ánh ngay các bản vá mới nhất.
-    - Ở môi trường production: Nạp từ Langfuse ('procurement') kèm fallback local an toàn.
+    Nạp System Prompt cho Router Node:
+    - Nạp trực tiếp 100% từ Langfuse ('procurement') với cache_ttl_seconds=60.
     """
-    from app.core.config import settings
-
-    # 1. Nếu đang ở môi trường local, ưu tiên tuyệt đối file local để dev/test tức thì
-    if getattr(settings, "ENVIRONMENT", "").lower() == "local":
-        local_content = _load_local_system_prompt()
-        if local_content:
-            return local_content
-
-    # 2. Ở môi trường khác, thử lấy từ Langfuse trước
     try:
         client = get_langfuse_client()
         if client:
             prompt_obj = client.get_prompt("procurement", cache_ttl_seconds=60)
             content = _extract_prompt_text(prompt_obj, role_target="system")
-            if content and len(content.strip()) > 50:
+            if content and len(content.strip()) > 10:
+                logger.info(
+                    "[PROCUREMENT-PROMPT] ✅ Đã nạp thành công prompt 'procurement' (v%s) từ Langfuse",
+                    getattr(prompt_obj, "version", "latest"),
+                )
                 return content
     except Exception as ex:
-        logger.warning("[PROCUREMENT-PROMPT] Lỗi lấy prompt 'procurement' từ Langfuse: %s", ex)
+        logger.warning("[PROCUREMENT-PROMPT] ⚠️ Không thể nạp prompt 'procurement' từ Langfuse: %s", ex)
 
-    # 3. Fallback nạp từ file local
-    return _load_local_system_prompt() or "Bạn là Trợ lý Mua sắm Doanh nghiệp BVBank (gAMSPro)."
-
-
-def _load_local_system_prompt() -> str:
-    """Helper nạp nội dung system.md kèm các ví dụ few-shot từ example.json."""
-    local_path = _DIR / "system.md"
-    content = ""
-    if local_path.exists():
-        try:
-            content = local_path.read_text(encoding="utf-8")
-        except Exception as e:
-            logger.warning("[PROCUREMENT-PROMPT] Không thể đọc file %s: %s", local_path, e)
-
-    examples_path = _DIR / "example.json"
-    if examples_path.exists():
-        try:
-            import json
-            examples_data = json.loads(examples_path.read_text(encoding="utf-8"))
-            if examples_data:
-                example_text = "\n\n## 💡 CÁC VÍ DỤ MINH HỌA XỬ LÝ (FEW-SHOT EXAMPLES):\n"
-                for ex_item in examples_data:
-                    q = ex_item.get("query", "")
-                    calls = ex_item.get("tool_calls", [])
-                    resp = ex_item.get("response", "")
-                    call_names = ", ".join(f"`{c.get('tool')}`" for c in calls) if calls else "Không cần gọi tool"
-                    example_text += f"\n- **Người dùng:** \"{q}\"\n  * **Hành vi AI:** Kích hoạt {call_names}\n  * **Phản hồi mẫu:**\n{resp}\n"
-                content += example_text
-        except Exception as e:
-            logger.warning("[PROCUREMENT-PROMPT] Lỗi đọc %s: %s", examples_path, e)
-
-    return content
+    return ""
 
 
 def get_user_prompt(
@@ -120,7 +79,10 @@ def get_user_prompt(
 
 
 def get_procurement_messages(query: str, chat_history: list[dict] | None = None) -> List[BaseMessage]:
-    """Lấy toàn bộ messages (System + User) từ Chat Prompt 'procurement' trên Langfuse."""
+    """
+    Lấy toàn bộ messages (System + User) từ Chat Prompt 'procurement' trên Langfuse.
+    Compile các biến: query, chat_history.
+    """
     history_text = (
         "\n".join(f"{h['role']}: {h['content']}" for h in (chat_history or [])[-6:])
         or "(không có)"
@@ -156,9 +118,91 @@ def get_procurement_messages(query: str, chat_history: list[dict] | None = None)
                     if messages:
                         return messages
     except Exception as ex:
-        logger.warning("[PROCUREMENT-MESSAGES] Lỗi compile prompt procurement từ Langfuse: %s", ex)
+        logger.warning("[PROCUREMENT-MESSAGES] Lỗi compile prompt 'procurement' từ Langfuse: %s", ex)
 
-    return [
-        SystemMessage(content=get_system_prompt()),
-        HumanMessage(content=query),
-    ]
+    sys_text = get_system_prompt()
+    msgs: List[BaseMessage] = []
+    if sys_text:
+        msgs.append(SystemMessage(content=sys_text))
+    msgs.append(HumanMessage(content=query))
+    return msgs
+
+
+def get_generator_prompt() -> str:
+    """
+    Nạp System Prompt cho Generator Node:
+    - Nạp trực tiếp 100% từ Langfuse ('procurement_generator') với cache_ttl_seconds=60.
+    """
+    try:
+        client = get_langfuse_client()
+        if client:
+            prompt_obj = client.get_prompt("procurement_generator", cache_ttl_seconds=60)
+            content = _extract_prompt_text(prompt_obj, role_target="system")
+            if content and len(content.strip()) > 10:
+                logger.info(
+                    "[PROCUREMENT-GENERATOR] ✅ Đã nạp thành công prompt 'procurement_generator' (v%s) từ Langfuse",
+                    getattr(prompt_obj, "version", "latest"),
+                )
+                return content
+    except Exception as ex:
+        logger.warning("[PROCUREMENT-GENERATOR] ⚠️ Không thể nạp prompt 'procurement_generator' từ Langfuse: %s", ex)
+
+    return ""
+
+
+def get_generator_messages(
+    query: str,
+    tool_result: str,
+    chat_history: list[dict] | None = None,
+) -> List[BaseMessage]:
+    """
+    Lấy toàn bộ messages (System + User Prompt) cho Generator Node:
+    - Nạp trực tiếp từ Chat Prompt 'procurement_generator' trên Langfuse.
+    - Compile các biến: chat_history, query, tool_result.
+    """
+    history_text = (
+        "\n".join(f"{h['role']}: {h['content']}" for h in (chat_history or [])[-6:])
+        or "(không có)"
+    )
+    try:
+        client = get_langfuse_client()
+        if client:
+            prompt_obj = client.get_prompt("procurement_generator", cache_ttl_seconds=60)
+            if prompt_obj:
+                try:
+                    compiled = prompt_obj.compile(
+                        query=query,
+                        chat_history=history_text,
+                        tool_result=tool_result,
+                    )
+                except Exception:
+                    compiled = prompt_obj.compile()
+
+                messages: List[BaseMessage] = []
+                if isinstance(compiled, list):
+                    for m in compiled:
+                        role = m.get("role", "user")
+                        content = m.get("content", "")
+                        if role == "system":
+                            messages.append(SystemMessage(content=content))
+                        elif role == "user":
+                            messages.append(HumanMessage(content=content))
+                        elif role in ("assistant", "ai"):
+                            messages.append(AIMessage(content=content))
+
+                    if messages:
+                        return messages
+    except Exception as ex:
+        logger.warning("[PROCUREMENT-GENERATOR] Lỗi compile prompt 'procurement_generator' từ Langfuse: %s", ex)
+
+    sys_text = get_generator_prompt()
+    user_payload = f"<chat_history>\n{history_text}\n</chat_history>\n\n<user_query>\n{query}\n</user_query>\n\n<tool_result>\n{tool_result}\n</tool_result>"
+    msgs: List[BaseMessage] = []
+    if sys_text:
+        msgs.append(SystemMessage(content=sys_text))
+    msgs.append(HumanMessage(content=user_payload))
+    return msgs
+
+
+# Alias để tương thích ngược
+get_responder_prompt = get_generator_prompt

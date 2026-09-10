@@ -3,48 +3,45 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from app.ai.agent.procurement.tools.client import post_backend_api
+from app.ai.agent.procurement.tools.status_formatter import format_status_badge
+from app.core.user_context import get_resolved_user_name
 
 logger = logging.getLogger(__name__)
 
 
 class GetRequestDocDetailInput(BaseModel):
-    doc_identifier: Optional[str] = Field(
-        default=None,
-        description="Mã số tờ trình (ví dụ: 'PUR/2026/000097') hoặc Mã hệ thống REQ_ID (ví dụ: 'TRRD00000269727').",
-    )
-    user_name: Optional[str] = Field(
-        default=None,
-        description="Username cán bộ đang tra cứu (mặc định 'baotq').",
+    doc_id: str = Field(
+        description="Mã số Tờ trình mua sắm cần xem chi tiết (ví dụ: 'PUR/...' hoặc 'TRRD...'). Bắt buộc.",
     )
 
 
 @tool("get_request_doc_detail", args_schema=GetRequestDocDetailInput)
 async def get_request_doc_detail(
-    doc_identifier: Optional[str] = None,
-    user_name: Optional[str] = None,
+    doc_id: Optional[str] = None,
     **kwargs,
 ) -> str:
     """Tra cứu thông tin chi tiết đầy đủ của một Tờ trình mua sắm cụ thể trên hệ thống gAMSPro.
 
     Dùng tool này khi người dùng muốn:
-    - Xem chi tiết 1 tờ trình (ví dụ: 'PUR/2026/000097' hoặc 'TRRD00000269727').
+    - Xem chi tiết 1 tờ trình (ví dụ dạng: 'PUR/...' hoặc 'TRRD...').
     - Xem người lập, phòng ban chịu phí, tổng số tiền đề xuất, kế hoạch liên kết, nội dung lý do từ API.
     - Kiểm tra trạng thái phê duyệt chi tiết để đối soát ngân sách.
     """
     try:
-        target_id = (doc_identifier or kwargs.get("req_id") or kwargs.get("so_to_trinh") or kwargs.get("doc_no") or "").strip()
-        if not target_id:
+        raw_id = doc_id or kwargs.get("doc_identifier") or kwargs.get("req_id") or kwargs.get("so_to_trinh") or kwargs.get("doc_no") or ""
+        clean_id = str(raw_id).strip().strip("<>").strip()
+        if not clean_id:
             return (
                 "⚠️ THÔNG BÁO CHO NGƯỜI DÙNG: Không xác định được mã Tờ trình cần xem chi tiết. "
-                "Vui lòng hướng dẫn người dùng cung cấp chính xác mã số Tờ trình (ví dụ: 'PUR/2026/000097') hoặc mã REQ_ID. "
+                "Vui lòng hướng dẫn người dùng cung cấp chính xác mã số Tờ trình (ví dụ dạng: 'PUR/...') hoặc mã REQ_ID (ví dụ dạng: 'TRRD...'). "
                 "Tuyệt đối không tự ý gọi lại tool này."
             )
-
-        clean_id = target_id
         resolved_req_id = clean_id
         doc_code = clean_id
         search_item = None
-        uname = (user_name or "").strip() or "baotq"
+        uname = get_resolved_user_name()
+        if not uname:
+            return "⚠️ Bạn chưa đăng nhập tài khoản gAMSPro. Vui lòng đăng nhập để xem chi tiết tờ trình."
 
         # Nếu đầu vào không phải dạng TRRD..., tìm REQ_ID qua API search trước
         if not clean_id.upper().startswith("TRRD"):
@@ -53,7 +50,7 @@ async def get_request_doc_detail(
                 "skipCount": 0,
                 "reQ_CODE": clean_id,
                 "type": "DVKD",
-                "tlnamE_USER": uname,
+                "tlnamE_USER": "",
             }
             search_res = await post_backend_api("/api/RequestDoc/TR_REQUEST_DOC_Search", payload=search_payload)
             items = search_res.get("result", {}).get("items", [])
@@ -106,10 +103,12 @@ async def get_request_doc_detail(
         if suggestion_lines:
             suggestions_text = "\n\n💡 **Hành động gợi ý:**\n" + "\n".join(suggestion_lines)
 
+        status_badge = format_status_badge(status_display)
+
         detail_info = (
             f"📋 **CHI TIẾT TỜ TRÌNH: {item.get('reQ_CODE', doc_code)}**\n\n"
             f"- **Mã định danh hệ thống (REQ_ID):** `{req_sys_id}`\n"
-            f"- **Trạng thái phê duyệt:** {status_display}\n"
+            f"- **Trạng thái phê duyệt:** {status_badge}\n"
             f"- **Người lập:** {maker} (Phòng: {dep} — {branch})\n"
             f"- **Đơn vị chịu chi phí:** {branch} — {dep}\n"
             f"- **Tổng tiền đề xuất:** **{amt_str}**\n"
