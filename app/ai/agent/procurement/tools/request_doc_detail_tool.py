@@ -50,30 +50,37 @@ async def get_request_doc_detail(
                 "skipCount": 0,
                 "reQ_CODE": clean_id,
                 "type": "DVKD",
-                "tlnamE_USER": "",
+                "tlnamE_USER": uname,
             }
             search_res = await post_backend_api("/api/RequestDoc/TR_REQUEST_DOC_Search", payload=search_payload)
-            items = search_res.get("result", {}).get("items", [])
+            items = search_res.get("result", {}).get("items", []) if isinstance(search_res, dict) else []
+            # Nếu tìm theo user không thấy, thử tìm lại không truyền tlnamE_USER (xem tờ trình phòng ban khác nếu có quyền)
+            if not items:
+                search_payload["tlnamE_USER"] = ""
+                search_res = await post_backend_api("/api/RequestDoc/TR_REQUEST_DOC_Search", payload=search_payload)
+                items = search_res.get("result", {}).get("items", []) if isinstance(search_res, dict) else []
+
             if items:
                 search_item = items[0]
                 resolved_req_id = search_item.get("reQ_ID", clean_id)
                 doc_code = search_item.get("reQ_CODE", clean_id)
             else:
-                return f"Không tìm thấy thông tin chi tiết cho Tờ trình '{target_id}' trên hệ thống gAMSPro."
+                return f"Không tìm thấy thông tin chi tiết cho Tờ trình '{clean_id}' trên hệ thống gAMSPro."
 
         # Gọi API ById để lấy chi tiết đầy đủ
         try:
             params = {"id": resolved_req_id, "userLogin": uname}
-            item = await post_backend_api("/api/RequestDoc/TR_REQUEST_DOC_ById", params=params)
+            raw_res = await post_backend_api("/api/RequestDoc/TR_REQUEST_DOC_ById", params=params)
+            item = raw_res.get("result", raw_res) if isinstance(raw_res, dict) and "result" in raw_res else raw_res
         except Exception:
             item = None
 
         # Fallback nếu ById trả về rỗng nhưng search_item có dữ liệu
-        if (not item or not item.get("reQ_ID")) and search_item:
+        if (not item or not isinstance(item, dict) or not item.get("reQ_ID")) and search_item:
             item = search_item
 
-        if not item or not item.get("reQ_ID"):
-            return f"Không tìm thấy thông tin chi tiết cho Tờ trình '{target_id}' trên hệ thống gAMSPro."
+        if not item or not isinstance(item, dict) or not item.get("reQ_ID"):
+            return f"Không tìm thấy thông tin chi tiết cho Tờ trình '{clean_id}' trên hệ thống gAMSPro."
 
         amt = float(item.get("totaL_AMT") or 0)
         amt_str = f"{amt:,.0f} VNĐ"
@@ -106,14 +113,14 @@ async def get_request_doc_detail(
         status_badge = format_status_badge(status_display)
 
         detail_info = (
-            f"📋 **CHI TIẾT TỜ TRÌNH: {item.get('reQ_CODE', doc_code)}**\n\n"
-            f"- **Mã định danh hệ thống (REQ_ID):** `{req_sys_id}`\n"
+            f"### 📋 Chi tiết Tờ trình: {item.get('reQ_CODE', doc_code)}\n\n"
+            f"- **Tên tờ trình / Trích yếu:** **{reason}**\n"
+            f"- **Tổng tiền đề xuất:** **{amt_str}**\n"
             f"- **Trạng thái phê duyệt:** {status_badge}\n"
+            f"- **Mã định danh hệ thống (REQ_ID):** `{req_sys_id}`\n"
             f"- **Người lập:** {maker} (Phòng: {dep} — {branch})\n"
             f"- **Đơn vị chịu chi phí:** {branch} — {dep}\n"
-            f"- **Tổng tiền đề xuất:** **{amt_str}**\n"
             f"- **Ngày tạo tờ trình:** {create_dt}\n"
-            f"- **Trích yếu / Lý do:** {reason}\n"
             f"- **Kế hoạch liên kết:** 📌 `{plan_code}`\n\n"
             f"👉 [Nhấn vào đây để xem chi tiết và thao tác trên gAMSPro](/app/admin/request-doc-view;id={req_sys_id})"
             f"{suggestions_text}"

@@ -25,7 +25,7 @@ FALLBACK_GUIDANCE_MESSAGE = (
 )
 
 RAG_NO_DOCS_MESSAGE = (
-    "Tôi không tìm thấy thông tin phù hợp trong tài liệu quy chế/HDSD được cấp quyền truy cập."
+    "Dạ, tôi không tìm thấy tài liệu phù hợp trong phạm vi quyền hạn được cấp của Anh/Chị trên eOffice."
 )
 
 FAQ_NO_MATCH_MESSAGE = (

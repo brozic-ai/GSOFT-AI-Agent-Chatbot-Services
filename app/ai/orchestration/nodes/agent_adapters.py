@@ -295,6 +295,10 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                     final_answer = str(msg.content).strip()
                     break
 
+        if final_answer:
+            from app.ai.agent.agentic_rag.nodes.generator_node import clean_rag_generation_output
+            final_answer = clean_rag_generation_output(final_answer, user_query=user_query)
+
         # Theo sơ đồ kiến trúc: Khi RAG không tìm thấy tài liệu -> Tự động thử tra cứu FAQ
         no_doc_signals = ["không tìm thấy", "chưa tìm thấy", "không có thông tin", "chưa có tài liệu"]
         is_rag_miss = (
@@ -328,7 +332,7 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 logger.warning("[ORCHESTRATOR -> RAG -> FAQ ERROR] Lỗi khi tra cứu fallback FAQ: %s", faq_fallback_err)
 
         if not final_answer:
-            final_answer = "Tôi không tìm thấy thông tin phù hợp trong tài liệu quy chế/HDSD được cấp quyền truy cập."
+            final_answer = "Dạ, tôi không tìm thấy tài liệu phù hợp trong phạm vi quyền hạn được cấp của Anh/Chị trên eOffice."
 
         return {
             "agent_output": final_answer,

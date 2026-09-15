@@ -4,7 +4,6 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 
 from app.ai.agent.procurement.prompts.registry import get_generator_messages, get_generator_prompt
 from app.ai.agent.procurement.state import ProcurementState
-from app.core.user_context import get_resolved_user_name
 from app.llmops.factory import get_chat_model
 
 logger = logging.getLogger(__name__)
@@ -58,14 +57,6 @@ async def responder_node(state: ProcurementState) -> Dict[str, Any]:
         tool_result=tool_result_str,
         chat_history=chat_history,
     )
-
-    # Đưa ngữ cảnh cán bộ đang đăng nhập vào nếu cần
-    uname = state.get("user_name") or get_resolved_user_name()
-    if uname and prompt_messages:
-        if isinstance(prompt_messages[0], SystemMessage):
-            prompt_messages[0] = SystemMessage(
-                content=prompt_messages[0].content + f"\n\nLưu ý: Tên cán bộ đang đăng nhập là '{uname}'."
-            )
 
     # 5. Thực thi LLM sinh câu trả lời Markdown cuối cùng
     try:

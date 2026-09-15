@@ -27,7 +27,7 @@ from app.modules.chat.api.v1.schemas import (
 )
 from app.modules.chat.service import ChatService
 from app.routers.dependencies import get_chat_service, get_transcribe_service
-from app.core.user_context import set_user_context
+from app.core.user_context import _safe_unquote, set_user_context
 
 logger = logging.getLogger(__name__)
 
@@ -184,13 +184,14 @@ async def chat_stream(
                 detail=f"Conversation ID={request.conversation_id} không tồn tại hoặc bạn không có quyền truy cập.",
             )
 
-    roles = request.user_roles or x_user_roles
-    department = request.user_department or x_user_department
-    user_id = request.user_id or x_user_id
+    roles = request.user_roles or (_safe_unquote(x_user_roles) if x_user_roles else None)
+    department = request.user_department or (_safe_unquote(x_user_department) if x_user_department else None)
+    user_id = request.user_id or (_safe_unquote(x_user_id) if x_user_id else None)
+    user_name = _safe_unquote(x_user_name) if x_user_name else None
     logger.info(
         "[CHAT] Received POST /stream request | query='%s' | user_name='%s' | roles='%s' | dept='%s' | user_id='%s'",
         request.message,
-        x_user_name,
+        user_name,
         roles,
         department,
         user_id,
@@ -199,7 +200,7 @@ async def chat_stream(
     generator = service.generate_rag_response_stream(
         message=request.message,
         conversation_id=request.conversation_id,
-        user_id=x_user_id,
+        user_id=user_id,
         user_roles=roles,
         user_department=department,
         request=http_request,
@@ -207,6 +208,8 @@ async def chat_stream(
         retry_message_id=request.retry_message_id,
         is_edit=bool(request.is_edit),
         edit_message_id=request.edit_message_id,
+        images=[img.model_dump() for img in request.images] if request.images else None,
+        model_level=request.model_level or "medium",
     )
 
     return StreamingResponse(generator, media_type="text/event-stream")

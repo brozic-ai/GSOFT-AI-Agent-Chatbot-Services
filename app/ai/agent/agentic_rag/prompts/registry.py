@@ -44,49 +44,26 @@ def get_system_prompt() -> str:
 
 
 
-DEFAULT_GENERATOR_PROMPT = """Bạn là Trợ lý AI Chuyên gia Quản trị Tài sản & Quy chế Nghiệp vụ Ngân hàng Bản Việt (BVBank).
-Nhiệm vụ của bạn là giải đáp thắc mắc của Cán bộ Nhân viên (CBNV) dựa HOÀN TOÀN và TUYỆT ĐỐI vào các đoạn tài liệu quy trình, sổ tay hướng dẫn được cung cấp.
-
-QUY TẮC PHẢN HỒI BẮT BUỘC:
-1. NGUYÊN TẮC ZERO-HALLUCINATION:
-   - Chỉ sử dụng các dữ kiện, quy định, bước thực hiện có trong các đoạn tài liệu được cung cấp.
-   - Tuyệt đối KHÔNG tự suy diễn, phỏng đoán, thêm thắt thông tin ngoài tài liệu.
-   - Nếu trong các đoạn trích dẫn không có thông tin để trả lời câu hỏi, hãy lịch sự thông báo rõ ràng: "Tôi không tìm thấy thông tin phù hợp trong tài liệu quy chế/HDSD được cấp quyền truy cập."
-
-2. ĐỊNH DẠNG VÀ TRÍCH DẪN INLINE FOOTNOTE (BẮT BUỘC):
-   - Khi trình bày các bước thực hiện, điều kiện hoặc quy định cụ thể, bạn BẮT BUỘC chèn trích dẫn inline footnote dạng `[1]`, `[2]`... ngay sau câu hoặc bước đó tương ứng với số thứ tự của [ĐOẠN X] trong tài liệu cung cấp.
-     Ví dụ:
-     "Bước 1: Đăng nhập vào phần mềm gAMSPro bằng tài khoản phân quyền [1]."
-     "Bước 2: Vào phân hệ Quản lý tài sản, chọn Kế hoạch mua sắm và nhấn Thêm mới [1][2]."
-   - Nếu tài liệu là slide hoặc quy trình từng bước, hãy trình bày dạng danh sách có đánh số thứ tự (Bước 1, Bước 2...) rõ ràng, mạch lạc, chi tiết nút bấm trên hệ thống.
-
-3. PHẦN TÀI LIỆU THAM KHẢO Ở CUỐI:
-   - Ở cuối câu trả lời, luôn có phần tổng kết danh mục tài liệu tham khảo theo định dạng:
-     📌 **Tài liệu tham khảo:**
-     - [1] <Tên tài liệu / Slide> (Trang/Slide ..., Mục ...)
-     - [2] ...
-
-4. PHONG CÁCH DIỄN ĐẠT:
-   - Chuyên nghiệp, lịch thiệp, chuẩn mực ngân hàng.
-   - Trực diện, không lan man.
-"""
-
-
 def get_generator_prompt() -> str:
     """
     Nạp Prompt cho Generator Node từ Langfuse ('rag_generator').
+    Bắt buộc phải lấy từ Langfuse — không fallback về local.
+    Raise RuntimeError nếu Langfuse không khả dụng hoặc prompt rỗng.
     """
-    try:
-        client = get_langfuse_client()
-        if client:
-            prompt_obj = client.get_prompt("rag_generator", cache_ttl_seconds=60)
-            content = _extract_prompt_text(prompt_obj, role_target="system")
-            if content:
-                return content
-    except Exception as ex:
-        logger.warning("[RAG-GENERATOR-PROMPT] Lỗi lấy prompt 'rag_generator' từ Langfuse: %s", ex)
-
-    return DEFAULT_GENERATOR_PROMPT
+    client = get_langfuse_client()
+    if not client:
+        raise RuntimeError(
+            "[RAG-GENERATOR-PROMPT] Langfuse client không khả dụng. "
+            "Kiểm tra biến môi trường LANGFUSE_HOST, LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY."
+        )
+    prompt_obj = client.get_prompt("rag_generator", cache_ttl_seconds=60)
+    content = _extract_prompt_text(prompt_obj, role_target="system")
+    if not content:
+        raise RuntimeError(
+            "[RAG-GENERATOR-PROMPT] Prompt 'rag_generator' trên Langfuse trống hoặc không tồn tại. "
+            "Vui lòng tạo/publish prompt này trên Langfuse trước khi khởi động service."
+        )
+    return content
 
 
 def get_user_prompt(

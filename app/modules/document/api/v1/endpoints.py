@@ -43,6 +43,7 @@ from app.routers.dependencies import (
     get_vector_retriever,
     get_embedding_service,
 )
+from app.core.user_context import _safe_unquote
 
 logger = logging.getLogger(__name__)
 
@@ -315,8 +316,8 @@ async def search_documents(
 ):
     """Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (RBAC User Roles + Department)."""
     try:
-        roles = request.user_roles or x_user_roles
-        department = request.user_department or x_user_department
+        roles = request.user_roles or (_safe_unquote(x_user_roles) if x_user_roles else None)
+        department = request.user_department or (_safe_unquote(x_user_department) if x_user_department else None)
 
         response = await retriever.retrieve_context(
             query=request.query,

@@ -194,8 +194,9 @@ class OutputGuardrail:
             )
             cleaned = cleaned.strip()
 
-        # 2. Lọc bỏ các thẻ kỹ thuật XML như <error>, </error>, <warning>, </warning>, <output>, v.v.
+        # 2. Lọc bỏ các thẻ kỹ thuật XML và token kết thúc như <error>, [KẾT THÚC], v.v.
         cleaned = re.sub(r"</?(?:error|warning|result|output|response|final_answer|call)[^>]*>", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\[(?:KẾT\s+THÚC|HẾT)\]", "", cleaned, flags=re.IGNORECASE)
         cleaned = cleaned.strip()
 
         for pattern, violation_type in _SENSITIVE_OUTPUT_PATTERNS:

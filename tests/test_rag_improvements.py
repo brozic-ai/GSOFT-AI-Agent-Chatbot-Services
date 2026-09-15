@@ -198,6 +198,45 @@ class TestRagImprovements(unittest.TestCase):
         self.assertEqual(len(res_plain), 1)
         self.assertEqual(res_plain[0], plain_text)
 
+    def test_clean_rag_generation_output_glued_duplicate(self):
+        from app.ai.agent.agentic_rag.nodes.generator_node import clean_rag_generation_output
+
+        # Case 1: Exact issue from user screenshot (glued after closing parenthesis)
+        raw_output = (
+            "Quy trình phê duyệt tờ trình mua sắm tài sản trên gAMSPro:\n"
+            "1. Đăng nhập hệ thống với quyền trưởng đơn vị kinh doanh.\n"
+            "2. Chọn mục Quản lý mua sắm \\ Phiếu yêu cầu mua sắm.\n"
+            "Tài liệu tham khảo:\n"
+            "[1] Slide dao tao Phan mem QLTS (Trang 54/99)\n"
+            "[2] Slide dao tao Phan mem QLTS (Trang 61/139)Quy trình phê duyệt tờ trình mua sắm tài sản trên gAMSPro:\n"
+            "Căn cứ vào tài liệu, quy trình phê duyệt...\n"
+            "1. Đăng nhập hệ thống\n"
+        )
+        cleaned = clean_rag_generation_output(
+            raw_output, user_query="Quy trình phê duyệt tờ trình mua sắm tài sản trên gAMSPro."
+        )
+        self.assertIn("[2] Slide dao tao Phan mem QLTS (Trang 61/139)", cleaned)
+        self.assertNotIn("(Trang 61/139)Quy trình", cleaned)
+        self.assertNotIn("Căn cứ vào tài liệu", cleaned)
+
+    def test_clean_rag_generation_output_stop_marker_and_duplicate_block(self):
+        from app.ai.agent.agentic_rag.nodes.generator_node import clean_rag_generation_output
+
+        raw_output = (
+            "Hướng dẫn phê duyệt tài sản:\n"
+            "Bước 1: Thực hiện thao tác [1].\n"
+            "📌 **Tài liệu tham khảo:**\n"
+            "- [1] Sổ tay HDSD (Trang 10)\n"
+            "[KẾT THÚC]\n"
+            "Hướng dẫn phê duyệt tài sản:\n"
+            "Bước 1: Lặp lại thao tác"
+        )
+        cleaned = clean_rag_generation_output(raw_output, user_query="Hướng dẫn phê duyệt tài sản")
+        self.assertNotIn("[KẾT THÚC]", cleaned)
+        self.assertNotIn("Lặp lại thao tác", cleaned)
+        self.assertTrue(cleaned.endswith("(Trang 10)"))
+
 
 if __name__ == "__main__":
     unittest.main()
+

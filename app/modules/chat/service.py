@@ -112,6 +112,7 @@ class ChatService:
         retry_message_id: Optional[int] = None,
         is_edit: bool = False,
         edit_message_id: Optional[int] = None,
+        model_level: Optional[str] = "medium",
     ) -> AsyncGenerator[str, None]:
         """
         Tạo luồng Server-Sent Events (SSE) phản hồi qua Master Orchestrator Graph.
@@ -253,6 +254,7 @@ class ChatService:
                     "chat",
                     "multi-agent",
                     getattr(settings, "AI_PROVIDER", "llm"),
+                    f"level-{model_level or 'medium'}",
                 ],
                 metadata={
                     "conversation_id": str(conversation_id) if conversation_id else None,
@@ -261,6 +263,7 @@ class ChatService:
                     "top_k": top_k,
                     "is_retry": is_retry,
                     "retry_message_id": retry_message_id,
+                    "model_level": model_level or "medium",
                 },
                 trace_name=f"{'[RETRY] ' if is_retry else ''}Orchestrator-Chat: {base_query[:35]}",
                 trace_id=trace_id,
@@ -271,6 +274,7 @@ class ChatService:
                 if conversation_id
                 else f"chat-{uuid.uuid4().hex[:8]}",
                 "user_query": base_query,
+                "model_level": model_level or "medium",
                 "user_info": {
                     "roles": user_roles,
                     "department": user_department,

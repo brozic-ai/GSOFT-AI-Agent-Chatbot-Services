@@ -143,10 +143,10 @@ async def create_request_doc(
             return (
                 f"✅ **TẠO MỚI TỜ TRÌNH MUA SẮM THÀNH CÔNG TRÊN GAMSPRO!**\n\n"
                 f"- **Số Tờ trình:** 📄 `{req_code}`\n"
-                f"- **Mã hệ thống (REQ_ID):** `{req_id}`\n"
-                f"- **Tiêu đề:** {clean_title}\n"
-                f"- **Tổng tiền đề xuất:** {amt:,.0f} VNĐ\n"
+                f"- **Tiêu đề / Tên tờ trình:** **{clean_title}**\n"
+                f"- **Tổng tiền đề xuất:** **{amt:,.0f} VNĐ**\n"
                 f"- **Trạng thái:** ⚠️ **Lưu Nháp** (Chờ gửi phê duyệt)\n"
+                f"- **Mã hệ thống (REQ_ID):** `{req_id}`\n"
                 f"- **Kế hoạch liên kết:** 📌 `{resolved_plan_code or 'Chưa liên kết'}`\n\n"
                 f"👉 **Đường dẫn xem hồ sơ:** [{req_code}]({relative_url})\n\n"
                 f"Anh có muốn gửi phê duyệt tờ trình này ngay bây giờ không ạ?"

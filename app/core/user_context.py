@@ -16,6 +16,18 @@ _CURRENT_USER_ROLES: ContextVar[Optional[str]] = ContextVar("current_user_roles"
 _CURRENT_USER_DEPARTMENT: ContextVar[Optional[str]] = ContextVar("current_user_department", default=None)
 
 
+from urllib.parse import unquote
+
+
+def _safe_unquote(val: Optional[str]) -> Optional[str]:
+    if not val:
+        return val
+    try:
+        return unquote(val).strip()
+    except Exception:
+        return val.strip()
+
+
 def set_user_context(
     user_name: Optional[str] = None,
     user_id: Optional[str] = None,
@@ -24,18 +36,20 @@ def set_user_context(
     department: Optional[str] = None,
 ) -> None:
     """Thiết lập ngữ cảnh người dùng cho request/coroutine hiện tại."""
-    clean_uname = user_name.strip() if user_name and user_name.strip() else None
-    clean_uid = user_id.strip() if user_id and user_id.strip() else None
+    clean_uname = _safe_unquote(user_name)
+    clean_uid = _safe_unquote(user_id)
+    clean_roles = _safe_unquote(roles)
+    clean_dept = _safe_unquote(department)
     
     clean_token = auth_token.strip() if auth_token and auth_token.strip() else None
     if clean_token and clean_token.lower().startswith("bearer "):
         clean_token = clean_token[7:].strip()
 
-    _CURRENT_USER_NAME.set(clean_uname)
-    _CURRENT_USER_ID.set(clean_uid)
+    _CURRENT_USER_NAME.set(clean_uname if clean_uname else None)
+    _CURRENT_USER_ID.set(clean_uid if clean_uid else None)
     _CURRENT_AUTH_TOKEN.set(clean_token)
-    _CURRENT_USER_ROLES.set(roles.strip() if roles else None)
-    _CURRENT_USER_DEPARTMENT.set(department.strip() if department else None)
+    _CURRENT_USER_ROLES.set(clean_roles if clean_roles else None)
+    _CURRENT_USER_DEPARTMENT.set(clean_dept if clean_dept else None)
 
 
 def get_current_user_name() -> Optional[str]:

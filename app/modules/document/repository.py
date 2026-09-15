@@ -234,17 +234,17 @@ class DocumentRepository:
         expiration_date: str | None = None,
         allowed_roles: list[str] | None = None,
     ) -> None:
-        """Cập nhật siêu dữ liệu và danh sách vai trò được phép truy cập bằng ORM."""
+        """Cập nhật siêu dữ liệu và danh sách vai trò được phép truy cập bằng ORM và đồng bộ xuống Vector Chunks."""
         allowed_roles = allowed_roles or []
+        clean_dept = owner_department.strip() if owner_department else None
+        if clean_dept and len(clean_dept) > 2000:
+            clean_dept = None
         db: Session = SessionLocal()
         try:
             doc = db.query(RagDocument).filter(RagDocument.id == doc_id).first()
             if doc:
                 doc.document_name = document_name
                 doc.category = category
-                clean_dept = owner_department.strip() if owner_department else None
-                if clean_dept and len(clean_dept) > 2000:
-                    clean_dept = None
                 doc.owner_department = clean_dept
                 doc.description = description
                 doc.tags = tags
@@ -284,7 +284,7 @@ class DocumentRepository:
                 logger.info(
                     "[OK] Updated RagDocument ID=%d (ORM) with dept=%s, scope=%s, roles=%s",
                     doc_id,
-                    owner_department,
+                    clean_dept,
                     access_scope,
                     allowed_roles,
                 )
@@ -294,6 +294,105 @@ class DocumentRepository:
             raise
         finally:
             db.close()
+
+        # Đồng bộ quyền hạn phân quyền xuống toàn bộ Chunks trong bảng Documents
+        self.sync_document_chunks_metadata(
+            backend_id=doc_id,
+            access_scope=access_scope,
+            owner_department=clean_dept,
+            allowed_roles=allowed_roles,
+            category=category,
+        )
+
+    def sync_document_chunks_metadata(
+        self,
+        backend_id: int,
+        access_scope: str = "Public",
+        owner_department: str | None = None,
+        allowed_roles: list[str] | None = None,
+        category: str | None = None,
+    ) -> int:
+        """
+        Đồng bộ accessScope, allowedRoles, owner_department và category
+        xuống toàn bộ các Chunks vector trong bảng Documents.
+        Do SQL Server 2025 có vector index trên cột embedding, tạm DROP index trước khi UPDATE
+        và CREATE lại index autocommit sau khi hoàn tất.
+        """
+        allowed_roles = allowed_roles or []
+        if access_scope.lower() == "public":
+            roles_list = ["Public"]
+        else:
+            roles_list = [r.strip() for r in allowed_roles if r.strip()]
+            if not roles_list:
+                roles_list = ["Restricted"]
+
+        roles_json = json.dumps(roles_list, ensure_ascii=False)
+        clean_dept = owner_department.strip() if owner_department else None
+        backend_id_str = str(backend_id)
+        updated_rows = 0
+
+        raw_conn = engine.raw_connection()
+        try:
+            with raw_conn.cursor() as cursor:
+                # 1. Tạm drop Vector Index nếu có để tránh lỗi SQL Server 42231 khi UPDATE
+                try:
+                    cursor.execute(
+                        "DROP INDEX IF EXISTS idx_documents_embedding ON dbo.Documents;"
+                    )
+                except Exception as idx_ex:  # noqa: BLE001
+                    logger.warning(
+                        "[WARN] Exception dropping vector index before metadata UPDATE: %s",
+                        idx_ex,
+                    )
+
+                # 2. Update metadata của các chunk
+                sql = """
+                    UPDATE Documents
+                    SET metadata = JSON_MODIFY(
+                                     JSON_MODIFY(
+                                       JSON_MODIFY(
+                                         JSON_MODIFY(
+                                           JSON_MODIFY(metadata, '$.accessScope', ?),
+                                           '$.owner_department', ?),
+                                         '$.ownerDepartment', ?),
+                                       '$.category', ?),
+                                     '$.allowedRoles', JSON_QUERY(?))
+                    WHERE JSON_VALUE(metadata, '$.backend_id') = ?
+                       OR JSON_VALUE(metadata, '$.backendId') = ?
+                       OR JSON_VALUE(metadata, '$.backend_document_id') = ?;
+                """
+                cursor.execute(
+                    sql,
+                    (
+                        access_scope,
+                        clean_dept,
+                        clean_dept,
+                        category,
+                        roles_json,
+                        backend_id_str,
+                        backend_id_str,
+                        backend_id_str,
+                    ),
+                )
+                updated_rows = cursor.rowcount
+            raw_conn.commit()
+            logger.info(
+                "[OK] Synced metadata for %d chunks of backend_id=%d (scope=%s, dept=%s, roles=%s)",
+                updated_rows,
+                backend_id,
+                access_scope,
+                clean_dept,
+                roles_list,
+            )
+        except Exception:
+            logger.exception("[FAIL] Error syncing chunk metadata for backend_id=%d", backend_id)
+            raise
+        finally:
+            raw_conn.close()
+
+        # 3. Tái tạo lại Vector Index
+        self._recreate_vector_index()
+        return updated_rows
 
     def delete_rag_document(self, backend_id: int) -> str | None:
         """Xóa tài liệu và các vai trò theo backend_id bằng ORM, trả về FilePath để xóa file vật lý."""

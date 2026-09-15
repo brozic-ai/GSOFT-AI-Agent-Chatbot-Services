@@ -24,6 +24,7 @@ class ChatRequest(BaseModel):
     retry_message_id: Optional[int] = Field(default=None, description="ID tin nhắn AI trong DB cần cập nhật lại nội dung")
     is_edit: Optional[bool] = Field(default=False, description="Cờ đánh dấu request chỉnh sửa tin nhắn câu hỏi")
     edit_message_id: Optional[int] = Field(default=None, description="ID tin nhắn User trong DB cần cập nhật")
+    model_level: Optional[str] = Field(default="medium", description="Cấp độ mạnh của model: low, medium, high, max")
 
     model_config = {
         "populate_by_name": True
