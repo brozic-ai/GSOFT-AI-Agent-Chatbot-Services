@@ -47,23 +47,24 @@ def get_system_prompt() -> str:
 def get_generator_prompt() -> str:
     """
     Nạp Prompt cho Generator Node từ Langfuse ('rag_generator').
-    Bắt buộc phải lấy từ Langfuse — không fallback về local.
-    Raise RuntimeError nếu Langfuse không khả dụng hoặc prompt rỗng.
+    Tự động cache 60s và có fallback prompt an toàn khi Langfuse không khả dụng hoặc lỗi kết nối.
     """
-    client = get_langfuse_client()
-    if not client:
-        raise RuntimeError(
-            "[RAG-GENERATOR-PROMPT] Langfuse client không khả dụng. "
-            "Kiểm tra biến môi trường LANGFUSE_HOST, LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY."
-        )
-    prompt_obj = client.get_prompt("rag_generator", cache_ttl_seconds=60)
-    content = _extract_prompt_text(prompt_obj, role_target="system")
-    if not content:
-        raise RuntimeError(
-            "[RAG-GENERATOR-PROMPT] Prompt 'rag_generator' trên Langfuse trống hoặc không tồn tại. "
-            "Vui lòng tạo/publish prompt này trên Langfuse trước khi khởi động service."
-        )
-    return content
+    try:
+        client = get_langfuse_client()
+        if client:
+            prompt_obj = client.get_prompt("rag_generator", cache_ttl_seconds=60)
+            content = _extract_prompt_text(prompt_obj, role_target="system")
+            if content:
+                return content
+    except Exception as ex:
+        logger.warning("[RAG-GENERATOR-PROMPT] Lỗi kết nối/lấy prompt 'rag_generator' từ Langfuse: %s. Sử dụng prompt dự phòng.", ex)
+
+    return (
+        "Bạn là Trợ lý AI chuyên nghiệp hỗ trợ tra cứu và giải đáp quy chế, quy trình, chính sách "
+        "và sổ tay nghiệp vụ của Ngân hàng TMCP Bản Việt (BVBank).\n"
+        "Hãy trả lời câu hỏi của cán bộ nhân viên một cách chính xác, khách quan, đầy đủ và chuyên nghiệp "
+        "dựa trên các thông tin trong NGỮ CẢNH TÀI LIỆU được cung cấp."
+    )
 
 
 def get_user_prompt(

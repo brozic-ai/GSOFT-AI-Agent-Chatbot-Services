@@ -113,7 +113,7 @@ async def get_request_doc_detail(
         status_badge = format_status_badge(status_display)
 
         detail_info = (
-            f"### 📋 Chi tiết Tờ trình: {item.get('reQ_CODE', doc_code)}\n\n"
+            f"### 📋 Chi tiết Tờ trình: `{item.get('reQ_CODE', doc_code)}`\n\n"
             f"- **Tên tờ trình / Trích yếu:** **{reason}**\n"
             f"- **Tổng tiền đề xuất:** **{amt_str}**\n"
             f"- **Trạng thái phê duyệt:** {status_badge}\n"

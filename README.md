@@ -35,13 +35,14 @@ Dự án `dev_llm_service` là dịch vụ Backend AI Agent xử lý ngôn ngữ
 - **Ngôn ngữ lập trình:** Python >= 3.11
 - **Trình quản lý gói:** [uv](https://github.com/astral-sh/uv) (Quản lý dependency & virtualenv hiệu năng cao)
 - **Web Framework:** [FastAPI](https://fastapi.tiangolo.com/) + Uvicorn (Server-Sent Events SSE Streaming & Citations)
-- **AI Agent Frameworks:** LangChain, LangGraph (StateGraph, Conditional Edges, Checkpointing), Google GenAI SDK (`google-genai`), vLLM / Ollama OpenAI-compatible API
+- **AI Agent Frameworks:** LangChain, LangGraph (StateGraph, Conditional Edges, Checkpointing), `langchain-google-genai` (Gemini), `langchain-openai` / `langchain-ollama` (vLLM / Ollama qua OpenAI-compatible API — không dùng package `vllm` trực tiếp, chỉ gọi HTTP)
 - **Embedding & GPU Acceleration:** `SentenceTransformers` (`BAAI/bge-m3`, tự động nhận diện `cuda` / `cpu`), HuggingFace TEI (Text Embeddings Inference)
 - **Reranker (Cross-Encoder):** `BAAI/bge-reranker-base` (SentenceTransformers CrossEncoder tính toán relevance score chuẩn xác cho Top-K kết quả từ Vector Search)
-- **Database & Vector Search:** SQL Server 2025 (sử dụng pyodbc / ODBC Driver 18, Cosine Similarity Vector Search kết hợp DiskANN Indexing và RBAC Filtering)
-- **Prompt Management & Tracing:** [Langfuse](https://langfuse.com/) (Quản lý prompt tập trung trên UI, TTL cache in-memory, Dynamic Prompt Hydration, Tracing & Latency Analytics) kết hợp LangSmith
+- **Database & Vector Search:** SQL Server 2025 (sử dụng pyodbc / ODBC Driver 18, Cosine Similarity Vector Search kết hợp DiskANN Indexing và RBAC Filtering), tùy chọn Hybrid Search với Full-Text Search + RRF (`FTS_ENABLED`)
+- **Ingestion & Parsing:** `markitdown`, `python-docx`, `pypdf`, `python-pptx`, `openpyxl`, `pandas`, `underthesea` (tách từ tiếng Việt)
+- **Prompt Management & Tracing:** [Langfuse](https://langfuse.com/) (Quản lý prompt tập trung trên UI, TTL cache in-memory, Dynamic Prompt Hydration, Tracing & Latency Analytics). LangSmith **không còn được dùng** — `app/core/config.py` chủ động tắt (`LANGCHAIN_TRACING_V2=false`) và xóa mọi biến môi trường `LANGCHAIN_*`/`LANGSMITH_*` sau khi load config.
 - **Kiến trúc RAG:** Fast Direct Pipeline (1 LLM call, Inline Footnotes `[1]`, `[2]`, Clean Context Builder, Zero-Hallucination)
-- **Code Quality & Typing:** Ruff, MyPy, Pytest, Coverage, TQDM, Rich UI
+- **Code Quality & Typing:** Ruff, MyPy, `ty check`, Pytest, TQDM, Rich UI
 
 ---
 
@@ -248,7 +249,7 @@ LANGCHAIN_ENDPOINT=https://apac.api.smith.langchain.com
 
 Chạy bằng `uv`:
 ```bash
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Hoặc kích hoạt Virtual Environment:

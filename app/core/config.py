@@ -4,11 +4,8 @@ from dotenv import load_dotenv
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Load .env into os.environ for SDKs such as LangSmith that read process variables directly.
+# Load .env into os.environ
 load_dotenv(override=True)
-
-
-# Tự động nạp file .env vào os.environ cho LangChain Tracer
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -128,17 +125,6 @@ class Settings(BaseSettings):
     RAG_CONTEXT_NEAR_DUP_LINE_OVERLAP: float = 0.85
     RAG_DYNAMIC_MAX_TOKENS_ENABLED: bool = True
 
-    # --- LangSmith LLMOps Tracing Config ---
-    LANGCHAIN_TRACING_V2: str = "true"
-    LANGCHAIN_API_KEY: str = ""
-    LANGCHAIN_PROJECT: str = "ai-agent-bvbank"
-    LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
-
-    LANGSMITH_TRACING: str | None = None
-    LANGSMITH_API_KEY: str | None = None
-    LANGSMITH_PROJECT: str | None = None
-    LANGSMITH_ENDPOINT: str | None = None
-
     # --- Langfuse LLMOps Tracing Config ---
     LANGFUSE_ENABLED: bool = True
     LANGFUSE_PUBLIC_KEY: str = ""
@@ -159,32 +145,15 @@ def get_settings() -> Settings:
 # Instance cài đặt sẵn cho việc import tiện lợi
 settings = get_settings()
 
-# Đồng bộ biến môi trường cho LangChain Tracing / LangSmith SDK
-tracing_enabled = (
-    (settings.LANGCHAIN_TRACING_V2 and str(settings.LANGCHAIN_TRACING_V2).lower() == "true")
-    or (settings.LANGSMITH_TRACING and str(settings.LANGSMITH_TRACING).lower() == "true")
-)
-api_key = settings.LANGCHAIN_API_KEY or settings.LANGSMITH_API_KEY or os.getenv("LANGCHAIN_API_KEY", "")
-project = settings.LANGCHAIN_PROJECT or settings.LANGSMITH_PROJECT or os.getenv("LANGCHAIN_PROJECT", "ai-agent-bvbank")
-endpoint = settings.LANGCHAIN_ENDPOINT or settings.LANGSMITH_ENDPOINT or "https://api.smith.langchain.com"
-
-if tracing_enabled:
-    os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    os.environ["LANGSMITH_TRACING"] = "true"
-    if api_key:
-        os.environ["LANGCHAIN_API_KEY"] = api_key
-        os.environ["LANGSMITH_API_KEY"] = api_key
-    if project:
-        os.environ["LANGCHAIN_PROJECT"] = project
-        os.environ["LANGSMITH_PROJECT"] = project
-    if endpoint:
-        os.environ["LANGCHAIN_ENDPOINT"] = endpoint
-        os.environ["LANGSMITH_ENDPOINT"] = endpoint
-else:
-    os.environ["LANGCHAIN_TRACING_V2"] = "false"
-    os.environ["LANGSMITH_TRACING"] = "false"
-    os.environ.pop("LANGCHAIN_API_KEY", None)
-    os.environ.pop("LANGSMITH_API_KEY", None)
+# Tắt hoàn toàn LangSmith / LangChain Tracing V2
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+os.environ["LANGSMITH_TRACING"] = "false"
+os.environ.pop("LANGCHAIN_API_KEY", None)
+os.environ.pop("LANGSMITH_API_KEY", None)
+os.environ.pop("LANGCHAIN_PROJECT", None)
+os.environ.pop("LANGSMITH_PROJECT", None)
+os.environ.pop("LANGCHAIN_ENDPOINT", None)
+os.environ.pop("LANGSMITH_ENDPOINT", None)
 
 # Đồng bộ biến môi trường cho Langfuse SDK
 if settings.LANGFUSE_ENABLED:

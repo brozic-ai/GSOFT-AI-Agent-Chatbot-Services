@@ -37,8 +37,27 @@ async def classify_intent_node(state: SupervisorState) -> dict:
         )
     )
     is_pur_detail = bool(re.search(r"(xem\s+chi\s+tiết|thông\s+tin)\s+pur/", clean_q))
+    is_followup_confirmation = bool(
+        re.search(
+            r"^(có\b|đồng\s*ý|được|ok\b|ừ\b|yes\b|tiến\s*hành|thực\s*hiện|kiểm\s*tra|tra\s*cứu|xem\s*giúp)",
+            clean_q,
+        )
+        or any(
+            phrase in clean_q
+            for phrase in [
+                "kiểm tra giúp",
+                "kiểm tra giùm",
+                "kiểm tra hộ",
+                "tra cứu giúp",
+                "kiểm tra ngân sách",
+                "kiểm tra kế hoạch",
+                "xem ngân sách",
+                "xem kế hoạch",
+            ]
+        )
+    )
 
-    if (is_pagination or is_ordinal_to_trinh or is_pur_detail) and chat_history:
+    if (is_pagination or is_ordinal_to_trinh or is_pur_detail or is_followup_confirmation) and chat_history:
         last_assistant_msg = ""
         for h in reversed(chat_history):
             if h.get("role") in ("assistant", "ai"):
@@ -50,18 +69,19 @@ async def classify_intent_node(state: SupervisorState) -> dict:
             "pur/",
             "gamspro",
             "kế hoạch",
+            "ngân sách",
             "đơn hàng",
             "đơn đặt hàng",
             "po",
         ]
         if any(kw in last_assistant_msg.lower() for kw in procurement_keywords):
             logger.info(
-                "[SUPERVISOR-CLASSIFY] Fast-path định tuyến 'procurement' cho câu hỏi tiếp nối / phân trang: '%s'",
+                "[SUPERVISOR-CLASSIFY] Fast-path định tuyến 'procurement' cho câu hỏi tiếp nối / xác nhận: '%s'",
                 clean_q,
             )
             route_result = RouterOutput(
                 reasoning=(
-                    "Người dùng đang điều hướng phân trang hoặc chọn xem chi tiết hồ sơ từ danh sách gAMSPro trước đó."
+                    "Người dùng đang xác nhận thực hiện thao tác tiếp nối hoặc điều hướng hồ sơ gAMSPro từ ngữ cảnh trước."
                 ),
                 intent="procurement",
                 query=user_query,

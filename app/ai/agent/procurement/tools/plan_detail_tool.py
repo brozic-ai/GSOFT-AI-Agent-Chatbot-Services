@@ -45,7 +45,7 @@ async def check_plan_budget_detail(
         if not clean_code.upper().startswith("PLRD"):
             try:
                 search_payload = {
-                    "maxResultCount": 20,
+                    "maxResultCount": 50,
                     "skipCount": 0,
                     "reQ_CODE": "",
                     "type": "DVKD",
@@ -96,15 +96,15 @@ async def check_plan_budget_detail(
                 remain_amt = float(total_remain) if (total_remain is not None and str(total_remain).replace(".", "", 1).isdigit()) else (total_amt - used_amt)
 
                 info = (
-                    f"📊 THÔNG TIN KẾ HOẠCH NGÂN SÁCH LIÊN KẾT:\n"
-                    f"- Mã Kế hoạch: `{p_code}`\n"
-                    f"- Tên Kế hoạch: {p_name}\n"
-                    f"- Đơn vị quản lý / thụ hưởng: {branch}\n"
-                    f"- Trạng thái Kế hoạch: {status} (Ngày duyệt: {app_dt})\n"
-                    f"- Tổng hạn mức ngân sách: {total_amt:,.0f} VNĐ\n"
-                    f"- Ngân sách đã thực hiện: {used_amt:,.0f} VNĐ\n"
-                    f"- Ngân sách còn lại khả dụng: 🟩 {remain_amt:,.0f} VNĐ\n\n"
-                    f"🟢 ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH:\n"
+                    f"### Thông tin Kế hoạch Ngân sách: `{p_code}`\n\n"
+                    f"- **Mã Kế hoạch**: `{p_code}`\n"
+                    f"- **Tên Kế hoạch**: **{p_name}**\n"
+                    f"- **Đơn vị quản lý / thụ hưởng**: {branch}\n"
+                    f"- **Trạng thái Kế hoạch**: {status} (Ngày duyệt: {app_dt})\n"
+                    f"- **Tổng hạn mức ngân sách**: {total_amt:,.0f} VNĐ\n"
+                    f"- **Ngân sách đã thực hiện**: {used_amt:,.0f} VNĐ\n"
+                    f"- **Ngân sách còn lại khả dụng**: {remain_amt:,.0f} VNĐ\n\n"
+                    f"**ĐÁNH GIÁ TỰ ĐỘNG TUÂN THỦ NGÂN SÁCH:**\n"
                     f"Kế hoạch đã được phê duyệt hợp lệ. Ngân sách còn lại khả dụng ({remain_amt:,.0f} VNĐ) "
                     f"hoàn toàn đủ để cover khoản đề xuất của Tờ trình mua sắm."
                 )
@@ -140,12 +140,12 @@ async def check_plan_budget_detail(
 
             info = (
                 f"{idx}. Mã Kế hoạch: `{p_code}`\n"
-                f"   - Tên Kế hoạch: {plan_name}\n"
-                f"   - Đơn vị quản lý / lập: {branch}\n"
-                f"   - Trạng thái Kế hoạch: {status_badge}\n"
-                f"   - Tổng hạn mức ngân sách: {total_amt:,.0f} VNĐ\n"
-                f"   - Ngân sách đã dùng: {used_amt:,.0f} VNĐ\n"
-                f"   - Ngân sách còn lại: {remain_amt:,.0f} VNĐ"
+                f"   - **Tên Kế hoạch**: **{plan_name}**\n"
+                f"   - **Đơn vị quản lý / lập**: {branch}\n"
+                f"   - **Trạng thái Kế hoạch**: {status_badge}\n"
+                f"   - **Tổng hạn mức ngân sách**: {total_amt:,.0f} VNĐ\n"
+                f"   - **Ngân sách đã dùng**: {used_amt:,.0f} VNĐ\n"
+                f"   - **Ngân sách còn lại**: {remain_amt:,.0f} VNĐ"
             )
             formatted_results.append(info)
 

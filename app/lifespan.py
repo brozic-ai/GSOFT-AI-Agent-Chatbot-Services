@@ -44,18 +44,10 @@ async def _startup() -> None:
 
     # 1. LLM Provider — pre-warm để phát hiện lỗi config sớm
     try:
-        import os
         from app.routers.dependencies import get_llm_provider_dep
 
         provider = get_llm_provider_dep()
         logger.info("[OK] LLM Provider ready: %s", type(provider).__name__)
-        logger.info(
-            "[LANGSMITH] Tracing enabled=%s | Project='%s' | Endpoint='%s' | KeyConfigured=%s",
-            os.getenv("LANGCHAIN_TRACING_V2", "false"),
-            os.getenv("LANGCHAIN_PROJECT", "ai-agent-bvbank"),
-            os.getenv("LANGCHAIN_ENDPOINT", "default"),
-            bool(os.getenv("LANGCHAIN_API_KEY")),
-        )
         from app.llmops.langfuse import is_langfuse_configured
         logger.info(
             "[LANGFUSE] Tracing enabled=%s | Host='%s' | KeyConfigured=%s",
