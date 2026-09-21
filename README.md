@@ -58,6 +58,8 @@ dev_llm_service/
 │   │   │   │   ├── graph/      # StateGraph (retrieve_rag_node -> generator_node / fallback_node)
 │   │   │   │   ├── nodes/      # retrieve_node.py, generator_node.py
 │   │   │   │   ├── prompts/    # registry.py (Nạp prompt rag_generator từ Langfuse)
+│   │   │   │   ├── tools/      # doc_metadata_tool.py, policy_category_tool.py, search_policy_docs_tool.py
+│   │   │   │   ├── memory/     # Query rewrite / lịch sử hội thoại phục vụ retrieval
 │   │   │   │   ├── state.py    # AgenticRAGState (user_query, context, citations, final_answer)
 │   │   │   │   └── eval/       # Bộ test cases và benchmark cho RAG Agent
 │   │   │   ├── faq/            # FAQ Agent (Tra cứu câu hỏi thường gặp)
@@ -65,29 +67,35 @@ dev_llm_service/
 │   │   │   │   ├── nodes/      # faq_node.py (Nạp prompt faq_agent từ Langfuse)
 │   │   │   │   ├── tools/      # search.py (Hybrid RRF Search trên CSDL FAQ)
 │   │   │   │   ├── prompts/    # registry.py kết nối Langfuse
+│   │   │   │   ├── docs/, services/  # Tài liệu & service phụ trợ riêng của FAQ
 │   │   │   │   └── eval/       # Eval config & test cases cho FAQ
 │   │   │   ├── fallback/       # Centralized Fallback Hub dùng chung
 │   │   │   │   └── nodes/      # fallback_node.py (Phản hồi thân thiện khi out-of-scope / RAG miss)
 │   │   │   ├── supervisor/     # Supervisor Agent phân loại ý định (Intent Classifier)
+│   │   │   │   ├── graph/, nodes/, prompts/  # Cùng bố cục graph/nodes/prompts như các agent khác
 │   │   │   │   └── eval/       # 75 test cases đánh giá routing
-│   │   │   └── procurement/    # Procurement Agent (Xử lý nghiệp vụ mua sắm)
+│   │   │   └── procurement/    # Procurement Agent (Xử lý nghiệp vụ mua sắm — ReAct đa lượt)
+│   │   │       └── graph/, nodes/, prompts/, tools/, eval/  # Đầy đủ bố cục 1 agent như agentic_rag/faq
 │   │   ├── eval/               # Framework đánh giá dùng chung (Metrics, Scorer, Runner, Report)
 │   │   └── rag/                # Pipeline nạp và truy xuất tri thức
 │   │       ├── chunking/       # splitter.py (Token Chunker 800 tokens, Atomic Slide Aggregator)
 │   │       ├── context/        # builder.py (RagContextBuilder làm sạch và định dạng ngữ cảnh)
 │   │       ├── embedding/      # service.py (SentenceTransformer BGE-M3 / TEI / Ollama)
 │   │       ├── ingestion/      # extractor.py (Trích xuất Word, PDF, Slide PPTX chuẩn xác)
-│   │       └── retrieval/      # retriever.py (Vector Search + BGE Cross-Encoder Reranker)
+│   │       └── retrieval/      # retriever.py (Vector Search + BGE Cross-Encoder Reranker, tùy chọn Hybrid FTS+RRF)
 │   ├── core/                   # Cấu hình cốt lõi (Config, Database, Exception, Logging, Middleware)
-│   ├── llmops/                 # Quản lý LLM Provider Factory (Gemini, vLLM / Ollama, OpenAI)
+│   ├── llmops/                 # Quản lý LLM Provider Factory
+│   │   └── providers/          # Cài đặt cụ thể từng provider (Gemini, vLLM/Ollama, OpenAI-compatible)
 │   ├── modules/                # Đóng gói logic theo nghiệp vụ Domain-Driven Design
 │   │   ├── auth/               # Module Xác thực & Phân quyền
-│   │   ├── chat/               # Module Chatbot & Lịch sử hội thoại (SSE Streaming + Citations)
+│   │   ├── chat/                # Module Chatbot & Lịch sử hội thoại (SSE Streaming + Citations)
 │   │   ├── document/           # Module Ingest, Re-index & Quản lý tài liệu
 │   │   ├── faq_knowledge/      # Module Quản lý CSDL FAQ & Nhập Excel
 │   │   └── health/             # Module kiểm tra trạng thái dịch vụ (Health Check)
 │   ├── routers/                # API Routers & Dependency Injection (App DI Container)
-│   ├── lifespan.py             # Quản lý vòng đời ứng dụng FastAPI (Startup / Shutdown)
+│   ├── security/                # (Stub — hiện chỉ có `__init__.py`, chưa triển khai logic)
+│   ├── shared/                  # Thành phần chia sẻ toàn app: dto/, enums/, events/, types/, utils/
+│   ├── lifespan.py             # Quản lý vòng đời ứng dụng FastAPI (Startup / Shutdown) — bao gồm tạo DDL bảng `Documents`/`FaqVectors` (VECTOR(1024)) và Full-Text Search catalog/index nếu `FTS_ENABLED=true`
 │   └── main.py                 # File khởi tạo ứng dụng FastAPI chính
 ├── data/
 │   └── eval_results/           # Kết quả benchmark JSON (latest, history, benchmark_summary.json)
@@ -202,7 +210,11 @@ uv sync
 
 ## ⚙️ Cấu Hình Môi Trường (.env)
 
-Tạo hoặc chỉnh sửa file `.env` tại thư mục gốc `dev_llm_service/`:
+Copy `.env.example` thành `.env` tại thư mục gốc `dev_llm_service/` rồi điền giá trị thật (`.env.example` chứa đầy đủ toàn bộ biến, đồng bộ với `app/core/config.py`). Danh sách dưới đây chỉ là **tập tối thiểu để chạy được** — toàn bộ danh sách đầy đủ (RAG chunking, reranker, hybrid search FTS/RRF, Langfuse, fallback provider...) do `app/core/config.py` (Pydantic `Settings`) định nghĩa và là **nguồn chân lý duy nhất**; hãy đọc trực tiếp file đó khi cần biến ít dùng, README sẽ không theo kịp mỗi lần thêm setting mới.
+
+> **Lưu ý về tracing:** `LANGCHAIN_TRACING_V2`/`LANGCHAIN_API_KEY`/LangSmith **không còn tác dụng** — `config.py` chủ động set `false` và xóa các biến này sau khi load. Tracing thực tế chạy hoàn toàn qua Langfuse (`LANGFUSE_ENABLED`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`).
+
+> **Hybrid Search (Full-Text Search + RRF):** Đặt `FTS_ENABLED=true` để `lifespan.py` tự tạo Full-Text catalog/index cho SQL Server lúc khởi động và kết hợp kết quả FTS với Vector Search qua Reciprocal Rank Fusion (`RRF_VECTOR_WEIGHT`, `RRF_FTS_WEIGHT`, `FTS_MAX_CANDIDATES`).
 
 ```ini
 # --- Core Application ---
@@ -234,11 +246,11 @@ TEI_URL=http://localhost:8080
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 GEMINI_MODEL=gemini-3.5-flash-lite
 
-# --- LangSmith Tracing ---
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=YOUR_LANGSMITH_API_KEY
-LANGCHAIN_PROJECT=ai-agent-bvbank
-LANGCHAIN_ENDPOINT=https://apac.api.smith.langchain.com
+# --- Langfuse Tracing (thay thế LangSmith, xem lưu ý ở trên) ---
+LANGFUSE_ENABLED=true
+LANGFUSE_PUBLIC_KEY=YOUR_LANGFUSE_PUBLIC_KEY
+LANGFUSE_SECRET_KEY=YOUR_LANGFUSE_SECRET_KEY
+LANGFUSE_HOST=https://cloud.langfuse.com
 ```
 
 ---
@@ -676,16 +688,18 @@ Không nạp file prompt local tĩnh để đảm bảo khả năng A/B testing 
 
 ## 🧪 Kiểm Tra & Đảm Bảo Chất Lượng Code
 
-- **Định dạng code:**
+- **Định dạng code (auto-fix):**
   ```bash
-  uv run ruff format app scripts
+  scripts/format.sh
+  # Tương đương: uv run ruff check app scripts --fix && uv run ruff format app scripts
   ```
-- **Linter & Type Check:**
+- **Linter & Type Check (check-only):**
   ```bash
-  uv run ruff check app scripts
-  uv run mypy app
+  scripts/lint.sh
+  # Tương đương: uv run mypy app && uv run ty check app && uv run ruff check app && uv run ruff format app --check
   ```
-- **Chạy Tests:**
+  > `ty check` không phải dependency khai báo trong `pyproject.toml` — cần cài `ty` global (`uv tool install ty` hoặc tương đương), nếu không `lint.sh` sẽ fail ở bước này.
+- **Chạy Tests:** (bộ test thực tế trong `tests/`: `test_guardrail.py`, `test_agentic_rag_graph.py`, `test_chat_stream_api.py`, `test_orchestration.py`, `test_procurement_tools.py`, ...)
   ```bash
   uv run pytest
   ```

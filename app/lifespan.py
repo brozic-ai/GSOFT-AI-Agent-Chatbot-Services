@@ -42,6 +42,14 @@ async def lifespan(app: FastAPI):
 async def _startup() -> None:
     """Khởi tạo tất cả resources cần thiết khi ứng dụng khởi động."""
 
+    # 0. Bắt buộc REQUIRED_API_KEY ở production — không cho âm thầm chạy với
+    # APIKeyAuthMiddleware bị tắt (mặc định rỗng = "cho qua", chỉ chấp nhận được ở local/dev).
+    if settings.ENVIRONMENT == "production" and not settings.REQUIRED_API_KEY:
+        raise RuntimeError(
+            "REQUIRED_API_KEY is not set while ENVIRONMENT=production. "
+            "Set it (matching AiApi__InternalApiKey on the ASP.NET gateway) before starting."
+        )
+
     # 1. LLM Provider — pre-warm để phát hiện lỗi config sớm
     try:
         from app.routers.dependencies import get_llm_provider_dep
