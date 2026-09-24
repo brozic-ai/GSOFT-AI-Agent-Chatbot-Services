@@ -7,6 +7,7 @@ gọi LLM Streaming và quản lý lịch sử hội thoại (Chat History).
 import asyncio
 import json
 import logging
+import re
 import uuid
 from typing import AsyncGenerator, Optional, List, Dict, Any, Union
 from fastapi import Request
@@ -59,11 +60,22 @@ class ChatService:
         """Generate a short title; title generation failure must not fail the chat."""
         fallback = question.strip()[:80]
         try:
+            from app.llmops.langfuse import get_langfuse_langchain_config
+
+            title_config = get_langfuse_langchain_config(
+                session_id=str(conversation_id),
+                tags=["title-generation", "background"],
+                trace_name=f"Generate-Title: cid={conversation_id}",
+            )
+
             response = await asyncio.wait_for(
-                self.llm_provider.ainvoke([
-                    ("system", "Create a concise Vietnamese chat title, 3-8 words, no quotes or markdown."),
-                    ("user", question.strip()),
-                ]),
+                self.llm_provider.ainvoke(
+                    [
+                        ("system", "Create a concise Vietnamese chat title, 3-8 words, no quotes or markdown."),
+                        ("user", question.strip()),
+                    ],
+                    config=title_config,
+                ),
                 timeout=5,
             )
             title = response.content if hasattr(response, "content") else str(response)
@@ -87,24 +99,35 @@ class ChatService:
 
     async def generate_rag_response_stream(
         self,
-        message: str,
+        message: str = "",
         conversation_id: Optional[int] = None,
-        user_id: Optional[str] = None,
-        user_roles: Optional[str] = None,
+        user_id: Optional[str] = "guest",
+        user_roles: Optional[Union[List[str], str]] = None,
         user_department: Optional[str] = None,
         top_k: int = 5,
-        request: Optional[Request] = None,
+        images: Optional[List[Dict[str, Any]]] = None,
+        request: Optional[Any] = None,
+        question: Optional[str] = None,
+        is_retry: bool = False,
+        retry_message_id: Optional[int] = None,
+        is_edit: bool = False,
+        edit_message_id: Optional[int] = None,
+        model_level: Optional[str] = "medium",
     ) -> AsyncGenerator[str, None]:
         """
-        Tạo luồng Server-Sent Events (SSE) phản hồi câu hỏi RAG.
-        Tích hợp lịch sử hội thoại vào ngữ cảnh Prompt để bot nhớ các câu hỏi trước.
+        Tạo luồng Server-Sent Events (SSE) phản hồi qua Master Orchestrator Graph.
 
-        Luồng xử lý:
-        1. Lấy lịch sử tin nhắn từ DB (nếu có conversation_id).
-        2. Lưu câu hỏi mới của User vào DB.
-        3. Truy vấn RAG từ Vector Store (có RBAC).
-        4. Xây dựng Prompt kết hợp ngữ cảnh tài liệu + lịch sử hội thoại.
-        5. Stream câu trả lời từ LLM; nối lại và lưu câu trả lời vào DB sau khi hoàn tất.
+        Luồng xử lý Enterprise Multi-Agent:
+        1. Lấy lịch sử tin nhắn từ DB (nếu có conversation_id). Hỗ trợ lấy ngữ cảnh đến đúng mốc retry/edit.
+        2. Lưu câu hỏi mới của User vào DB (nếu không phải là request Retry hoặc Edit).
+        3. Khởi tạo OrchestratorState kèm messages và user_info (roles, department, user_id).
+        4. Thực thi Master Orchestrator Graph:
+           - Input Guardrail (Chặn tấn công)
+           - Supervisor Intent Classifier (RAG, Procurement, FAQ, Fallback)
+           - Sub-Agent tương ứng (RAG Knowledge Agent 4-Node, gAMSPro ReAct, FAQ, Fallback)
+           - Output Guardrail (Kiểm duyệt an toàn thông tin)
+        5. Trả về trích dẫn citations (nếu có từ RAG) và stream token về Frontend qua SSE.
+        6. Cập nhật tin nhắn đã có (nếu là Retry) hoặc Lưu phản hồi mới của Assistant vào DB.
         """
         try:
             # Phát sự kiện khởi đầu chat
@@ -113,141 +136,350 @@ class ChatService:
             if request and await request.is_disconnected():
                 return
 
-            base_query = message.strip()
+            base_query = (message or question or "").strip()
             if not base_query:
-                reply_empty = "Bạn chưa nhập câu hỏi."
-                if conversation_id:
-                    self.chat_repo.save_message(conversation_id, role="assistant", content=reply_empty)
-                yield f"event: token\ndata: {json.dumps({'text': reply_empty}, ensure_ascii=False)}\n\n"
-                yield "event: chat_ended\ndata: {}\n\n"
-                return
-
-            # Lời chào đơn giản — không cần RAG, không lưu lịch sử
-            if base_query.lower() in ["hi", "hello", "xin chào", "chào", "alo"]:
-                greeting = "Xin chào! Tôi là trợ lý AI thông minh. Tôi có thể giúp gì cho bạn?"
-                if conversation_id:
-                    self.chat_repo.save_message(conversation_id, role="assistant", content=greeting)
-                yield "event: citations\ndata: []\n\n"
-                yield f"event: token\ndata: {json.dumps({'text': greeting}, ensure_ascii=False)}\n\n"
-                yield "event: chat_ended\ndata: {}\n\n"
-                return
+                if is_retry:
+                    base_query = "Xin chào! Hãy giới thiệu về trợ lý AI BVBank & gAMSPro và các nhóm nghiệp vụ có thể hỗ trợ."
+                else:
+                    reply_empty = "Bạn chưa nhập câu hỏi."
+                    if conversation_id:
+                        self.chat_repo.save_message(
+                            conversation_id=conversation_id, role="assistant", content=reply_empty
+                        )
+                    yield f"event: token\ndata: {json.dumps({'text': reply_empty}, ensure_ascii=False)}\n\n"
+                    yield "event: chat_ended\ndata: {}\n\n"
+                    return
 
             # 1. Lấy lịch sử hội thoại từ DB
             history: List[Dict[str, Any]] = []
             is_first_message = True
+            user_msg_id: Optional[int] = None
             if conversation_id:
                 if request and await request.is_disconnected():
                     return
-                message_count = self.chat_repo.get_message_count(conversation_id)
-                is_first_message = (message_count == 0)
-                if message_count > 0:
-                    history = self.chat_repo.get_chat_history(conversation_id, limit=HISTORY_LIMIT)
+                if is_retry and retry_message_id:
+                    self.chat_repo.truncate_messages_after(
+                        conversation_id=conversation_id,
+                        message_id=retry_message_id,
+                    )
+                    history = self.chat_repo.get_chat_history_up_to(
+                        conversation_id=conversation_id,
+                        target_message_id=retry_message_id,
+                        limit=HISTORY_LIMIT,
+                    )
+                    is_first_message = False
+                elif is_edit:
+                    if not edit_message_id:
+                        last_user_msg = self.chat_repo.get_last_user_message(conversation_id)
+                        if last_user_msg:
+                            edit_message_id = last_user_msg["id"]
 
-            # 2. Lưu câu hỏi của User vào DB
-            if conversation_id:
+                    if edit_message_id:
+                        self.chat_repo.update_message_content(
+                            message_id=edit_message_id,
+                            content=base_query,
+                        )
+                        self.chat_repo.truncate_messages_after(
+                            conversation_id=conversation_id,
+                            message_id=edit_message_id,
+                        )
+                        history = self.chat_repo.get_chat_history_up_to(
+                            conversation_id=conversation_id,
+                            target_message_id=edit_message_id,
+                            limit=HISTORY_LIMIT,
+                        )
+                        user_msg_id = edit_message_id
+                        is_first_message = False
+                    else:
+                        message_count = self.chat_repo.get_message_count(conversation_id)
+                        is_first_message = message_count == 0
+                        if message_count > 0:
+                            history = self.chat_repo.get_chat_history(
+                                conversation_id=conversation_id, limit=HISTORY_LIMIT
+                            )
+                else:
+                    message_count = self.chat_repo.get_message_count(conversation_id)
+                    is_first_message = message_count == 0
+                    if message_count > 0:
+                        history = self.chat_repo.get_chat_history(
+                            conversation_id=conversation_id, limit=HISTORY_LIMIT
+                        )
+
+            # 2. Lưu câu hỏi của User vào DB (Chỉ lưu khi là câu hỏi mới, hoặc khi phiên chưa có tin nhắn nào)
+            should_save_user_msg = (
+                conversation_id
+                and (not is_retry and not is_edit or is_first_message)
+            )
+            if should_save_user_msg:
                 if request and await request.is_disconnected():
                     return
-                self.chat_repo.save_message(
+                user_msg_id = self.chat_repo.save_message(
                     conversation_id=conversation_id,
                     role="user",
                     content=base_query,
                 )
                 # Tự động đặt tiêu đề từ câu hỏi đầu tiên
                 if is_first_message:
-                    await self.generate_conversation_title(conversation_id, base_query)
+                    asyncio.create_task(
+                        self.generate_conversation_title(
+                            conversation_id, base_query
+                        )
+                    )
 
-            # 3. Truy vấn ngữ cảnh RAG từ Vector Store với phân quyền RBAC
-            search_res = await self.retriever.retrieve_context(
-                query=base_query,
-                top_k=top_k,
-                user_roles=user_roles,
-                user_department=user_department,
-            )
+            # 3. Chuẩn bị danh sách BaseMessage cho Master Orchestrator
+            from langchain_core.messages import AIMessage, HumanMessage
 
-            if request and await request.is_disconnected():
-                return
-
-            documents = search_res["documents"][0] if search_res.get("documents") else []
-            citations_list = search_res["citations"][0] if search_res.get("citations") else []
-
-            # Trả về trích dẫn tài liệu (Citations SSE Event)
-            yield f"event: citations\ndata: {json.dumps(citations_list, ensure_ascii=False, default=str)}\n\n"
-
-            if not documents or not any(doc.strip() for doc in documents):
-                no_info_msg = "Tôi không tìm thấy thông tin phù hợp trong tài liệu được cấp quyền."
-                yield f"event: token\ndata: {json.dumps({'text': no_info_msg})}\n\n"
-                # Lưu câu trả lời "không tìm thấy" vào DB
-                if conversation_id:
-                    self.chat_repo.save_message(conversation_id=conversation_id, role="assistant", content=no_info_msg)
-                    self.chat_repo.touch_conversation(conversation_id)
-                yield "event: chat_ended\ndata: {}\n\n"
-                return
-
-            # 4. Xây dựng Prompt kết hợp ngữ cảnh tài liệu + lịch sử hội thoại
-            context_str = "\n---\n".join(documents)
-            system_prompt = (
-                "Bạn là trợ lý AI thông minh của hệ thống Enterprise. "
-                "Hãy trả lời câu hỏi của người dùng dựa trên NGỮ CẢNH TÀI LIỆU được cung cấp bên dưới.\n"
-                "Quy tắc:\n"
-                "1. Chỉ sử dụng thông tin trong phần NGỮ CẢNH TÀI LIỆU. Không tự suy diễn.\n"
-                "2. Nếu tài liệu không có thông tin, hãy trả lời: 'Tôi không tìm thấy thông tin này trong tài liệu.'\n"
-                "3. Trả lời ngắn gọn, trực tiếp, tự nhiên bằng tiếng Việt.\n\n"
-                f"NGỮ CẢNH TÀI LIỆU:\n{context_str}"
-            )
-
-            # Xây dựng danh sách messages kèm lịch sử hội thoại
-            messages_for_llm = [("system", system_prompt)]
+            messages_for_graph = []
             for hist_msg in history:
-                role = hist_msg["role"]
-                if role in ("user", "assistant"):
-                    messages_for_llm.append((role, hist_msg["content"]))
-            messages_for_llm.append(("user", base_query))
+                role = hist_msg.get("role")
+                content = hist_msg.get("content", "")
+                if role in ("user", "human"):
+                    messages_for_graph.append(HumanMessage(content=content))
+                elif role in ("assistant", "ai"):
+                    messages_for_graph.append(AIMessage(content=content))
+            messages_for_graph.append(HumanMessage(content=base_query))
 
-            # 5. Gọi LLM Provider Streaming và thu thập câu trả lời
-            logger.info("[CHAT] Calling LLM streaming for query='%s', history_count=%d...", base_query, len(history))
-            full_response_chunks = []
+            # 4. Thiết lập Tracing Langfuse / LangSmith
+            from app.ai.orchestration.graph import orchestrator_graph
+            from app.core.config import settings
+            from app.llmops.langfuse import get_langfuse_langchain_config, record_langfuse_score
 
-            stream_config = {
-                "run_name": f"Chatbot-RAG: {base_query[:35]}",
-                "tags": ["rag", "chat", "streaming"],
-                "metadata": {
+            trace_id = str(uuid.uuid4())
+
+            stream_config = get_langfuse_langchain_config(
+                user_id=user_id,
+                session_id=str(conversation_id) if conversation_id else None,
+                tags=[
+                    "orchestrator",
+                    "chat",
+                    "multi-agent",
+                    getattr(settings, "AI_PROVIDER", "llm"),
+                    f"level-{model_level or 'medium'}",
+                ],
+                metadata={
                     "conversation_id": str(conversation_id) if conversation_id else None,
                     "user_roles": user_roles,
                     "user_department": user_department,
+                    "top_k": top_k,
+                    "is_retry": is_retry,
+                    "retry_message_id": retry_message_id,
+                    "model_level": model_level or "medium",
                 },
+                trace_name=f"{'[RETRY] ' if is_retry else ''}Orchestrator-Chat: {base_query[:35]}",
+                trace_id=trace_id,
+            )
+
+            state_input = {
+                "session_id": str(conversation_id)
+                if conversation_id
+                else f"chat-{uuid.uuid4().hex[:8]}",
+                "user_query": base_query,
+                "model_level": model_level or "medium",
+                "user_info": {
+                    "roles": user_roles,
+                    "department": user_department,
+                    "user_id": user_id,
+                },
+                "chat_history": history,
+                "messages": messages_for_graph,
             }
 
-            async for chunk in self.llm_provider.astream(messages_for_llm, config=stream_config):
-                if request and await request.is_disconnected():
-                    return
-                token_text = chunk.content if hasattr(chunk, "content") else str(chunk)
-                if token_text:
-                    full_response_chunks.append(token_text)
-                    yield f"event: token\ndata: {json.dumps({'text': token_text}, ensure_ascii=False)}\n\n"
+            # 5. Thực thi Master Orchestrator Graph
+            logger.info(
+                "[CHAT] Invoking Master Orchestrator (is_retry=%s, retry_msg_id=%s, trace_id='%s') for query='%s', history_count=%d...",
+                is_retry,
+                retry_message_id,
+                trace_id,
+                base_query,
+                len(history),
+            )
+            orch_result = await orchestrator_graph.ainvoke(
+                state_input, config=stream_config
+            )
 
-            # 6. Lưu câu trả lời hoàn chỉnh vào DB sau khi stream xong
+            # Lấy Trace ID thực tế từ Langfuse Callback Handler nếu có
+            if stream_config.get("callbacks"):
+                for cb in stream_config["callbacks"]:
+                    if hasattr(cb, "get_trace_id") and callable(cb.get_trace_id):
+                        cb_trace_id = cb.get_trace_id()
+                        if cb_trace_id:
+                            trace_id = str(cb_trace_id)
+                            break
+                    elif hasattr(cb, "last_trace_id") and cb.last_trace_id:
+                        trace_id = str(cb.last_trace_id)
+                        break
+
             if request and await request.is_disconnected():
                 return
 
-            if conversation_id and full_response_chunks:
-                full_response = "".join(full_response_chunks)
-                self.chat_repo.save_message(
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=full_response,
-                )
+            agent_output = (
+                orch_result.get("agent_output")
+                or "Tôi không thể xử lý yêu cầu lúc này."
+            )
+            citations_list = orch_result.get("citations") or []
+
+            # 6. Phát sự kiện trích dẫn tài liệu (Citations SSE Event)
+            yield f"event: citations\ndata: {json.dumps(citations_list, ensure_ascii=False, default=str)}\n\n"
+
+            # 7. Stream từng từ/cụm từ (word-by-word) tới Frontend với tốc độ tự nhiên, rõ ràng cho mắt đọc
+            raw_tokens = re.findall(r"\S+\s*|\s+", agent_output)
+            tokens: List[str] = []
+            for tok in raw_tokens:
+                # Nếu từ quá dài (> 18 ký tự như URL dài, chuỗi mã), chia nhỏ ra 6 ký tự để tránh dồn cục
+                if len(tok) > 18:
+                    for j in range(0, len(tok), 6):
+                        tokens.append(tok[j : j + 6])
+                else:
+                    tokens.append(tok)
+
+            total_tokens = len(tokens)
+            # Nhịp độ gõ chữ tối ưu giúp người dùng thoải mái đọc lướt theo từng từ xuất hiện (đã tăng ~1.2x tốc độ)
+            if total_tokens <= 100:
+                base_delay = 0.037  # ~27 từ/giây (rõ ràng từng từ, mắt dễ theo dõi)
+            elif total_tokens <= 250:
+                base_delay = 0.029  # ~34 từ/giây (chuẩn tự nhiên, mượt mà)
+            else:
+                base_delay = 0.020  # ~50 từ/giây (bài dài phản hồi nhanh chóng, không phải chờ lâu)
+
+            for token in tokens:
+                if request and await request.is_disconnected():
+                    return
+                yield f"event: token\ndata: {json.dumps({'text': token}, ensure_ascii=False)}\n\n"
+
+                # Tạm dừng nhẹ ở dấu ngắt câu hoặc xuống dòng để tạo nhịp thở tự nhiên
+                if token.endswith((".", "!", "?", ".\n", "!\n", "?\n", ":\n", "\n\n")):
+                    await asyncio.sleep(base_delay + 0.028)
+                elif token.endswith((", ", "; ", " - ")):
+                    await asyncio.sleep(base_delay + 0.012)
+                else:
+                    await asyncio.sleep(base_delay)
+
+            # 8. Lưu hoặc cập nhật câu trả lời hoàn chỉnh vào DB sau khi hoàn tất
+            saved_msg_id = None
+            if request and await request.is_disconnected():
+                return
+
+            if conversation_id and agent_output:
+                if is_retry and retry_message_id:
+                    updated = self.chat_repo.update_message_content(
+                        message_id=retry_message_id, content=agent_output, trace_id=trace_id
+                    )
+                    saved_msg_id = retry_message_id if updated else None
+                    if not updated:
+                        saved_msg_id = self.chat_repo.save_message(
+                            conversation_id=conversation_id,
+                            role="assistant",
+                            content=agent_output,
+                            trace_id=trace_id,
+                        )
+                else:
+                    saved_msg_id = self.chat_repo.save_message(
+                        conversation_id=conversation_id,
+                        role="assistant",
+                        content=agent_output,
+                        trace_id=trace_id,
+                    )
                 self.chat_repo.touch_conversation(conversation_id)
 
-            yield "event: chat_ended\ndata: {}\n\n"
+            ended_payload = {
+                "message_id": saved_msg_id,
+                "user_message_id": user_msg_id,
+                "trace_id": trace_id,
+                "conversation_id": conversation_id,
+            }
+            yield f"event: chat_ended\ndata: {json.dumps(ended_payload, ensure_ascii=False)}\n\n"
 
-        except asyncio.CancelledError:
-            # The ASGI server cancels the generator when the downstream client disconnects.
-            logger.info("[CHAT] Stream cancelled by client for conversation_id=%s", conversation_id)
-            raise
+        except (asyncio.CancelledError, GeneratorExit):
+            # ASGI server / anyio cancels the generator when the client disconnects or clicks Cancel stream.
+            logger.info(
+                "[CHAT] Stream closed/cancelled by client for conversation_id=%s",
+                conversation_id,
+            )
+            return
+
         except Exception as ex:
-            logger.error("[CHAT] Stream error for conversation_id=%s: %s", conversation_id, ex, exc_info=True)
-            error_msg = json.dumps({'text': '\n[Lỗi kết nối tới mô hình AI hoặc Database]'})
+            logger.error(
+                "[CHAT] Stream error for conversation_id=%s: %s",
+                conversation_id,
+                ex,
+                exc_info=True,
+            )
+            error_msg = json.dumps(
+                {
+                    "text": "\n⚠️ Hệ thống đang gặp sự cố kết nối. Vui lòng thử lại sau."
+                },
+                ensure_ascii=False,
+            )
             yield f"event: token\ndata: {error_msg}\n\n"
             yield "event: chat_ended\ndata: {}\n\n"
+        finally:
+            from app.llmops.langfuse import flush_langfuse
+
+            flush_langfuse()
+
+    def save_feedback(
+        self,
+        message_id: int,
+        score: Optional[int],
+        reason: Optional[str] = None,
+        comment: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Lưu phản hồi Feedback (Like/Dislike/Hủy đánh giá) từ người dùng vào CSDL và đồng bộ lên Langfuse.
+        """
+        from app.llmops.langfuse import record_langfuse_score
+
+        feedback_data = self.chat_repo.save_feedback(
+            message_id=message_id,
+            score=score,
+            reason=reason,
+            comment=comment,
+        )
+        if not feedback_data:
+            raise ValueError(f"Không tìm thấy tin nhắn ID={message_id} để ghi nhận đánh giá.")
+
+        trace_id = feedback_data.get("trace_id")
+        if trace_id:
+            if score is None:
+                record_langfuse_score(
+                    trace_id=trace_id,
+                    name="user_feedback",
+                    value=None,
+                    comment="[Đã hủy đánh giá]",
+                    data_type="BOOLEAN",
+                    metadata={
+                        "message_id": message_id,
+                        "conversation_id": feedback_data.get("conversation_id"),
+                        "user_id": user_id,
+                        "is_cancelled": True,
+                    },
+                )
+            else:
+                combined_comment = None
+                if reason and comment:
+                    combined_comment = f"[{reason}] {comment}"
+                elif reason:
+                    combined_comment = f"[{reason}]"
+                elif comment:
+                    combined_comment = comment
+
+                record_langfuse_score(
+                    trace_id=trace_id,
+                    name="user_feedback",
+                    value=float(score),
+                    comment=combined_comment,
+                    data_type="BOOLEAN",
+                    metadata={
+                        "message_id": message_id,
+                        "conversation_id": feedback_data.get("conversation_id"),
+                        "user_id": user_id,
+                        "feedback_reason": reason,
+                    },
+                )
+
+        return feedback_data
+
+
 
 

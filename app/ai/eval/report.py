@@ -559,8 +559,6 @@ def save_report_json(
         json.dumps(summary_data, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    push_to_langsmith_if_enabled(report, payload)
-
     try:
         from rich.console import Console
 
@@ -576,41 +574,3 @@ def save_report_json(
         print(f"  Report saved to {latest_file} and {history_file}")
 
     return latest_file
-
-
-def push_to_langsmith_if_enabled(report: EvalReport, payload: dict[str, Any]) -> None:
-    """Tự động đẩy kết quả Evaluation & Feedback metrics lên công cụ LLMOps LangSmith
-    nếu biến môi trường LANGCHAIN_TRACING_V2=true và LANGCHAIN_API_KEY được khai báo.
-    """
-    import os
-
-    if (
-        os.getenv("LANGCHAIN_TRACING_V2", "").lower() != "true"
-        or not os.getenv("LANGCHAIN_API_KEY")
-    ):
-        return
-
-    try:
-        from langsmith import Client
-
-        client = Client()
-        project_name = os.getenv("LANGCHAIN_PROJECT", "bvbank-llm-service-eval")
-
-        summary = payload.get("summary", {})
-        client.create_feedback(
-            run_id=None,
-            key=f"{report.agent_name}_pass_rate",
-            score=report.pass_rate,
-            comment=f"Pass Rate: {report.pass_rate:.2%}, Accuracy: {summary.get('accuracy', 0):.2%}, Macro F1: {summary.get('macro_f1', 0):.2%}",
-        )
-
-        try:
-            from rich.console import Console
-
-            Console().print(
-                f"  ☁️ [bold cyan]LangSmith LLMOps:[/] Metrics synced to project '{project_name}'"
-            )
-        except ImportError:
-            print(f"  LangSmith LLMOps: Metrics synced to project '{project_name}'")
-    except Exception:
-        pass

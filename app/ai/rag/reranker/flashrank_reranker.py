@@ -30,6 +30,30 @@ class FlashRankReranker(BaseReranker):
                 "Package 'flashrank' chưa được cài đặt. Hãy chạy 'uv add flashrank'."
             )
 
+    def rerank_with_scores(
+        self,
+        query: str,
+        chunks: list[str],
+        top_k: int,
+    ) -> list[tuple[int, float]]:
+        if not chunks:
+            return []
+
+        from flashrank import RerankRequest
+
+        passages = [{"id": idx, "text": chunk} for idx, chunk in enumerate(chunks)]
+        req = RerankRequest(query=query, passages=passages)
+        results = self._ranker.rerank(req)
+
+        top_results = [
+            (
+                int(item["id"]) if "id" in item else item.get("index", idx),
+                float(item.get("score", 0.0)),
+            )
+            for idx, item in enumerate(results[:top_k])
+        ]
+        return top_results
+
     def rerank(
         self,
         query: str,
@@ -39,14 +63,6 @@ class FlashRankReranker(BaseReranker):
         if not chunks:
             return []
 
-        from flashrank import RerankRequest
+        results = self.rerank_with_scores(query, chunks, top_k)
+        return [idx for idx, _ in results]
 
-        passages = [{"text": chunk} for chunk in chunks]
-        req = RerankRequest(query=query, passages=passages)
-        results = self._ranker.rerank(req)
-
-        top_indices = [
-            item["id"] if "id" in item else item.get("index", idx)
-            for idx, item in enumerate(results[:top_k])
-        ]
-        return top_indices

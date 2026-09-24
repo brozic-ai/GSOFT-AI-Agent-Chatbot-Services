@@ -100,9 +100,10 @@ def init_db() -> None:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
         logger.info("[OK] Database connection established successfully.")
-        # Import models để SQLAlchemy Base nhận diện tất cả ORM models (RagDocument, RagDocumentRole, IngestionTask, Conversation, ChatMessage)
+        # Import models để SQLAlchemy Base nhận diện tất cả ORM models
         import app.modules.document.model  # noqa: F401
         import app.modules.chat.model  # noqa: F401
+        import app.modules.faq_knowledge.model  # noqa: F401
         Base.metadata.create_all(bind=engine)
         _ensure_chat_conversation_columns()
         _ensure_chat_message_columns()
@@ -189,6 +190,26 @@ def _ensure_chat_message_columns() -> None:
         IF COL_LENGTH('dbo.ChatMessages', 'CreationTime') IS NOT NULL
           AND COL_LENGTH('dbo.ChatMessages', 'CreatedAt') IS NOT NULL
         EXEC('UPDATE dbo.ChatMessages SET CreatedAt = CreationTime WHERE CreatedAt IS NULL')
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'TraceId') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD TraceId NVARCHAR(100) NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'FeedbackScore') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD FeedbackScore INT NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'FeedbackReason') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD FeedbackReason NVARCHAR(255) NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'FeedbackComment') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD FeedbackComment NVARCHAR(MAX) NULL
+        """,
+        """
+        IF COL_LENGTH('dbo.ChatMessages', 'FeedbackAt') IS NULL
+        ALTER TABLE dbo.ChatMessages ADD FeedbackAt DATETIME2 NULL
         """,
     ]
     try:

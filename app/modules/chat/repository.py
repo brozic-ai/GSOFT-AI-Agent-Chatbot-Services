@@ -68,11 +68,17 @@ class ChatRepository:
                 "user_id": conv.user_id,
                 "title": conv.title,
                 "is_pinned": bool(conv.is_pinned),
-                "created_at": conv.created_at.isoformat() if conv.created_at else None,
-                "updated_at": conv.updated_at.isoformat() if conv.updated_at else None,
+                "created_at": self._to_iso(conv.created_at),
+                "updated_at": self._to_iso(conv.updated_at),
             }
         finally:
             db.close()
+
+    @staticmethod
+    def _to_iso(value: Optional[datetime]) -> Optional[str]:
+        if not value:
+            return None
+        return value.isoformat() + ("Z" if value.tzinfo is None else "")
 
     @staticmethod
     def _time_label(value: Optional[datetime]) -> Optional[str]:
@@ -94,17 +100,14 @@ class ChatRepository:
 
     @classmethod
     def _serialize_conversation(cls, conv: Conversation) -> Dict[str, Any]:
-        def iso(value: Optional[datetime]) -> Optional[str]:
-            return value.isoformat() + ("Z" if value and value.tzinfo is None else "") if value else None
-
         created = conv.created_at
         updated = conv.updated_at
         return {
             "id": conv.id,
             "title": conv.title or "Cuộc hội thoại mới",
             "is_pinned": bool(conv.is_pinned),
-            "created_at": iso(created),
-            "updated_at": iso(updated),
+            "created_at": cls._to_iso(created),
+            "updated_at": cls._to_iso(updated),
             "time_label": cls._time_label(updated),
         }
 
@@ -225,21 +228,30 @@ class ChatRepository:
 
     # ── ChatMessage Operations ──
 
-    def save_message(self, conversation_id: Optional[int], role: str, content: str) -> int:
+    def save_message(
+        self,
+        conversation_id: Optional[int],
+        role: str,
+        content: str,
+        trace_id: Optional[str] = None,
+    ) -> int:
         """Lưu một tin nhắn mới vào phiên hội thoại. Trả về message_id."""
         int_id = self._to_int_id(conversation_id)
         db: Session = SessionLocal()
         try:
-            cid = int(conversation_id) if conversation_id is not None else None
             msg = ChatMessage(
                 conversation_id=int_id,
                 role=role,
                 content=content,
+                trace_id=trace_id,
             )
             db.add(msg)
             db.commit()
             db.refresh(msg)
-            logger.debug("[OK] Saved message ID=%d (role='%s') for conversation_id=%s", msg.id, role, conversation_id)
+            logger.debug(
+                "[OK] Saved message ID=%d (role='%s', trace_id='%s') for conversation_id=%s",
+                msg.id, role, trace_id, conversation_id
+            )
             return msg.id
         except Exception as ex:
             db.rollback()
@@ -250,7 +262,7 @@ class ChatRepository:
 
     def get_chat_history(self, conversation_id: int, limit: int = 20) -> List[Dict[str, Any]]:
         """
-        Lấy N tin nhắn gần nhất trong phiên hội thoại (để làm ngữ cảnh cho LLM).
+        Lấy N tin nhắn gần nhất trong phiên hội thoại (để làm ngữ cảnh cho LLM hoặc hiển thị lịch sử).
         Trả về đúng thứ tự thời gian tăng dần (cũ -> mới).
         """
         int_id = self._to_int_id(conversation_id)
@@ -261,17 +273,176 @@ class ChatRepository:
             msgs = (
                 db.query(ChatMessage)
                 .filter(ChatMessage.conversation_id == int_id)
-                .order_by(ChatMessage.id.asc())
+                .order_by(ChatMessage.id.desc())
                 .limit(limit)
                 .all()
             )
+            msgs.reverse()
             return [
                 {
                     "id": msg.id,
                     "role": msg.role,
                     "content": msg.content,
-                    "created_at": msg.created_at.isoformat()
-                        if msg.created_at else None,
+                    "trace_id": getattr(msg, "trace_id", None),
+                    "feedback_score": getattr(msg, "feedback_score", None),
+                    "feedback_reason": getattr(msg, "feedback_reason", None),
+                    "feedback_comment": getattr(msg, "feedback_comment", None),
+                    "feedback_at": self._to_iso(getattr(msg, "feedback_at", None)),
+                    "created_at": self._to_iso(msg.created_at),
+                }
+                for msg in msgs
+            ]
+        finally:
+            db.close()
+
+    def get_last_user_message(self, conversation_id: int) -> Optional[Dict[str, Any]]:
+        """Lấy tin nhắn gần nhất của user trong phiên hội thoại."""
+        int_id = self._to_int_id(conversation_id)
+        if int_id is None:
+            return None
+        db: Session = SessionLocal()
+        try:
+            msg = (
+                db.query(ChatMessage)
+                .filter(ChatMessage.conversation_id == int_id, ChatMessage.role == "user")
+                .order_by(ChatMessage.id.desc())
+                .first()
+            )
+            if not msg:
+                return None
+            return {
+                "id": msg.id,
+                "role": msg.role,
+                "content": msg.content,
+            }
+        finally:
+            db.close()
+
+    def truncate_messages_after(self, conversation_id: int, message_id: int) -> int:
+        """Xóa tất cả các tin nhắn trong conversation có ID > message_id khi retry mốc ở giữa."""
+        int_id = self._to_int_id(conversation_id)
+        if int_id is None:
+            return 0
+        db: Session = SessionLocal()
+        try:
+            deleted_count = (
+                db.query(ChatMessage)
+                .filter(ChatMessage.conversation_id == int_id, ChatMessage.id > message_id)
+                .delete(synchronize_session=False)
+            )
+            db.commit()
+            logger.info("[OK] Truncated %d messages after ID=%d in conversation_id=%s", deleted_count, message_id, conversation_id)
+            return deleted_count
+        except Exception as ex:
+            db.rollback()
+            logger.error("[FAIL] Error truncating messages after ID=%s: %s", message_id, ex, exc_info=True)
+            raise ex
+        finally:
+            db.close()
+
+    def update_message_content(
+        self,
+        message_id: int,
+        content: str,
+        trace_id: Optional[str] = None,
+    ) -> bool:
+        """Cập nhật nội dung của tin nhắn đã có (dùng cho tính năng Retry In-place)."""
+        db: Session = SessionLocal()
+        try:
+            msg = db.query(ChatMessage).filter(ChatMessage.id == message_id).first()
+            if not msg:
+                logger.warning("[WARN] ChatMessage ID=%s not found for update", message_id)
+                return False
+            msg.content = content
+            if trace_id:
+                msg.trace_id = trace_id
+            db.commit()
+            logger.debug("[OK] Updated ChatMessage ID=%d content (trace_id='%s')", message_id, trace_id)
+            return True
+        except Exception as ex:
+            db.rollback()
+            logger.error("[FAIL] Error updating ChatMessage ID=%s: %s", message_id, ex, exc_info=True)
+            raise ex
+        finally:
+            db.close()
+
+    def save_feedback(
+        self,
+        message_id: int,
+        score: Optional[int],
+        reason: Optional[str] = None,
+        comment: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Cập nhật đánh giá feedback (Like/Dislike) cho tin nhắn."""
+        int_id = self._to_int_id(message_id)
+        if int_id is None:
+            return None
+        db: Session = SessionLocal()
+        try:
+            msg = db.query(ChatMessage).filter(ChatMessage.id == int_id).first()
+            if not msg:
+                return None
+            msg.feedback_score = score
+            msg.feedback_reason = reason
+            msg.feedback_comment = comment
+            msg.feedback_at = datetime.utcnow() if score is not None else None
+            db.commit()
+            db.refresh(msg)
+            logger.info(
+                "[OK] Saved feedback for Message ID=%d | score=%s | reason='%s'",
+                msg.id, score, reason
+            )
+            return {
+                "id": msg.id,
+                "conversation_id": msg.conversation_id,
+                "trace_id": getattr(msg, "trace_id", None),
+                "feedback_score": msg.feedback_score,
+                "feedback_reason": msg.feedback_reason,
+                "feedback_comment": msg.feedback_comment,
+                "feedback_at": self._to_iso(getattr(msg, "feedback_at", None)),
+            }
+        except Exception as ex:
+            db.rollback()
+            logger.error(
+                "[FAIL] Error saving feedback for Message ID=%s: %s",
+                message_id, ex, exc_info=True
+            )
+            raise ex
+        finally:
+            db.close()
+
+    def get_chat_history_up_to(
+        self,
+        conversation_id: int,
+        target_message_id: Optional[int] = None,
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """
+        Lấy N tin nhắn trong phiên hội thoại tính đến trước target_message_id.
+        Đảm bảo LLM chỉ nhận ngữ cảnh hội thoại đúng đến mốc câu hỏi được retry.
+        """
+        int_id = self._to_int_id(conversation_id)
+        if int_id is None:
+            return []
+        db: Session = SessionLocal()
+        try:
+            query = db.query(ChatMessage).filter(ChatMessage.conversation_id == int_id)
+            if target_message_id is not None:
+                # Lấy các tin nhắn trước tin nhắn AI đang retry
+                query = query.filter(ChatMessage.id < target_message_id)
+            msgs = query.order_by(ChatMessage.id.desc()).limit(limit).all()
+            msgs.reverse()
+            return [
+                {
+                    "id": msg.id,
+                    "role": msg.role,
+                    "content": msg.content,
+                    "trace_id": getattr(msg, "trace_id", None),
+                    "feedback_score": getattr(msg, "feedback_score", None),
+                    "feedback_reason": getattr(msg, "feedback_reason", None),
+                    "feedback_comment": getattr(msg, "feedback_comment", None),
+                    "feedback_at": self._to_iso(getattr(msg, "feedback_at", None)),
+                    "created_at": self._to_iso(msg.created_at),
                 }
                 for msg in msgs
             ]

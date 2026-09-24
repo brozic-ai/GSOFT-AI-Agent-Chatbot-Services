@@ -4,11 +4,8 @@ from dotenv import load_dotenv
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Load .env into os.environ for SDKs such as LangSmith that read process variables directly.
+# Load .env into os.environ
 load_dotenv(override=True)
-
-
-# Tự động nạp file .env vào os.environ cho LangChain Tracer
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -46,7 +43,7 @@ class Settings(BaseSettings):
     # --- Database Config ---
     SQLSERVER_CONNECTIONSTRING: str = (
         "Driver={ODBC Driver 18 for SQL Server};"
-        "Server=LAPTOP-BE44K422\\MSSQLSERVER01;Database=gAMSPro_BVB_AI_V1_LIVE_04082026_1;"
+        "Server=WIN-10N56EMJU1G\\Administrator;Database=gAMSPro_BVB_AI_V1_LIVE_04082026_1;"
         "Trusted_Connection=yes;"
         "TrustServerCertificate=yes;"
     )
@@ -83,13 +80,40 @@ class Settings(BaseSettings):
     SEARCH_RRF_CONSTANT: int = 60
     INGESTION_ENABLE_OCR: bool = True
     INGESTION_TESSDATA_PATH: str = "tessdata"
-    RAG_CHUNK_SIZE: int = 600
-    RAG_CHUNK_OVERLAP: int = 120
+    RAG_CHUNK_SIZE: int = 800
+    RAG_CHUNK_OVERLAP: int = 100
+    RAG_CHUNK_BY_TOKENS: bool = True
+    RAG_MIN_SLIDE_CHARS: int = 200
+    RAG_MAX_SLIDE_CHARS: int = 2000
     INGESTION_ENABLE_VISION_OCR: bool = False
-    RERANKER_TYPE: str = "disabled"
-    RERANKER_TOP_K: int = 5
+    RERANKER_TYPE: str = "bge"
+    RERANKER_MODEL: str = "BAAI/bge-reranker-base"
+    RERANKER_TOP_K: int = 4
+    RERANKER_SCORE_THRESHOLD: float = 0.35
     HYBRID_TOP_K_CANDIDATES: int = 20
+    FAQ_SEARCH_CANDIDATES_K: int = 10
+    FAQ_RERANKER_TOP_K: int = 3
+    FAQ_FAST_MATCH_ENABLED: bool = True
+    FAQ_FAST_MATCH_THRESHOLD: float = 0.80
     CHAT_HISTORY_LIMIT: int = 10
+
+    # --- RAG Dynamic Top-K Config (Min = 3, Max = 15) ---
+    RAG_DYNAMIC_TOP_K_ENABLED: bool = True
+    RAG_MIN_TOP_K: int = 3
+    RAG_MAX_TOP_K: int = 15
+    RAG_DEFAULT_TOP_K: int = 5
+    RAG_SPECIFIC_TOP_K: int = 3
+    RAG_EXHAUSTIVE_TOP_K: int = 12
+    RAG_CANDIDATE_MULTIPLIER: int = 3
+
+    # --- Full-Text Search (FTS) Config ---
+    # Bật/tắt Full-Text Search. Nếu False, fallback về Vector-only search.
+    FTS_ENABLED: bool = True
+    # Số lượng candidate tối đa mà CONTAINSTABLE trả về trước khi RRF
+    FTS_MAX_CANDIDATES: int = 200
+    # Trọng số hai luồng trong RRF (tổng khuyến nghị = 1.0)
+    RRF_VECTOR_WEIGHT: float = 0.6
+    RRF_FTS_WEIGHT: float = 0.4
 
     # --- RAG Preprocessing & Context Builder Config ---
     RAG_ENABLE_VIETNAMESE_NORMALIZATION: bool = True
@@ -101,18 +125,14 @@ class Settings(BaseSettings):
     RAG_CONTEXT_NEAR_DUP_LINE_OVERLAP: float = 0.85
     RAG_DYNAMIC_MAX_TOKENS_ENABLED: bool = True
 
-    # --- LangSmith LLMOps Tracing Config ---
-    LANGCHAIN_TRACING_V2: str = "true"
-    LANGCHAIN_API_KEY: str = ""
-    LANGCHAIN_PROJECT: str = "ai-agent-bvbank"
-    LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
+    # --- Langfuse LLMOps Tracing Config ---
+    LANGFUSE_ENABLED: bool = True
+    LANGFUSE_PUBLIC_KEY: str = ""
+    LANGFUSE_SECRET_KEY: str = ""
+    LANGFUSE_HOST: str = "http://localhost:3000"
+    LANGFUSE_BASE_URL: str | None = None
 
-    LANGSMITH_TRACING: str | None = None
-    LANGSMITH_API_KEY: str | None = None
-    LANGSMITH_PROJECT: str | None = None
-    LANGSMITH_ENDPOINT: str | None = None
-
-    # --- Net Backend URL ---
+    # --- Net Backend URL & gAMSPro Service Account ---
     NET_BACKEND_URL: str = "http://localhost:5000"
 
 
@@ -125,31 +145,28 @@ def get_settings() -> Settings:
 # Instance cài đặt sẵn cho việc import tiện lợi
 settings = get_settings()
 
-# Đồng bộ biến môi trường cho LangChain Tracing / LangSmith SDK
-tracing_enabled = (
-    (settings.LANGCHAIN_TRACING_V2 and str(settings.LANGCHAIN_TRACING_V2).lower() == "true")
-    or (settings.LANGSMITH_TRACING and str(settings.LANGSMITH_TRACING).lower() == "true")
-)
-api_key = settings.LANGCHAIN_API_KEY or settings.LANGSMITH_API_KEY or os.getenv("LANGCHAIN_API_KEY", "")
-project = settings.LANGCHAIN_PROJECT or settings.LANGSMITH_PROJECT or os.getenv("LANGCHAIN_PROJECT", "ai-agent-bvbank")
-endpoint = settings.LANGCHAIN_ENDPOINT or settings.LANGSMITH_ENDPOINT or "https://api.smith.langchain.com"
+# Tắt hoàn toàn LangSmith / LangChain Tracing V2
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+os.environ["LANGSMITH_TRACING"] = "false"
+os.environ.pop("LANGCHAIN_API_KEY", None)
+os.environ.pop("LANGSMITH_API_KEY", None)
+os.environ.pop("LANGCHAIN_PROJECT", None)
+os.environ.pop("LANGSMITH_PROJECT", None)
+os.environ.pop("LANGCHAIN_ENDPOINT", None)
+os.environ.pop("LANGSMITH_ENDPOINT", None)
 
-if tracing_enabled:
-    os.environ["LANGCHAIN_TRACING_V2"] = "true"
-    os.environ["LANGSMITH_TRACING"] = "true"
-    if api_key:
-        os.environ["LANGCHAIN_API_KEY"] = api_key
-        os.environ["LANGSMITH_API_KEY"] = api_key
-    if project:
-        os.environ["LANGCHAIN_PROJECT"] = project
-        os.environ["LANGSMITH_PROJECT"] = project
-    if endpoint:
-        os.environ["LANGCHAIN_ENDPOINT"] = endpoint
-        os.environ["LANGSMITH_ENDPOINT"] = endpoint
-else:
-    os.environ["LANGCHAIN_TRACING_V2"] = "false"
-    os.environ["LANGSMITH_TRACING"] = "false"
-    os.environ.pop("LANGCHAIN_API_KEY", None)
-    os.environ.pop("LANGSMITH_API_KEY", None)
+# Đồng bộ biến môi trường cho Langfuse SDK
+if settings.LANGFUSE_ENABLED:
+    lf_host = settings.LANGFUSE_BASE_URL or settings.LANGFUSE_HOST or os.getenv("LANGFUSE_HOST", "http://localhost:3000")
+    lf_public_key = settings.LANGFUSE_PUBLIC_KEY or os.getenv("LANGFUSE_PUBLIC_KEY", "")
+    lf_secret_key = settings.LANGFUSE_SECRET_KEY or os.getenv("LANGFUSE_SECRET_KEY", "")
+
+    os.environ["LANGFUSE_HOST"] = lf_host
+    os.environ["LANGFUSE_BASE_URL"] = lf_host
+    if lf_public_key:
+        os.environ["LANGFUSE_PUBLIC_KEY"] = lf_public_key
+    if lf_secret_key:
+        os.environ["LANGFUSE_SECRET_KEY"] = lf_secret_key
+
 
 

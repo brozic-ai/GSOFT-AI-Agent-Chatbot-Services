@@ -36,7 +36,7 @@ class RagDocument(Base):
     file_path = Column("FilePath", Unicode(1000), nullable=False)
     file_size = Column("FileSize", BigInteger, nullable=False)
     category = Column("Category", Unicode(200), nullable=True)
-    owner_department = Column("OwnerDepartment", Unicode(200), nullable=True)
+    owner_department = Column("OwnerDepartment", UnicodeText, nullable=True)
     description = Column("Description", UnicodeText, nullable=True)
     tags = Column("Tags", UnicodeText, nullable=True)  # Chuỗi JSON chứa mảng tag
     access_scope = Column(

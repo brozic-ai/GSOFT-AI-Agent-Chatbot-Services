@@ -12,7 +12,7 @@ Endpoints:
 
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 
 from app.modules.chat.api.v1.schemas import (
@@ -21,9 +21,13 @@ from app.modules.chat.api.v1.schemas import (
     ConversationResponse,
     ChatMessageResponse,
     ConversationUpdateRequest,
+    ChatFeedbackRequest,
+    ChatFeedbackResponse,
+    TranscribeResponse,
 )
 from app.modules.chat.service import ChatService
-from app.routers.dependencies import get_chat_service
+from app.routers.dependencies import get_chat_service, get_transcribe_service
+from app.core.user_context import _safe_unquote, set_user_context
 
 logger = logging.getLogger(__name__)
 
@@ -145,8 +149,10 @@ async def chat_stream(
     request: ChatRequest,
     http_request: Request,
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    x_user_name: Optional[str] = Header(None, alias="X-User-Name"),
     x_user_roles: Optional[str] = Header(None, alias="X-User-Roles"),
     x_user_department: Optional[str] = Header(None, alias="X-User-Department"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     service: ChatService = Depends(get_chat_service),
 ):
     """
@@ -154,8 +160,18 @@ async def chat_stream(
 
     - Nhận `conversation_id` trong body để load/lưu lịch sử hội thoại.
     - Nhận vai trò từ Body hoặc Header `X-User-Roles` để thực thi RBAC Vector Search.
+    - Nhận username từ Header `X-User-Name` để phân quyền và lọc dữ liệu chính xác.
     - Nếu không có `conversation_id`, bot vẫn hoạt động nhưng không lưu lịch sử.
     """
+    # Thiết lập ngữ cảnh người dùng (ContextVars) xuyên suốt toàn bộ lifecycle của request
+    set_user_context(
+        user_name=x_user_name,
+        user_id=x_user_id or request.user_id,
+        auth_token=authorization,
+        roles=request.user_roles or x_user_roles,
+        department=request.user_department or x_user_department,
+    )
+
     # Kiểm tra quyền sở hữu conversation nếu có truyền conversation_id
     if request.conversation_id and x_user_id:
         conv = service.get_conversation(
@@ -168,12 +184,14 @@ async def chat_stream(
                 detail=f"Conversation ID={request.conversation_id} không tồn tại hoặc bạn không có quyền truy cập.",
             )
 
-    roles = request.user_roles or x_user_roles
-    department = request.user_department or x_user_department
-    user_id = request.user_id or x_user_id
+    roles = request.user_roles or (_safe_unquote(x_user_roles) if x_user_roles else None)
+    department = request.user_department or (_safe_unquote(x_user_department) if x_user_department else None)
+    user_id = request.user_id or (_safe_unquote(x_user_id) if x_user_id else None)
+    user_name = _safe_unquote(x_user_name) if x_user_name else None
     logger.info(
-        "[CHAT] Received POST /stream request | query='%s' | roles='%s' | dept='%s' | user_id='%s'",
+        "[CHAT] Received POST /stream request | query='%s' | user_name='%s' | roles='%s' | dept='%s' | user_id='%s'",
         request.message,
+        user_name,
         roles,
         department,
         user_id,
@@ -182,9 +200,94 @@ async def chat_stream(
     generator = service.generate_rag_response_stream(
         message=request.message,
         conversation_id=request.conversation_id,
-        user_id=x_user_id,
+        user_id=user_id,
         user_roles=roles,
+        user_department=department,
         request=http_request,
+        is_retry=bool(request.is_retry),
+        retry_message_id=request.retry_message_id,
+        is_edit=bool(request.is_edit),
+        edit_message_id=request.edit_message_id,
+        images=[img.model_dump() for img in request.images] if request.images else None,
+        model_level=request.model_level or "medium",
     )
 
     return StreamingResponse(generator, media_type="text/event-stream")
+
+
+# ── User Feedback Endpoint (Like / Dislike / Langfuse Score) ──
+
+@router.post("/feedback", response_model=ChatFeedbackResponse)
+def submit_feedback(
+    request: ChatFeedbackRequest,
+    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
+    service: ChatService = Depends(get_chat_service),
+):
+    """
+    Ghi nhận đánh giá Like / Dislike của người dùng cho một tin nhắn AI.
+    Tự động cập nhật CSDL và gửi Score sang Langfuse gắn vào Trace tương ứng.
+    """
+    try:
+        feedback_result = service.save_feedback(
+            message_id=request.message_id,
+            score=request.score,
+            reason=request.reason,
+            comment=request.comment,
+            user_id=x_user_id,
+        )
+        return ChatFeedbackResponse(
+            success=True,
+            message="Đã ghi nhận phản hồi thành công.",
+            data=feedback_result,
+        )
+    except ValueError as ex:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(ex))
+    except Exception as ex:
+        logger.error(
+            "[FAIL] Error saving feedback for message_id=%s: %s",
+            request.message_id, ex, exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(ex),
+        )
+
+
+# ── Speech-to-Text (STT) Audio Transcription Endpoint ──
+
+@router.post("/transcribe", response_model=TranscribeResponse, summary="Chuyển đổi giọng nói thành văn bản (Speech-to-Text)")
+async def transcribe_audio(
+    file: UploadFile = File(..., description="File âm thanh từ trình duyệt (.webm, .wav, .mp3, .mp4, .ogg)"),
+    service = Depends(get_transcribe_service),
+):
+    """
+    Nhận file ghi âm giọng nói từ Frontend (Angular) và chuyển đổi thành văn bản tiếng Việt
+    sử dụng mô hình Gemini Multimodal Audio.
+    """
+    try:
+        content_type = file.content_type or "audio/webm"
+        audio_bytes = await file.read()
+
+        if not audio_bytes or len(audio_bytes) < 100:
+            return TranscribeResponse(
+                text="",
+                status="empty",
+                duration_seconds=0.0,
+            )
+
+        text_result = await service.transcribe(audio_bytes=audio_bytes, content_type=content_type)
+        return TranscribeResponse(
+            text=text_result,
+            status="success",
+        )
+    except ValueError as ex:
+        logger.error("[STT] Configuration or validation error: %s", ex)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ex))
+    except Exception as ex:
+        logger.error("[STT] Error during audio transcription: %s", ex, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Lỗi xử lý giọng nói: {str(ex)}",
+        )
+
+

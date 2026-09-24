@@ -71,6 +71,9 @@ class VietnameseNormalizer:
     # 5. Danh sách từ viết tắt ngân hàng đã biên dịch sẵn regex
     _BUSINESS_ACRONYMS: ClassVar[list[tuple[re.Pattern[str], str]]] = _load_bank_acronyms()
 
+    # 6. Quy tắc riêng cho Giai đoạn: "GD/GĐ/Gd + số" (ví dụ: Gd 3, GD 2, GĐ 1) -> "Giai đoạn"
+    _PHASE_PATTERN = re.compile(r"\b(?:GD|GĐ|Gd|gđ)\s*([0-9]+|[IVXLCDM]+)\b", re.IGNORECASE)
+
     @classmethod
     def normalize(cls, text: str, expand_acronyms: bool = True) -> str:
         """
@@ -113,6 +116,8 @@ class VietnameseNormalizer:
 
         # 6. Mở rộng từ viết tắt ngân hàng
         if expand_acronyms:
+            # Ưu tiên mở rộng "GD/GĐ/Gd + số" thành "Giai đoạn + số" (tránh bị nhầm thành Giám đốc)
+            text = cls._PHASE_PATTERN.sub(r"Giai đoạn \1", text)
             for pattern, replacement in cls._BUSINESS_ACRONYMS:
                 text = pattern.sub(replacement, text)
 

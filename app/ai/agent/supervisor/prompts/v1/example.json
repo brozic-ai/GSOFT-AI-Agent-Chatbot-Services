@@ -106,5 +106,32 @@
             "query": "Lỗi rồi",
             "confidence": 0.85
         }
+    },
+    {
+        "query": "tờ này do ai làm",
+        "output": {
+            "reasoning": "Câu hỏi nối tiếp có đại từ chỉ định quy chiếu về Đơn hàng PO hoặc Tờ trình mua sắm đang thảo luận ở lượt trước.",
+            "intent": "procurement",
+            "query": "Người tạo/người lập đơn hàng PO hoặc tờ trình trong ngữ cảnh",
+            "confidence": 0.98
+        }
+    },
+    {
+        "query": "ai duyệt đơn này vậy",
+        "output": {
+            "reasoning": "Câu hỏi nối tiếp tra cứu thông tin người phê duyệt đơn hàng PO trong ngữ cảnh.",
+            "intent": "procurement",
+            "query": "Người phê duyệt đơn hàng PO trong ngữ cảnh",
+            "confidence": 0.98
+        }
+    },
+    {
+        "query": "cho tôi xem chi tiết tờ này",
+        "output": {
+            "reasoning": "Câu hỏi nối tiếp yêu cầu xem chi tiết tờ trình hoặc đơn hàng PO trong ngữ cảnh.",
+            "intent": "procurement",
+            "query": "Chi tiết tờ trình mua sắm hoặc đơn hàng PO trong ngữ cảnh",
+            "confidence": 0.98
+        }
     }
 ]

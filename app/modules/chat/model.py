@@ -48,6 +48,11 @@ class ChatMessage(Base):
     )
     role = Column("Role", String(20), nullable=True)   # 'user' | 'assistant' | 'system'
     content = Column("Content", UnicodeText, nullable=True)
+    trace_id = Column("TraceId", String(100), nullable=True, index=True)
+    feedback_score = Column("FeedbackScore", Integer, nullable=True)  # 1 = Like, 0 = Dislike, None = Unrated
+    feedback_reason = Column("FeedbackReason", Unicode(255), nullable=True)
+    feedback_comment = Column("FeedbackComment", UnicodeText, nullable=True)
+    feedback_at = Column("FeedbackAt", DateTime, nullable=True)
     created_at = Column("CreatedAt", DateTime, nullable=True, default=datetime.utcnow)
 
     # Quan hệ N-1 ngược lại tới phiên hội thoại cha

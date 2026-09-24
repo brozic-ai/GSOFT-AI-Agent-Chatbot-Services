@@ -34,7 +34,12 @@ class UpdateDocumentMetadataRequest(BaseModel):
 
     document_name: str
     category: str | None = None
+    owner_department: str | None = None
+    description: str | None = None
+    tags: str | None = None
     access_scope: str = Field(default="Public")
+    effective_date: str | None = None
+    expiration_date: str | None = None
     allowed_roles: list[str] = Field(default_factory=list)
 
 
@@ -125,7 +130,11 @@ class DocumentResponse(BaseModel):
     file_size: int | None = 0
     category: str | None = None
     owner_department: str | None = None
+    description: str | None = None
+    tags: str | None = None
     access_scope: str | None = "Public"
+    effective_date: str | None = None
+    expiration_date: str | None = None
     ingest_status: str | None = "Completed"
     progress_percent: int = 0
     chunk_count: int | None = 0

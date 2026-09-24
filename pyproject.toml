@@ -12,7 +12,6 @@ dependencies = [
   "uvicorn",
   "pydantic-settings",
   "langchain",
-  "langsmith",
   "python-dotenv",
   "requests>=2.32.5",
   "langchain-google-genai>=4.3.2",
@@ -37,6 +36,10 @@ dependencies = [
   "openpyxl>=3.1.5",
   "markitdown>=0.1.0",
   "underthesea>=6.8.0",
+  "langfuse>=2.0.0",
+  "pandas>=3.0.5",
+  "langchain-community>=0.3.0",
+  "langchain-ollama>=0.2.0",
 ]
 
 [tool.uv]

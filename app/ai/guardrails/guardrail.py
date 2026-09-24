@@ -81,9 +81,10 @@ _JAILBREAK_PATTERNS: list[tuple[re.Pattern[str], str]] = [
 _SENSITIVE_OUTPUT_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     # A. API Keys (OpenAI, Gemini, Anthropic, HuggingFace)
     (re.compile(r"(sk-[a-zA-Z0-9_-]{20,})"), "openai_api_key"),
-    (re.compile(r"(AIzaSy[a-zA-Z0-9_-]{33})"), "google_gemini_api_key"),
+    (re.compile(r"(AIzaSy[a-zA-Z0-9_-]{30,40})"), "google_gemini_api_key"),
     (re.compile(r"(sk-ant-[a-zA-Z0-9_-]{20,})"), "anthropic_api_key"),
     (re.compile(r"(hf_[a-zA-Z0-9]{30,})"), "huggingface_token"),
+
 
     # B. Private Keys
     (re.compile(r"-----BEGIN\s+(RSA\s+|OPENSSH\s+|EC\s+)?PRIVATE\s+KEY-----"), "private_key_leak"),
@@ -168,8 +169,38 @@ class OutputGuardrail:
         if not response_text or not response_text.strip():
             return GuardrailResult(is_safe=True, sanitized_text=response_text)
 
+        cleaned = response_text
+
+        # 1. Chặn rò rỉ cú pháp JSON Tool Calling hoặc các khối lệnh gọi tool kỹ thuật
+        if re.search(r'\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:', cleaned, re.IGNORECASE):
+            logger.warning("[OUTPUT GUARDRAIL] Phát hiện và lọc bỏ mã JSON tool call kỹ thuật trong phản hồi của LLM.")
+            cleaned = re.sub(
+                r'```(?:json)?\s*\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:.*?\}\s*```',
+                "",
+                cleaned,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
+            cleaned = re.sub(
+                r'\{\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:.*?\}',
+                "",
+                cleaned,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
+            cleaned = re.sub(
+                r"(?:hãy\s+gọi|tham\s+số\s+như|trong\s+hàm)\s*`?[a-zA-Z0-9_]+`?.*?:?",
+                "",
+                cleaned,
+                flags=re.IGNORECASE,
+            )
+            cleaned = cleaned.strip()
+
+        # 2. Lọc bỏ các thẻ kỹ thuật XML và token kết thúc như <error>, [KẾT THÚC], v.v.
+        cleaned = re.sub(r"</?(?:error|warning|result|output|response|final_answer|call)[^>]*>", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\[(?:KẾT\s+THÚC|HẾT)\]", "", cleaned, flags=re.IGNORECASE)
+        cleaned = cleaned.strip()
+
         for pattern, violation_type in _SENSITIVE_OUTPUT_PATTERNS:
-            if pattern.search(response_text):
+            if pattern.search(cleaned):
                 logger.error(
                     "[OUTPUT GUARDRAIL BLOCKED] Phát hiện rò rỉ '%s' trong kết quả sinh ra của LLM!",
                     violation_type,
@@ -181,4 +212,4 @@ class OutputGuardrail:
                     sanitized_text=SAFE_FALLBACK_MESSAGE,
                 )
 
-        return GuardrailResult(is_safe=True, sanitized_text=response_text)
+        return GuardrailResult(is_safe=True, sanitized_text=cleaned)

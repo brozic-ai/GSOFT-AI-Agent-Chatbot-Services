@@ -170,7 +170,31 @@ class IngestionPipeline:
                     )
 
                 is_markdown = page.metadata.get("content_format") == "markdown"
-                if is_markdown:
+                is_atomic_slide = (
+                    page.metadata.get("is_atomic_slide", False)
+                    or page.metadata.get("content_format") == "pptx_slide"
+                )
+
+                if is_atomic_slide:
+                    # Atomic Slide Chunking: 1 Slide = 1 Vector trọn vẹn
+                    # Không băm nhỏ trừ khi slide vượt quá ngưỡng 2,000 ký tự để bảo toàn tính ngữ nghĩa
+                    max_slide_chars = getattr(settings, "RAG_MAX_SLIDE_CHARS", 2000)
+                    if len(raw_text) <= max_slide_chars:
+                        chunk_results = [
+                            ChunkResult(
+                                text=raw_text.strip(),
+                                metadata={"slide": page.metadata.get("slide")},
+                            )
+                        ]
+                    else:
+                        raw_chunks = self.chunker.split_text(raw_text)
+                        chunk_results = [
+                            ChunkResult(
+                                text=c, metadata={"slide": page.metadata.get("slide")}
+                            )
+                            for c in raw_chunks
+                        ]
+                elif is_markdown:
                     chunk_results = self.chunker.split_markdown_with_context(raw_text)
                 else:
                     raw_chunks = self.chunker.split_text(raw_text)

@@ -47,6 +47,9 @@ class DocumentRepository:
     ) -> int:
         """Tạo bản ghi tài liệu mới kèm khai báo Vai trò (Roles) truy cập bằng ORM."""
         allowed_roles = allowed_roles or []
+        clean_dept = owner_department.strip() if owner_department else None
+        if clean_dept and len(clean_dept) > 2000:
+            clean_dept = None
 
         db: Session = SessionLocal()
         try:
@@ -56,7 +59,7 @@ class DocumentRepository:
                 file_path=file_path,
                 file_size=file_size,
                 category=category,
-                owner_department=owner_department,
+                owner_department=clean_dept,
                 description=description,
                 tags=tags,
                 access_scope=access_scope,
@@ -126,7 +129,15 @@ class DocumentRepository:
                         "file_size": doc.file_size,
                         "category": doc.category,
                         "owner_department": doc.owner_department,
+                        "description": doc.description,
+                        "tags": doc.tags,
                         "access_scope": doc.access_scope,
+                        "effective_date": doc.effective_date.strftime("%Y-%m-%d")
+                        if doc.effective_date
+                        else None,
+                        "expiration_date": doc.expiration_date.strftime("%Y-%m-%d")
+                        if doc.expiration_date
+                        else None,
                         "ingest_status": doc.ingest_status,
                         "progress_percent": progress,
                         "chunk_count": doc.chunk_count,
@@ -157,7 +168,15 @@ class DocumentRepository:
                 "file_size": doc.file_size,
                 "category": doc.category,
                 "owner_department": doc.owner_department,
+                "description": doc.description,
+                "tags": doc.tags,
                 "access_scope": doc.access_scope,
+                "effective_date": doc.effective_date.strftime("%Y-%m-%d")
+                if doc.effective_date
+                else None,
+                "expiration_date": doc.expiration_date.strftime("%Y-%m-%d")
+                if doc.expiration_date
+                else None,
                 "ingest_status": doc.ingest_status,
                 "chunk_count": doc.chunk_count,
                 "creation_time": str(doc.creation_time) if doc.creation_time else None,
@@ -182,7 +201,7 @@ class DocumentRepository:
     def update_rag_document_status(
         self, doc_id: int, status: str, chunk_count: int, error: str | None = None
     ) -> None:
-        """Cập nhật trạng thái Ingest từ C# Gateway bằng ORM."""
+        """Cập nhật trạng thái Ingestion của tài liệu bằng ORM."""
         db: Session = SessionLocal()
         try:
             doc = db.query(RagDocument).filter(RagDocument.id == doc_id).first()
@@ -206,18 +225,46 @@ class DocumentRepository:
         self,
         doc_id: int,
         document_name: str,
-        category: str | None,
-        access_scope: str,
-        allowed_roles: list[str],
+        category: str | None = None,
+        owner_department: str | None = None,
+        description: str | None = None,
+        tags: str | None = None,
+        access_scope: str = "Public",
+        effective_date: str | None = None,
+        expiration_date: str | None = None,
+        allowed_roles: list[str] | None = None,
     ) -> None:
-        """Cập nhật siêu dữ liệu và danh sách vai trò được phép truy cập bằng ORM."""
+        """Cập nhật siêu dữ liệu và danh sách vai trò được phép truy cập bằng ORM và đồng bộ xuống Vector Chunks."""
+        allowed_roles = allowed_roles or []
+        clean_dept = owner_department.strip() if owner_department else None
+        if clean_dept and len(clean_dept) > 2000:
+            clean_dept = None
         db: Session = SessionLocal()
         try:
             doc = db.query(RagDocument).filter(RagDocument.id == doc_id).first()
             if doc:
                 doc.document_name = document_name
                 doc.category = category
+                doc.owner_department = clean_dept
+                doc.description = description
+                doc.tags = tags
                 doc.access_scope = access_scope
+                if effective_date:
+                    try:
+                        doc.effective_date = datetime.fromisoformat(effective_date)
+                    except Exception:
+                        pass
+                else:
+                    doc.effective_date = None
+
+                if expiration_date:
+                    try:
+                        doc.expiration_date = datetime.fromisoformat(expiration_date)
+                    except Exception:
+                        pass
+                else:
+                    doc.expiration_date = None
+
                 doc.last_modification_time = datetime.now(UTC)
 
                 # Xóa roles cũ và nạp lại roles mới
@@ -235,8 +282,10 @@ class DocumentRepository:
 
                 db.commit()
                 logger.info(
-                    "[OK] Updated RagDocument ID=%d (ORM) with roles=%s",
+                    "[OK] Updated RagDocument ID=%d (ORM) with dept=%s, scope=%s, roles=%s",
                     doc_id,
+                    clean_dept,
+                    access_scope,
                     allowed_roles,
                 )
         except Exception:
@@ -245,6 +294,105 @@ class DocumentRepository:
             raise
         finally:
             db.close()
+
+        # Đồng bộ quyền hạn phân quyền xuống toàn bộ Chunks trong bảng Documents
+        self.sync_document_chunks_metadata(
+            backend_id=doc_id,
+            access_scope=access_scope,
+            owner_department=clean_dept,
+            allowed_roles=allowed_roles,
+            category=category,
+        )
+
+    def sync_document_chunks_metadata(
+        self,
+        backend_id: int,
+        access_scope: str = "Public",
+        owner_department: str | None = None,
+        allowed_roles: list[str] | None = None,
+        category: str | None = None,
+    ) -> int:
+        """
+        Đồng bộ accessScope, allowedRoles, owner_department và category
+        xuống toàn bộ các Chunks vector trong bảng Documents.
+        Do SQL Server 2025 có vector index trên cột embedding, tạm DROP index trước khi UPDATE
+        và CREATE lại index autocommit sau khi hoàn tất.
+        """
+        allowed_roles = allowed_roles or []
+        if access_scope.lower() == "public":
+            roles_list = ["Public"]
+        else:
+            roles_list = [r.strip() for r in allowed_roles if r.strip()]
+            if not roles_list:
+                roles_list = ["Restricted"]
+
+        roles_json = json.dumps(roles_list, ensure_ascii=False)
+        clean_dept = owner_department.strip() if owner_department else None
+        backend_id_str = str(backend_id)
+        updated_rows = 0
+
+        raw_conn = engine.raw_connection()
+        try:
+            with raw_conn.cursor() as cursor:
+                # 1. Tạm drop Vector Index nếu có để tránh lỗi SQL Server 42231 khi UPDATE
+                try:
+                    cursor.execute(
+                        "DROP INDEX IF EXISTS idx_documents_embedding ON dbo.Documents;"
+                    )
+                except Exception as idx_ex:  # noqa: BLE001
+                    logger.warning(
+                        "[WARN] Exception dropping vector index before metadata UPDATE: %s",
+                        idx_ex,
+                    )
+
+                # 2. Update metadata của các chunk
+                sql = """
+                    UPDATE Documents
+                    SET metadata = JSON_MODIFY(
+                                     JSON_MODIFY(
+                                       JSON_MODIFY(
+                                         JSON_MODIFY(
+                                           JSON_MODIFY(metadata, '$.accessScope', ?),
+                                           '$.owner_department', ?),
+                                         '$.ownerDepartment', ?),
+                                       '$.category', ?),
+                                     '$.allowedRoles', JSON_QUERY(?))
+                    WHERE JSON_VALUE(metadata, '$.backend_id') = ?
+                       OR JSON_VALUE(metadata, '$.backendId') = ?
+                       OR JSON_VALUE(metadata, '$.backend_document_id') = ?;
+                """
+                cursor.execute(
+                    sql,
+                    (
+                        access_scope,
+                        clean_dept,
+                        clean_dept,
+                        category,
+                        roles_json,
+                        backend_id_str,
+                        backend_id_str,
+                        backend_id_str,
+                    ),
+                )
+                updated_rows = cursor.rowcount
+            raw_conn.commit()
+            logger.info(
+                "[OK] Synced metadata for %d chunks of backend_id=%d (scope=%s, dept=%s, roles=%s)",
+                updated_rows,
+                backend_id,
+                access_scope,
+                clean_dept,
+                roles_list,
+            )
+        except Exception:
+            logger.exception("[FAIL] Error syncing chunk metadata for backend_id=%d", backend_id)
+            raise
+        finally:
+            raw_conn.close()
+
+        # 3. Tái tạo lại Vector Index
+        self._recreate_vector_index()
+        return updated_rows
 
     def delete_rag_document(self, backend_id: int) -> str | None:
         """Xóa tài liệu và các vai trò theo backend_id bằng ORM, trả về FilePath để xóa file vật lý."""
@@ -323,16 +471,47 @@ class DocumentRepository:
             raw_conn.close()
 
         # 3. Tái tạo lại Vector Index bằng kết nối autocommit độc lập (tránh lỗi transaction 574 của SQL Server 2025)
+        self._recreate_vector_index()
+
+    def _recreate_vector_index(self) -> None:
+        """Tái tạo Vector Index an toàn bằng autocommit connection có đầy đủ ODBC Driver."""
         try:
-            conn = pyodbc.connect(settings.SQLSERVER_CONNECTIONSTRING, autocommit=True)
+            available_drivers = pyodbc.drivers()
+            preferred_drivers = [
+                "ODBC Driver 18 for SQL Server",
+                "ODBC Driver 17 for SQL Server",
+                "ODBC Driver 13 for SQL Server",
+                "SQL Server",
+            ]
+            conn_str = settings.SQLSERVER_CONNECTIONSTRING
+            if "driver=" not in conn_str.lower():
+                fallback_driver = next(
+                    (d for d in preferred_drivers if d in available_drivers), None
+                )
+                if fallback_driver:
+                    if not conn_str.rstrip().endswith(";"):
+                        conn_str += ";"
+                    conn_str = f"Driver={{{fallback_driver}}};{conn_str}"
+
+            conn = pyodbc.connect(conn_str, autocommit=True)
             with conn.cursor() as cursor:
+                # Kiểm tra xem index đã tồn tại chưa
                 cursor.execute(
-                    "CREATE VECTOR INDEX idx_documents_embedding ON dbo.Documents(embedding) WITH (METRIC = 'cosine');"
+                    """
+                    IF NOT EXISTS (
+                        SELECT 1 FROM sys.indexes 
+                        WHERE name = 'idx_documents_embedding' AND object_id = OBJECT_ID('dbo.Documents')
+                    )
+                    BEGIN
+                        CREATE VECTOR INDEX idx_documents_embedding ON dbo.Documents(embedding) WITH (METRIC = 'cosine');
+                    END
+                    """
                 )
             conn.close()
+            logger.info("[OK] Recreated Vector Index idx_documents_embedding successfully.")
         except Exception as idx_ex:  # noqa: BLE001
             logger.warning(
-                "[WARN] Exception recreating vector index after DELETE: %s", idx_ex
+                "[WARN] Exception recreating vector index: %s", idx_ex
             )
 
     def upsert_documents(
@@ -381,6 +560,9 @@ class DocumentRepository:
             logger.info("[OK] Upserted %d vector chunks", len(ids))
         finally:
             raw_conn.close()
+
+        # 3. Tái tạo lại Vector Index sau khi hoàn tất upsert
+        self._recreate_vector_index()
 
     def upsert_ingestion_file(
         self,
@@ -524,7 +706,61 @@ class DocumentRepository:
         finally:
             db.close()
 
-    # --- VECTOR SEARCH CÓ PHÂN QUYỀN RBAC ---
+    # --- VECTOR SEARCH + FULL-TEXT SEARCH KẾT HỢP RBAC ---
+
+    @staticmethod
+    def _build_fts_query(query: str) -> str:
+        """
+        Chuyển đổi câu hỏi tự nhiên thành chuỗi FTS query hợp lệ cho SQL Server CONTAINSTABLE.
+
+        Quy tắc:
+        - Tách từ theo khoảng trắng, lọc stopwords ngắn (≤ 1 ký tự) và ký tự đặc biệt.
+        - Mỗi từ được bọc trong dấu ngoặc kép để tránh xung đột với toán tử FTS.
+        - Nối các từ bằng OR để tìm kiếm mở rộng (tối ưu recall).
+        - Nếu câu hỏi chứa số/mã ≥ 4 chữ số, ưu tiên thêm vào đầu truy vấn.
+        - Trả về chuỗi rỗng nếu không tạo được term nào hợp lệ (để caller bỏ qua FTS).
+        """
+        import re as _re
+
+        # Danh sách stopwords tiếng Việt thường gặp (tối giản)
+        _VI_STOPWORDS = {
+            "là", "và", "của", "có", "không", "được", "trong", "cho",
+            "một", "các", "với", "từ", "về", "tôi", "bạn", "này",
+            "đó", "đã", "sẽ", "thì", "mà", "hay", "hoặc", "nếu",
+            "hãy", "cần", "nên", "như", "vì", "khi", "ai", "gì",
+            "the", "a", "an", "is", "of", "in", "to", "for", "on",
+        }
+
+        # Ưu tiên nhận diện mã số quan trọng (≥ 4 chữ số)
+        priority_codes = _re.findall(r"\b\d{4,}\b", query)
+
+        # Tách từ, loại bỏ ký tự đặc biệt
+        raw_tokens = _re.split(r"[\s\-,./\\\"'()[\]{}|+*?!@#$%^&=<>:;]+", query)
+        tokens = []
+        for tok in raw_tokens:
+            tok = tok.strip()
+            if len(tok) >= 2 and tok.lower() not in _VI_STOPWORDS:
+                # Escape dấu ngoặc kép bên trong token
+                escaped = tok.replace('"', '""')
+                tokens.append(f'"{escaped}"')
+
+        # Mã số đi trước (nếu có), sau đó phần còn lại
+        priority_terms = [f'"{c}"' for c in priority_codes if len(c) >= 4]
+        all_terms = priority_terms + [t for t in tokens if t not in priority_terms]
+
+        # Loại trùng, giữ thứ tự
+        seen: set[str] = set()
+        unique_terms = []
+        for t in all_terms:
+            if t not in seen:
+                seen.add(t)
+                unique_terms.append(t)
+
+        if not unique_terms:
+            return ""
+
+        # Nối bằng OR (maximize recall; reranker / RRF sẽ lo chính xác)
+        return " OR ".join(unique_terms)
 
     def search_vector_chunks(
         self,
@@ -536,139 +772,285 @@ class DocumentRepository:
         user_department: str | None = None,
     ) -> dict[str, Any]:
         """
-        Tìm kiếm Vector Cosine kết hợp lọc phân quyền người dùng (User Roles RBAC) và Phòng ban (Department RBAC).
+        Tìm kiếm Hybrid: Vector Cosine Search + Full-Text Search (CONTAINSTABLE),
+        kết hợp lọc phân quyền RBAC (Vai trò + Phòng ban) và hợp nhất kết quả bằng RRF có trọng số.
 
         Luật Phân Quyền SQL:
         - Chunk hợp lệ nếu `accessScope` = 'Public' (hoặc NULL)
-        - HOẶC `accessScope` = 'Restricted' VÀ user_roles có chứa 'admin'
-        - HOẶC `accessScope` = 'Restricted' VÀ `user_roles` khớp với mảng `allowedRoles` lưu trong metadata.
-        - VÀ nếu tài liệu chỉ định Phòng ban sở hữu (owner_department), chỉ user thuộc phòng ban đó (hoặc Admin) mới xem được.
+        - HOẶC `accessScope` = 'Restricted' VÀ user_roles có chứa vai trò admin
+        - HOẶC `accessScope` = 'Restricted' VÀ `user_roles` khớp với `allowedRoles` trong metadata.
+        - VÀ nếu tài liệu có `owner_department`, chỉ user thuộc phòng ban đó (hoặc Admin) mới xem được.
+
+        Thuật toán RRF (Reciprocal Rank Fusion) có trọng số:
+            RRF_Score = α * 1/(k + vector_rank) + β * 1/(k + fts_rank_position)
+        với α = RRF_VECTOR_WEIGHT, β = RRF_FTS_WEIGHT, k = SEARCH_RRF_CONSTANT.
         """
         top_k = max(1, min(top_k, settings.SEARCH_TOP_K_MAX))
         candidate_count = max(top_k, settings.SEARCH_VECTOR_CANDIDATE_COUNT)
-        rrf_constant = (
-            settings.SEARCH_RRF_CONSTANT if settings.SEARCH_RRF_CONSTANT > 0 else 60
-        )
-        query_embedding_json = json.dumps(query_embedding)
-        match = re.search(r"\b\d{6,}\b", query)
-        exact_keyword = match.group(0) if match else ""
+        rrf_constant = settings.SEARCH_RRF_CONSTANT if settings.SEARCH_RRF_CONSTANT > 0 else 60
+        vector_weight = getattr(settings, "RRF_VECTOR_WEIGHT", 0.6)
+        fts_weight = getattr(settings, "RRF_FTS_WEIGHT", 0.4)
+        fts_enabled = getattr(settings, "FTS_ENABLED", True)
+        fts_max_candidates = getattr(settings, "FTS_MAX_CANDIDATES", 200)
 
-        # Tự động nhận diện tài khoản Admin (bất kể tên role là admin, administrator, administrators, fulltemp, sysadmin, superadmin, GUID role admin...)
+        query_embedding_json = json.dumps(query_embedding)
+
+        # Nhận diện Admin
         is_admin_flag = 0
         if user_roles:
-            roles_lower = [
-                r.strip().lower() for r in user_roles.split(",") if r.strip()
-            ]
+            roles_lower = [r.strip().lower() for r in user_roles.split(",") if r.strip()]
             admin_keywords = {
-                "admin",
-                "administrator",
-                "administrators",
-                "fulltemp",
-                "sysadmin",
-                "superadmin",
+                "admin", "administrator", "administrators",
+                "fulltemp", "sysadmin", "superadmin",
                 "4ff86c2b184f46bebb5cc338c74b5669",
             }
             if any(
                 r in admin_keywords
-                or any(
-                    kw in r for kw in ("admin", "fulltemp", "sysadmin", "superadmin")
-                )
+                or any(kw in r for kw in ("admin", "fulltemp", "sysadmin", "superadmin"))
                 for r in roles_lower
             ):
                 is_admin_flag = 1
 
-        sql = """
-            WITH FilteredDocuments AS (
-                SELECT id, document, metadata, embedding
-                FROM Documents
-                WHERE (? IS NULL OR JSON_VALUE(metadata, '$.content_kind') = ?)
-                  AND (
-                      ? = 1
-                      OR JSON_VALUE(metadata, '$.accessScope') IS NULL 
-                      OR JSON_VALUE(metadata, '$.accessScope') = 'Public'
-                      OR (
-                          JSON_VALUE(metadata, '$.accessScope') = 'Restricted'
-                          AND ? IS NOT NULL
-                          AND EXISTS (
-                              SELECT 1 
-                              FROM OPENJSON(metadata, '$.allowedRoles') WITH (role NVARCHAR(100) '$')
-                              WHERE LOWER(role) IN (SELECT LOWER(value) FROM STRING_SPLIT(?, ','))
-                                 OR role IN (SELECT value FROM STRING_SPLIT(?, ','))
-                          )
+        # Xây dựng FTS query string
+        fts_query_str = self._build_fts_query(query) if fts_enabled else ""
+        use_fts = fts_enabled and bool(fts_query_str)
+
+        if use_fts:
+            return self._search_hybrid(
+                query_embedding_json=query_embedding_json,
+                fts_query_str=fts_query_str,
+                top_k=top_k,
+                candidate_count=candidate_count,
+                fts_max_candidates=fts_max_candidates,
+                rrf_constant=rrf_constant,
+                vector_weight=vector_weight,
+                fts_weight=fts_weight,
+                content_kind=content_kind,
+                is_admin_flag=is_admin_flag,
+                user_roles=user_roles,
+                user_department=user_department,
+            )
+
+        # Fallback: Vector-only search
+        logger.info("[RAG] FTS disabled or no valid FTS terms — using vector-only search.")
+        return self._search_vector_only(
+            query_embedding_json=query_embedding_json,
+            top_k=top_k,
+            candidate_count=candidate_count,
+            rrf_constant=rrf_constant,
+            content_kind=content_kind,
+            is_admin_flag=is_admin_flag,
+            user_roles=user_roles,
+            user_department=user_department,
+        )
+
+    # ── SQL Helper constants (RBAC filter CTE) ──────────────────────────────
+
+    _RBAC_FILTER_CTE = """
+        FilteredDocuments AS (
+            SELECT id_int, id, document, metadata, embedding
+            FROM Documents
+            WHERE (? IS NULL OR JSON_VALUE(metadata, '$.content_kind') = ?)
+              AND (
+                  ? = 1
+                  OR JSON_VALUE(metadata, '$.accessScope') IS NULL
+                  OR JSON_VALUE(metadata, '$.accessScope') = 'Public'
+                  OR (
+                      JSON_VALUE(metadata, '$.accessScope') = 'Restricted'
+                      AND ? IS NOT NULL
+                      AND EXISTS (
+                          SELECT 1
+                          FROM OPENJSON(metadata, '$.allowedRoles') WITH (role NVARCHAR(100) '$')
+                          WHERE LOWER(role) IN (SELECT LOWER(value) FROM STRING_SPLIT(?, ','))
+                             OR role IN (SELECT value FROM STRING_SPLIT(?, ','))
                       )
                   )
-                  AND (
-                      ? = 1
-                      OR ? IS NULL OR ? = ''
-                      OR (
-                          ISNULL(JSON_VALUE(metadata, '$.owner_department'), '') = ''
-                          AND ISNULL(JSON_VALUE(metadata, '$.ownerDepartment'), '') = ''
-                      )
-                      OR LOWER(JSON_VALUE(metadata, '$.owner_department')) = LOWER(?)
-                      OR LOWER(JSON_VALUE(metadata, '$.ownerDepartment')) = LOWER(?)
+              )
+              AND (
+                  ? = 1
+                  OR ? IS NULL OR ? = ''
+                  OR (
+                      ISNULL(JSON_VALUE(metadata, '$.owner_department'), '') = ''
+                      AND ISNULL(JSON_VALUE(metadata, '$.ownerDepartment'), '') = ''
                   )
-            ),
+                  OR EXISTS (
+                      SELECT 1
+                      FROM STRING_SPLIT(LOWER(ISNULL(NULLIF(JSON_VALUE(metadata, '$.owner_department'), ''), JSON_VALUE(metadata, '$.ownerDepartment'))), ',')
+                      WHERE LTRIM(RTRIM(value)) = LOWER(?)
+                  )
+                  OR LOWER(JSON_VALUE(metadata, '$.owner_department')) = LOWER(?)
+              )
+        )"""
+
+    # Params tuple cho RBAC CTE (theo đúng thứ tự placeholder)
+    def _rbac_params(
+        self,
+        content_kind: str | None,
+        is_admin_flag: int,
+        user_roles: str | None,
+        user_department: str | None,
+    ) -> tuple:
+        return (
+            content_kind, content_kind,
+            is_admin_flag,
+            user_roles, user_roles, user_roles,
+            is_admin_flag,
+            user_department, user_department,
+            user_department, user_department,
+        )
+
+    # ── Hybrid Search (Vector + FTS CONTAINSTABLE) ───────────────────────────
+
+    def _search_hybrid(
+        self,
+        query_embedding_json: str,
+        fts_query_str: str,
+        top_k: int,
+        candidate_count: int,
+        fts_max_candidates: int,
+        rrf_constant: int,
+        vector_weight: float,
+        fts_weight: float,
+        content_kind: str | None,
+        is_admin_flag: int,
+        user_roles: str | None,
+        user_department: str | None,
+    ) -> dict[str, Any]:
+        """
+        Hybrid Search: Vector Cosine + CONTAINSTABLE Full-Text.
+
+        RRF Score = α * 1/(k + vector_rank) + β * 1/(k + fts_rank_pos)
+
+        CONTAINSTABLE trả về cột [RANK] theo thang điểm 1–1000 (SQL Server native).
+        fts_rank_pos = thứ hạng của chunk theo [RANK] DESC (1 = FTS match tốt nhất).
+        """
+        sql = f"""
+            WITH {self._RBAC_FILTER_CTE},
             VectorBase AS (
                 SELECT
-                    id, document, metadata,
-                    VECTOR_DISTANCE('cosine', embedding, CAST(CAST(? AS VARCHAR(MAX)) AS VECTOR(1024))) AS distance
+                    id_int, id, document, metadata,
+                    VECTOR_DISTANCE('cosine', embedding,
+                        CAST(CAST(? AS VARCHAR(MAX)) AS VECTOR(1024))) AS distance
                 FROM FilteredDocuments
             ),
             VectorSearch AS (
                 SELECT TOP (?)
-                    id, document, metadata, distance,
+                    id_int, id, document, metadata, distance,
                     ROW_NUMBER() OVER (ORDER BY distance ASC) AS vector_rank
                 FROM VectorBase
                 ORDER BY distance ASC
             ),
-            ExactMatchSearch AS (
-                SELECT id, 10000 AS exact_score
-                FROM FilteredDocuments
-                WHERE ? <> '' AND document LIKE '%' + ? + '%'
+            FtsSearch AS (
+                SELECT fd.id_int, fts.[RANK] AS fts_score
+                FROM FilteredDocuments fd
+                INNER JOIN CONTAINSTABLE(dbo.Documents, document, ?, LANGUAGE 0, ?) AS fts
+                    ON fd.id = fts.[KEY]
+            ),
+            FtsRanked AS (
+                SELECT
+                    id_int, fts_score,
+                    ROW_NUMBER() OVER (ORDER BY fts_score DESC) AS fts_rank_pos
+                FROM FtsSearch
             ),
             CandidateIds AS (
-                SELECT id FROM VectorSearch
+                SELECT id_int FROM VectorSearch
                 UNION
-                SELECT id FROM ExactMatchSearch
+                SELECT id_int FROM FtsRanked
             ),
             RankedScores AS (
-                SELECT c.id, d.document, d.metadata, v.distance, v.vector_rank, e.exact_score
+                SELECT c.id_int, d.id, d.document, d.metadata, v.distance,
+                       v.vector_rank, f.fts_rank_pos
                 FROM CandidateIds c
-                INNER JOIN FilteredDocuments d ON d.id = c.id
-                LEFT JOIN VectorSearch v ON v.id = c.id
-                LEFT JOIN ExactMatchSearch e ON e.id = c.id
+                INNER JOIN FilteredDocuments d ON d.id_int = c.id_int
+                LEFT JOIN VectorSearch v ON v.id_int = c.id_int
+                LEFT JOIN FtsRanked f ON f.id_int = c.id_int
             )
             SELECT TOP (?)
                 id, document, metadata, distance,
-                (1.0 / (? + ISNULL(vector_rank, 9999))) + ISNULL(exact_score, 0) AS RRF_Score
+                (
+                    {vector_weight} * (1.0 / (? + ISNULL(vector_rank, 9999)))
+                  + {fts_weight}    * (1.0 / (? + ISNULL(fts_rank_pos, 9999)))
+                ) AS RRF_Score
             FROM RankedScores
             ORDER BY RRF_Score DESC;
         """
 
+        params = (
+            *self._rbac_params(content_kind, is_admin_flag, user_roles, user_department),
+            query_embedding_json,
+            candidate_count,
+            fts_query_str,
+            fts_max_candidates,
+            top_k,
+            rrf_constant,
+            rrf_constant,
+        )
+
+        try:
+            return self._execute_search_query(sql, params)
+        except Exception as ex:
+            logger.warning(
+                "[WARN] Hybrid FTS search failed (%s) — falling back to vector-only.", ex
+            )
+            return self._search_vector_only(
+                query_embedding_json=query_embedding_json,
+                top_k=top_k,
+                candidate_count=candidate_count,
+                rrf_constant=rrf_constant,
+                content_kind=content_kind,
+                is_admin_flag=is_admin_flag,
+                user_roles=user_roles,
+                user_department=user_department,
+            )
+
+    # ── Vector-Only Search (fallback) ────────────────────────────────────────
+
+    def _search_vector_only(
+        self,
+        query_embedding_json: str,
+        top_k: int,
+        candidate_count: int,
+        rrf_constant: int,
+        content_kind: str | None,
+        is_admin_flag: int,
+        user_roles: str | None,
+        user_department: str | None,
+    ) -> dict[str, Any]:
+        """Vector-only cosine search với RBAC filtering (dùng khi FTS không khả dụng)."""
+        sql = f"""
+            WITH {self._RBAC_FILTER_CTE},
+            VectorBase AS (
+                SELECT
+                    id, document, metadata,
+                    VECTOR_DISTANCE('cosine', embedding,
+                        CAST(CAST(? AS VARCHAR(MAX)) AS VECTOR(1024))) AS distance
+                FROM FilteredDocuments
+            )
+            SELECT TOP (?)
+                id, document, metadata, distance,
+                1.0 / (? + ROW_NUMBER() OVER (ORDER BY distance ASC)) AS RRF_Score
+            FROM VectorBase
+            ORDER BY distance ASC;
+        """
+
+        params = (
+            *self._rbac_params(content_kind, is_admin_flag, user_roles, user_department),
+            query_embedding_json,
+            top_k,
+            rrf_constant,
+        )
+
+        return self._execute_search_query(sql, params)
+
+    # ── Kết quả chung ─────────────────────────────────────────────────────────
+
+    def _execute_search_query(self, sql: str, params: tuple) -> dict[str, Any]:
+        """Thực thi câu truy vấn search và chuẩn hóa output thành dict chuẩn."""
         ids, documents, metadatas, distances, citations = [], [], [], [], []
 
         raw_conn = engine.raw_connection()
         try:
             with raw_conn.cursor() as cursor:
-                params = (
-                    content_kind,
-                    content_kind,
-                    is_admin_flag,
-                    user_roles,
-                    user_roles,
-                    user_roles,
-                    is_admin_flag,
-                    user_department,
-                    user_department,
-                    user_department,
-                    user_department,
-                    query_embedding_json,
-                    candidate_count,
-                    exact_keyword,
-                    exact_keyword,
-                    top_k,
-                    rrf_constant,
-                )
                 cursor.execute(sql, params)
                 for row in cursor.fetchall():
                     doc_id, doc_text, meta_json, dist, score = row
@@ -680,14 +1062,12 @@ class DocumentRepository:
                     documents.append(doc_text)
                     metadatas.append(meta)
                     distances.append(dist_val)
-                    citations.append(
-                        {
-                            "source": meta.get("source"),
-                            "page": meta.get("page") or meta.get("slide"),
-                            "chunk_id": doc_id,
-                            "score": score_val,
-                        }
-                    )
+                    citations.append({
+                        "source": meta.get("source"),
+                        "page": meta.get("page") or meta.get("slide"),
+                        "chunk_id": doc_id,
+                        "score": score_val,
+                    })
         finally:
             raw_conn.close()
 
@@ -698,3 +1078,78 @@ class DocumentRepository:
             "distances": [distances],
             "citations": [citations],
         }
+
+    def get_chunks_by_ids(self, chunk_ids: list[str]) -> list[dict[str, Any]]:
+        """
+        Lấy thông tin chi tiết các chunk theo danh sách chunk_id.
+        Dùng cho Section / Sibling Chunk Expansion khi truy vấn Exhaustive.
+        """
+        if not chunk_ids:
+            return []
+
+        chunk_ids_unique = list(dict.fromkeys(chunk_ids))[:100]
+        placeholders = ",".join(["?"] * len(chunk_ids_unique))
+        sql = f"""
+            SELECT id, document, metadata
+            FROM Documents
+            WHERE id IN ({placeholders})
+        """
+        results = []
+        raw_conn = engine.raw_connection()
+        try:
+            with raw_conn.cursor() as cursor:
+                cursor.execute(sql, chunk_ids_unique)
+                for row in cursor.fetchall():
+                    cid, doc_text, meta_json = row
+                    meta = json.loads(meta_json) if meta_json else {}
+                    results.append({
+                        "id": cid,
+                        "document": doc_text,
+                        "metadata": meta,
+                    })
+        finally:
+            raw_conn.close()
+        return results
+
+    def get_adjacent_chunks(
+        self, backend_id: int | str, chunk_indices: list[int]
+    ) -> list[dict[str, Any]]:
+        """
+        Lấy các chunk liền kề (adjacent / sequence gaps) trong cùng tài liệu backend_id.
+        Giúp không bỏ sót các bước quy trình hoặc mục danh sách khi truy vấn mang tính liệt kê.
+        """
+        if not chunk_indices:
+            return []
+
+        min_idx = max(0, min(chunk_indices) - 1)
+        max_idx = max(chunk_indices) + 1
+
+        sql = """
+            SELECT id, document, metadata
+            FROM Documents
+            WHERE (
+                JSON_VALUE(metadata, '$.backendId') = ?
+                OR JSON_VALUE(metadata, '$.backend_document_id') = ?
+                OR JSON_VALUE(metadata, '$.backend_id') = ?
+            )
+            AND TRY_CAST(JSON_VALUE(metadata, '$.chunk_index') AS INT) BETWEEN ? AND ?
+            ORDER BY TRY_CAST(JSON_VALUE(metadata, '$.chunk_index') AS INT) ASC
+        """
+        results = []
+        raw_conn = engine.raw_connection()
+        try:
+            with raw_conn.cursor() as cursor:
+                cursor.execute(sql, (str(backend_id), str(backend_id), str(backend_id), min_idx, max_idx))
+                for row in cursor.fetchall():
+                    cid, doc_text, meta_json = row
+                    meta = json.loads(meta_json) if meta_json else {}
+                    results.append({
+                        "id": cid,
+                        "document": doc_text,
+                        "metadata": meta,
+                    })
+        finally:
+            raw_conn.close()
+        return results
+
+

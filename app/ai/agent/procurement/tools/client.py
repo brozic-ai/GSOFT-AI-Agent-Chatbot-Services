@@ -2,42 +2,9 @@ import logging
 from typing import Any, Optional
 import httpx
 from app.core.config import settings
+from app.core.user_context import get_current_auth_token
 
 logger = logging.getLogger(__name__)
-
-# Token cache trong bộ nhớ tạm để tránh gọi login liên tục
-_TOKEN_CACHE: dict[str, str] = {"token": ""}
-
-
-async def get_backend_auth_token(force_refresh: bool = False) -> str:
-    """Lấy Bearer JWT Token từ C# Backend API TokenAuth (chuẩn ABP Framework)."""
-    if _TOKEN_CACHE["token"] and not force_refresh:
-        return _TOKEN_CACHE["token"]
-
-    login_url = f"{settings.NET_BACKEND_URL}/api/TokenAuth/Authenticate"
-    auth_payload = {
-        "userNameOrEmailAddress": "baotq",
-        "password": "Gsoft@#hai0hai6",
-    }
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            res = await client.post(login_url, json=auth_payload)
-            if res.status_code == 200:
-                data = res.json()
-                token = data.get("result", {}).get("accessToken", "")
-                if token:
-                    _TOKEN_CACHE["token"] = token
-                    return token
-                logger.error("TokenAuth response did not contain accessToken")
-                raise RuntimeError("Phản hồi đăng nhập không chứa token hợp lệ.")
-            else:
-                logger.error(f"Failed to authenticate with C# backend ({res.status_code}): {res.text}")
-                raise RuntimeError(f"Xác thực với hệ thống gAMSPro thất bại ({res.status_code}).")
-    except Exception as e:
-        logger.exception("Error during get_backend_auth_token")
-        raise RuntimeError(f"Không thể kết nối đến máy chủ gAMSPro: {str(e)}")
-
 
 async def request_backend_api(
     method: str,
@@ -46,10 +13,16 @@ async def request_backend_api(
     params: Optional[dict[str, Any]] = None,
     timeout: float = 15.0,
 ) -> dict[str, Any]:
-    """Gửi HTTP Request (POST / GET) đến backend C# gAMSPro API với cơ chế tự động refresh token khi 401."""
-    url = f"{settings.NET_BACKEND_URL}{endpoint}"
-    token = await get_backend_auth_token()
+    """Gửi HTTP Request (POST / GET) đến backend C# gAMSPro API.
+    Chuyển tiếp trực tiếp Bearer Token từ phiên đăng nhập của người dùng (ContextVar).
+    Nếu không có token hoặc token hết hạn, báo lỗi yêu cầu đăng nhập (Zero-Admin Architecture).
+    """
+    token = get_current_auth_token()
+    if not token:
+        logger.warning(f"No user Bearer token available for request to {endpoint}")
+        raise RuntimeError("⚠️ Bạn chưa đăng nhập hoặc phiên làm việc chưa được xác thực. Vui lòng đăng nhập hệ thống gAMSPro để tiếp tục.")
 
+    url = f"{settings.NET_BACKEND_URL}{endpoint}"
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -63,13 +36,9 @@ async def request_backend_api(
 
         res = await client.request(method.upper(), url, **req_kwargs)
 
-        # Nếu token hết hạn (401), làm mới token và thử lại 1 lần
         if res.status_code == 401:
-            logger.warning("Bearer token expired (401). Refreshing token and retrying...")
-            token = await get_backend_auth_token(force_refresh=True)
-            headers["Authorization"] = f"Bearer {token}"
-            req_kwargs["headers"] = headers
-            res = await client.request(method.upper(), url, **req_kwargs)
+            logger.warning(f"User token expired or unauthorized (401) on {endpoint}")
+            raise RuntimeError("⚠️ Phiên làm việc của bạn trên gAMSPro đã hết hạn (401 Unauthorized). Vui lòng tải lại trang hoặc đăng nhập lại.")
 
         if res.status_code != 200:
             logger.error(f"gAMSPro API error on {endpoint} ({res.status_code}): {res.text}")

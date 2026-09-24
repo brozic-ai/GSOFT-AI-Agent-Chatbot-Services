@@ -4,52 +4,55 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from app.ai.agent.procurement.tools.client import post_backend_api
+from app.core.user_context import get_current_user_name
 
 logger = logging.getLogger(__name__)
 
 
 class CreateRequestDocInput(BaseModel):
-    tieu_de: str = Field(
-        description="Tiêu đề / Tên Tờ trình Mua sắm (ví dụ: 'Mua sắm máy in văn phòng phục vụ Phòng Hỗ trợ'). Bắt buộc.",
+    title: str = Field(
+        description="Tiêu đề / Tên Tờ trình Mua sắm (ví dụ: 'Mua sắm máy in văn phòng'). Bắt buộc.",
     )
-    tong_tien: Optional[float] = Field(
-        default=None,
-        description="Tổng số tiền đề xuất dự kiến (VNĐ) (ví dụ: 15000000). BẮT BUỘC PHẢI CÓ. Nếu người dùng chưa nêu rõ số tiền trong hội thoại, TUYỆT ĐỐI KHÔNG ĐƯỢC GỌI TOOL NÀY.",
+    estimated_amount: float = Field(
+        description="Tổng số tiền đề xuất dự kiến (VNĐ) (ví dụ: 15000000). Bắt buộc phải có và > 0.",
     )
-    noi_dung: Optional[str] = Field(
+    plan_code: Optional[str] = Field(
+        default="",
+        description="Mã Kế hoạch ngân sách liên kết (ví dụ: '.../TTr-...'). Không bắt buộc.",
+    )
+    description: Optional[str] = Field(
         default="",
         description="Nội dung / Lý do / Mục đích chi tiết của Tờ trình mua sắm.",
-    )
-    ma_ke_hoach: Optional[str] = Field(
-        default="",
-        description="Mã Kế hoạch ngân sách liên kết (ví dụ: '0049/2025/TTr-0690905' hoặc '0030/2025/TTr-0690905').",
-    )
-    user_name: Optional[str] = Field(
-        default=None,
-        description="Username cán bộ lập tờ trình (mặc định lấy theo tài khoản 'baotq').",
     )
 
 
 @tool("create_request_doc", args_schema=CreateRequestDocInput)
 async def create_request_doc(
-    tieu_de: str,
-    tong_tien: Optional[float] = None,
-    noi_dung: Optional[str] = "",
-    ma_ke_hoach: Optional[str] = "",
-    user_name: Optional[str] = None,
+    title: Optional[str] = None,
+    estimated_amount: Optional[float] = None,
+    plan_code: Optional[str] = "",
+    description: Optional[str] = "",
+    **kwargs,
 ) -> str:
     """Tạo mới Tờ trình Mua sắm (Lưu Nháp) trên hệ thống gAMSPro.
 
     ĐIỀU KIỆN TIÊN QUYẾT BẮT BUỘC:
-    - CHỈ ĐƯỢC GỌI khi người dùng ĐÃ CUNG CẤP CỤ THỂ Số tiền đề xuất (tong_tien > 0).
+    - CHỈ ĐƯỢC GỌI khi người dùng ĐÃ CUNG CẤP CỤ THỂ Số tiền đề xuất (estimated_amount > 0).
     - NẾU người dùng CHƯA NÊU RÕ SỐ TIỀN ĐỀ XUẤT (ví dụ chỉ nói 'Tạo tờ trình ABC'): TUYỆT ĐỐI KHÔNG GỌI TOOL NÀY mà phải hỏi người dùng để bổ sung số tiền.
+    - Thao tác này bắt buộc người dùng phải đăng nhập phiên gAMSPro hợp lệ.
     """
     try:
-        uname = (user_name or "").strip() or "baotq"
-        clean_title = (tieu_de or "").strip()
-        amt = float(tong_tien or 0)
-        content = (noi_dung or clean_title).strip()
-        plan_code = (ma_ke_hoach or "").strip()
+        uname = get_current_user_name()
+        if not uname:
+            return "⚠️ Bạn chưa đăng nhập tài khoản gAMSPro. Vui lòng đăng nhập để thực hiện tạo mới tờ trình mua sắm."
+        raw_title = title or kwargs.get("tieu_de") or kwargs.get("name") or ""
+        clean_title = str(raw_title).strip().strip("<>").strip()
+        amt_val = estimated_amount if estimated_amount is not None else (kwargs.get("tong_tien") if kwargs.get("tong_tien") is not None else kwargs.get("amount"))
+        amt = float(amt_val or 0)
+        raw_desc = description or kwargs.get("noi_dung") or clean_title
+        content = str(raw_desc).strip().strip("<>").strip()
+        raw_plan = plan_code or kwargs.get("ma_ke_hoach") or ""
+        plan_code = str(raw_plan).strip().strip("<>").strip()
 
         if not clean_title:
             return "Chưa thể tạo Tờ trình: Thiếu Tiêu đề Tờ trình mua sắm."
@@ -124,26 +127,32 @@ async def create_request_doc(
         }
 
         res = await post_backend_api("/api/RequestDoc/TR_REQUEST_DOC_Ins", payload=payload)
-        items = res.get("result", []) if isinstance(res, dict) else []
+        raw_res = res.get("result", res) if isinstance(res, dict) else res
+        item = {}
+        if isinstance(raw_res, list) and raw_res:
+            item = raw_res[0] if isinstance(raw_res[0], dict) else {}
+        elif isinstance(raw_res, dict):
+            item = raw_res
 
-        if items and str(items[0].get("Result")) == "0":
-            req_code = items[0].get("REQ_CODE") or "Mới"
-            req_id = items[0].get("REQ_ID") or ""
+        result_code = str(item.get("Result") or item.get("result") or ("0" if item.get("REQ_CODE") or item.get("reQ_CODE") else "-1"))
+        if result_code == "0" or item.get("REQ_CODE") or item.get("reQ_CODE") or item.get("reQ_ID"):
+            req_code = item.get("REQ_CODE") or item.get("reQ_CODE") or "Mới"
+            req_id = item.get("REQ_ID") or item.get("reQ_ID") or ""
             relative_url = f"/app/admin/request-doc-view;id={req_id}"
 
             return (
-                f"✅ **TẠO TỜ TRÌNH THÀNH CÔNG TRÊN GAMS PRO!**\n\n"
+                f"✅ **TẠO MỚI TỜ TRÌNH MUA SẮM THÀNH CÔNG TRÊN GAMSPRO!**\n\n"
                 f"- **Số Tờ trình:** 📄 `{req_code}`\n"
-                f"- **Mã hệ thống (REQ_ID):** `{req_id}`\n"
-                f"- **Tiêu đề:** {clean_title}\n"
-                f"- **Tổng tiền đề xuất:** {amt:,.0f} VNĐ\n"
+                f"- **Tiêu đề / Tên tờ trình:** **{clean_title}**\n"
+                f"- **Tổng tiền đề xuất:** **{amt:,.0f} VNĐ**\n"
                 f"- **Trạng thái:** ⚠️ **Lưu Nháp** (Chờ gửi phê duyệt)\n"
+                f"- **Mã hệ thống (REQ_ID):** `{req_id}`\n"
                 f"- **Kế hoạch liên kết:** 📌 `{resolved_plan_code or 'Chưa liên kết'}`\n\n"
                 f"👉 **Đường dẫn xem hồ sơ:** [{req_code}]({relative_url})\n\n"
                 f"Anh có muốn gửi phê duyệt tờ trình này ngay bây giờ không ạ?"
             )
         else:
-            err = items[0].get("ErrorDesc") if items else str(res)
+            err = item.get("ErrorDesc") or item.get("errorDesc") or str(res)
             return f"Không thể tạo Tờ trình trên gAMSPro do lỗi: {err}"
 
     except Exception as e:

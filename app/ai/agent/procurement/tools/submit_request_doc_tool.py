@@ -3,33 +3,35 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from langchain_core.tools import tool
 from app.ai.agent.procurement.tools.client import post_backend_api
+from app.core.user_context import get_current_user_name
 
 logger = logging.getLogger(__name__)
 
 
 class SubmitRequestDocInput(BaseModel):
-    doc_identifier: str = Field(
-        description="Mã Tờ trình Mua sắm cần gửi phê duyệt (ví dụ: 'PUR/2026/000086' hoặc mã hệ thống 'TRRD00000269717'). Bắt buộc.",
-    )
-    user_name: Optional[str] = Field(
-        default=None,
-        description="Username cán bộ gửi duyệt (mặc định lấy theo tài khoản đăng nhập 'baotq').",
+    doc_id: str = Field(
+        description="Mã Tờ trình Mua sắm cần gửi phê duyệt (ví dụ: 'PUR/...' hoặc 'TRRD...'). Bắt buộc.",
     )
 
 
 @tool("submit_request_doc_approval", args_schema=SubmitRequestDocInput)
 async def submit_request_doc_approval(
-    doc_identifier: str,
-    user_name: Optional[str] = None,
+    doc_id: Optional[str] = None,
+    **kwargs,
 ) -> str:
     """Gửi phê duyệt Tờ trình Mua sắm đang ở trạng thái Lưu Nháp trên hệ thống gAMSPro.
 
     Dùng tool này khi người dùng yêu cầu gửi phê duyệt một tờ trình đã có trên hệ thống
-    (ví dụ: 'Gửi phê duyệt tờ trình PUR/2026/000065 giúp tôi', 'Trình duyệt tờ trình vừa tạo').
+    (ví dụ: 'Gửi phê duyệt tờ trình PUR/... giúp tôi', 'Trình duyệt tờ trình vừa tạo').
+    Thao tác này bắt buộc người dùng phải đăng nhập phiên gAMSPro hợp lệ.
     """
     try:
-        uname = (user_name or "").strip() or "baotq"
-        clean_id = (doc_identifier or "").strip()
+        uname = get_current_user_name()
+        if not uname:
+            return "⚠️ Bạn chưa đăng nhập tài khoản gAMSPro. Vui lòng đăng nhập để thực hiện gửi phê duyệt tờ trình."
+
+        raw_id = doc_id or kwargs.get("doc_identifier") or kwargs.get("request_id") or kwargs.get("so_to_trinh") or kwargs.get("id") or ""
+        clean_id = str(raw_id).strip().strip("<>").strip()
 
         if not clean_id:
             return "Vui lòng cung cấp số Tờ trình mua sắm cần gửi phê duyệt."
