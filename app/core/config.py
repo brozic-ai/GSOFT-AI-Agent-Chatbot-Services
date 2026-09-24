@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     # --- Database Config ---
     SQLSERVER_CONNECTIONSTRING: str = (
         "Driver={ODBC Driver 18 for SQL Server};"
-        "Server=LAPTOP-BE44K422\\MSSQLSERVER01;Database=gAMSPro_BVB_AI_V1_LIVE_04082026_1;"
+        "Server=WIN-10N56EMJU1G\\Administrator;Database=gAMSPro_BVB_AI_V1_LIVE_04082026_1;"
         "Trusted_Connection=yes;"
         "TrustServerCertificate=yes;"
     )
