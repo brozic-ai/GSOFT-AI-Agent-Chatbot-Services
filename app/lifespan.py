@@ -6,6 +6,7 @@ dọn dẹp khi shutdown. Dùng asynccontextmanager thay cho
 @app.on_event("startup"/"shutdown") đã deprecated.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -14,6 +15,24 @@ from fastapi import FastAPI
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+_CHAT_RETENTION_INTERVAL_SECONDS = 6 * 3600
+_chat_retention_task: asyncio.Task | None = None
+
+
+async def _chat_retention_loop() -> None:
+    """Định kỳ xóa lịch sử chat không hoạt động quá CHAT_RETENTION_DAYS ngày."""
+    from app.modules.chat.repository import ChatRepository
+
+    repo = ChatRepository()
+    while True:
+        try:
+            deleted = await asyncio.to_thread(repo.delete_inactive_conversations, settings.CHAT_RETENTION_DAYS)
+            if deleted:
+                logger.info("[RETENTION] Deleted %d conversations inactive > %d days.", deleted, settings.CHAT_RETENTION_DAYS)
+        except Exception as ex:
+            logger.error("[RETENTION] Chat history cleanup failed: %s", ex, exc_info=True)
+        await asyncio.sleep(_CHAT_RETENTION_INTERVAL_SECONDS)
 
 
 @asynccontextmanager
@@ -215,9 +234,18 @@ async def _startup() -> None:
     else:
         logger.info("[INFO] FTS_ENABLED=False trong cấu hình. Bỏ qua khởi tạo Full-Text Search cho FaqVectors.")
 
+    # 7. Job nền tự xóa lịch sử chat không hoạt động (chạy ngay khi startup, lặp mỗi 6h)
+    global _chat_retention_task
+    if settings.CHAT_RETENTION_DAYS > 0:
+        _chat_retention_task = asyncio.create_task(_chat_retention_loop())
+
 
 async def _shutdown() -> None:
     """Giải phóng tất cả resources khi ứng dụng tắt."""
+
+    # 0. Dừng job dọn lịch sử chat
+    if _chat_retention_task:
+        _chat_retention_task.cancel()
 
     # 1. Reset LLM Provider cache
     from app.routers.dependencies import _reset_caches

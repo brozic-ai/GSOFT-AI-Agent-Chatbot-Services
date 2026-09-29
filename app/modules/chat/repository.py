@@ -7,9 +7,10 @@ Tuân thủ cùng nguyên tắc SessionLocal với DocumentRepository đang áp 
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional, Union
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
@@ -223,6 +224,29 @@ class ChatRepository:
             db.rollback()
             logger.error("[FAIL] Error deleting Conversation ID=%s: %s", conversation_id, ex, exc_info=True)
             raise ex
+        finally:
+            db.close()
+
+    def delete_inactive_conversations(self, days: int) -> int:
+        """
+        Xóa các phiên hội thoại không hoạt động quá `days` ngày (UpdatedAt, fallback CreatedAt).
+        Bỏ qua phiên đã ghim. Xóa ChatMessages trước để không phụ thuộc FK CASCADE ở DB cũ.
+        """
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        stale = (
+            Conversation.is_pinned == False,  # noqa: E712
+            func.coalesce(Conversation.updated_at, Conversation.created_at) < cutoff,
+        )
+        db: Session = SessionLocal()
+        try:
+            stale_ids = select(Conversation.id).where(*stale)
+            db.query(ChatMessage).filter(ChatMessage.conversation_id.in_(stale_ids)).delete(synchronize_session=False)
+            deleted = db.query(Conversation).filter(*stale).delete(synchronize_session=False)
+            db.commit()
+            return deleted
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
 

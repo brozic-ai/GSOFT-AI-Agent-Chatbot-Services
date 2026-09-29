@@ -21,6 +21,11 @@ def get_reranker(reranker_type: str | None = None, model_name: str | None = None
 
         return CrossEncoderReranker(model_name=target_model)
 
+    if target_type == "llamacpp":
+        from app.ai.rag.reranker.llamacpp_reranker import LlamaCppReranker
+
+        return LlamaCppReranker(base_url=settings.RERANKER_URL, model=target_model)
+
     if target_type == "flashrank":
         from app.ai.rag.reranker.flashrank_reranker import FlashRankReranker
 

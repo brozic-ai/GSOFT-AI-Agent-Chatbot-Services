@@ -76,7 +76,8 @@ class TeiEmbeddingService:
 
     def __init__(self, base_url: str | None = None):
         self.base_url = (base_url or settings.TEI_URL).rstrip("/")
-        self.embed_url = f"{self.base_url}/embed"
+        # OpenAI-compatible route: dùng được cho cả llama.cpp server và TEI
+        self.embed_url = f"{self.base_url}/v1/embeddings"
 
     async def embed_texts(
         self, texts: list[str], batch_size: int = 32
@@ -99,14 +100,18 @@ class TeiEmbeddingService:
                 try:
                     for i in range(0, len(texts), batch_size):
                         batch = texts[i : i + batch_size]
+                        payload = {"input": batch}
+                        model_name = getattr(settings, "EMBEDDING_MODEL", None)
+                        if model_name:
+                            payload["model"] = model_name
                         response = await client.post(
                             self.embed_url,
-                            json={"inputs": batch},
+                            json=payload,
                             headers={"Content-Type": "application/json"},
                         )
                         response.raise_for_status()
-                        embeddings = response.json()
-                        all_embeddings.extend(embeddings)
+                        data = sorted(response.json()["data"], key=lambda d: d["index"])
+                        all_embeddings.extend(d["embedding"] for d in data)
                     return all_embeddings
                 except Exception as tei_ex:  # noqa: BLE001
                     logger.debug(

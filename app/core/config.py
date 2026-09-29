@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     INGESTION_ENABLE_VISION_OCR: bool = False
     RERANKER_TYPE: str = "bge"
     RERANKER_MODEL: str = "BAAI/bge-reranker-base"
+    RERANKER_URL: str = "http://localhost:8081"
     RERANKER_TOP_K: int = 4
     RERANKER_SCORE_THRESHOLD: float = 0.35
     HYBRID_TOP_K_CANDIDATES: int = 20
@@ -96,6 +97,7 @@ class Settings(BaseSettings):
     FAQ_FAST_MATCH_ENABLED: bool = True
     FAQ_FAST_MATCH_THRESHOLD: float = 0.80
     CHAT_HISTORY_LIMIT: int = 10
+    CHAT_RETENTION_DAYS: int = 30  # Tự xóa hội thoại không hoạt động quá N ngày (0 = tắt)
 
     # --- RAG Dynamic Top-K Config (Min = 3, Max = 15) ---
     RAG_DYNAMIC_TOP_K_ENABLED: bool = True
