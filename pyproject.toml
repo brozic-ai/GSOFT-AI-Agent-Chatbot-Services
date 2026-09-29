@@ -40,6 +40,7 @@ dependencies = [
   "pandas>=3.0.5",
   "langchain-community>=0.3.0",
   "langchain-ollama>=0.2.0",
+  "poethepoet>=0.48.0",
 ]
 
 [tool.uv]
@@ -55,7 +56,7 @@ explicit = true
 torch = { index = "pytorch-cu124" }
 
 [tool.poe.tasks]
-dev = "uvicorn app.main:app --reload"
+dev = "uvicorn app.main:app --reload --reload-dir app"
 upload = "python scripts/upload_documents.py"
 eval = "python scripts/run_eval.py"
 
