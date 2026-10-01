@@ -1,0 +1,20 @@
+name: bvbank-chatbot-local
+
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in this service's .env}
+    ports:
+      - "127.0.0.1:14333:1433"
+    volumes:
+      - chatbot_sql_data:/var/opt/mssql
+      - ../../../BVB.bak:/var/opt/mssql/backup/BVB.bak:ro
+    mem_limit: 3g
+    stop_grace_period: 30s
+
+volumes:
+  chatbot_sql_data:

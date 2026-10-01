@@ -108,6 +108,8 @@ graph TD
 
 ## 🚀 Cài Đặt & Chạy
 
+Nếu phát triển trên Mac Apple Silicon, xem [hướng dẫn chạy chatbot local](LOCAL_MAC_RUN.md) để dùng môi trường SQL và Ollama riêng cho máy này.
+
 ```bash
 cd dev_llm_service
 uv sync

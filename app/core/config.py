@@ -1,15 +1,19 @@
 import os
 from functools import lru_cache
+from pathlib import Path
+
 from dotenv import load_dotenv
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Load .env into os.environ
-load_dotenv(override=True)
+# Only load this service's .env. Explicit process variables take precedence so
+# a local test cannot inherit credentials from a parent project's .env.
+_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(dotenv_path=_ENV_FILE, override=False)
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=True,
@@ -169,6 +173,5 @@ if settings.LANGFUSE_ENABLED:
         os.environ["LANGFUSE_PUBLIC_KEY"] = lf_public_key
     if lf_secret_key:
         os.environ["LANGFUSE_SECRET_KEY"] = lf_secret_key
-
 
 
