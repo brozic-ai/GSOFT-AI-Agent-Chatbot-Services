@@ -13,7 +13,6 @@ import re
 from datetime import UTC, datetime
 from typing import Any
 
-import pyodbc
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -315,8 +314,6 @@ class DocumentRepository:
         """
         Đồng bộ accessScope, allowedRoles, owner_department và category
         xuống toàn bộ các Chunks vector trong bảng Documents.
-        Do SQL Server 2025 có vector index trên cột embedding, tạm DROP index trước khi UPDATE
-        và CREATE lại index autocommit sau khi hoàn tất.
         """
         allowed_roles = allowed_roles or []
         if access_scope.lower() == "public":
@@ -334,18 +331,6 @@ class DocumentRepository:
         raw_conn = engine.raw_connection()
         try:
             with raw_conn.cursor() as cursor:
-                # 1. Tạm drop Vector Index nếu có để tránh lỗi SQL Server 42231 khi UPDATE
-                try:
-                    cursor.execute(
-                        "DROP INDEX IF EXISTS idx_documents_embedding ON dbo.Documents;"
-                    )
-                except Exception as idx_ex:  # noqa: BLE001
-                    logger.warning(
-                        "[WARN] Exception dropping vector index before metadata UPDATE: %s",
-                        idx_ex,
-                    )
-
-                # 2. Update metadata của các chunk
                 sql = """
                     UPDATE Documents
                     SET metadata = JSON_MODIFY(
@@ -390,8 +375,6 @@ class DocumentRepository:
         finally:
             raw_conn.close()
 
-        # 3. Tái tạo lại Vector Index
-        self._recreate_vector_index()
         return updated_rows
 
     def delete_rag_document(self, backend_id: int) -> str | None:
@@ -425,24 +408,10 @@ class DocumentRepository:
     ) -> None:
         """
         Xóa các chunk vector thuộc tài liệu có backendId tương ứng hoặc file_name tương ứng.
-        Lưu ý: SQL Server 2025 yêu cầu tạm DROP Vector Index trước khi DELETE dòng,
-        và CREATE VECTOR INDEX bắt buộc chạy ở chế độ autocommit độc lập.
         """
         raw_conn = engine.raw_connection()
         try:
             with raw_conn.cursor() as cursor:
-                # 1. Tạm drop Vector Index nếu có để tránh lỗi SQL Server 42231 khi DELETE
-                try:
-                    cursor.execute(
-                        "DROP INDEX IF EXISTS idx_documents_embedding ON dbo.Documents;"
-                    )
-                except Exception as idx_ex:  # noqa: BLE001
-                    logger.warning(
-                        "[WARN] Exception dropping vector index before DELETE: %s",
-                        idx_ex,
-                    )
-
-                # 2. Xóa các chunks theo backend_id hoặc source file_name
                 if file_name:
                     cursor.execute(
                         """
@@ -470,50 +439,6 @@ class DocumentRepository:
         finally:
             raw_conn.close()
 
-        # 3. Tái tạo lại Vector Index bằng kết nối autocommit độc lập (tránh lỗi transaction 574 của SQL Server 2025)
-        self._recreate_vector_index()
-
-    def _recreate_vector_index(self) -> None:
-        """Tái tạo Vector Index an toàn bằng autocommit connection có đầy đủ ODBC Driver."""
-        try:
-            available_drivers = pyodbc.drivers()
-            preferred_drivers = [
-                "ODBC Driver 18 for SQL Server",
-                "ODBC Driver 17 for SQL Server",
-                "ODBC Driver 13 for SQL Server",
-                "SQL Server",
-            ]
-            conn_str = settings.SQLSERVER_CONNECTIONSTRING
-            if "driver=" not in conn_str.lower():
-                fallback_driver = next(
-                    (d for d in preferred_drivers if d in available_drivers), None
-                )
-                if fallback_driver:
-                    if not conn_str.rstrip().endswith(";"):
-                        conn_str += ";"
-                    conn_str = f"Driver={{{fallback_driver}}};{conn_str}"
-
-            conn = pyodbc.connect(conn_str, autocommit=True)
-            with conn.cursor() as cursor:
-                # Kiểm tra xem index đã tồn tại chưa
-                cursor.execute(
-                    """
-                    IF NOT EXISTS (
-                        SELECT 1 FROM sys.indexes 
-                        WHERE name = 'idx_documents_embedding' AND object_id = OBJECT_ID('dbo.Documents')
-                    )
-                    BEGIN
-                        CREATE VECTOR INDEX idx_documents_embedding ON dbo.Documents(embedding) WITH (METRIC = 'cosine');
-                    END
-                    """
-                )
-            conn.close()
-            logger.info("[OK] Recreated Vector Index idx_documents_embedding successfully.")
-        except Exception as idx_ex:  # noqa: BLE001
-            logger.warning(
-                "[WARN] Exception recreating vector index: %s", idx_ex
-            )
-
     def upsert_documents(
         self,
         ids: list[str],
@@ -524,7 +449,6 @@ class DocumentRepository:
         """
         Lưu/cập nhật danh sách vector chunks vào CSDL SQL Server.
         Sử dụng CAST(CAST(? AS VARCHAR(MAX)) AS VECTOR(1024)) để tránh lỗi 529 'ntext to vector conversion' của SQL Server 2025.
-        Tạm thời DROP Vector Index trước khi MERGE batch và tái tạo lại sau đó để tránh lỗi SQL Server 42231.
         """
         sql = """
             MERGE Documents AS target
@@ -539,18 +463,6 @@ class DocumentRepository:
         raw_conn = engine.raw_connection()
         try:
             with raw_conn.cursor() as cursor:
-                # 1. Tạm drop Vector Index trước khi batch MERGE
-                try:
-                    cursor.execute(
-                        "DROP INDEX IF EXISTS idx_documents_embedding ON dbo.Documents;"
-                    )
-                except Exception as idx_ex:  # noqa: BLE001
-                    logger.warning(
-                        "[WARN] Exception dropping vector index before upsert: %s",
-                        idx_ex,
-                    )
-
-                # 2. Thực thi MERGE các chunks
                 for i in range(len(ids)):
                     embed_json = json.dumps(embeddings[i])
                     meta_json = json.dumps(metadatas[i], ensure_ascii=False)
@@ -560,9 +472,6 @@ class DocumentRepository:
             logger.info("[OK] Upserted %d vector chunks", len(ids))
         finally:
             raw_conn.close()
-
-        # 3. Tái tạo lại Vector Index sau khi hoàn tất upsert
-        self._recreate_vector_index()
 
     def upsert_ingestion_file(
         self,
@@ -1151,5 +1060,4 @@ class DocumentRepository:
         finally:
             raw_conn.close()
         return results
-
 
