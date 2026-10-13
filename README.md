@@ -252,3 +252,7 @@ scripts/format.sh   # ruff check --fix + ruff format
 scripts/lint.sh     # mypy + ty check + ruff (cần cài ty global: uv tool install ty)
 uv run pytest
 ```
+
+## Kiểm tra trùng trước import
+
+Luồng SHA-256, retry theo attempt và hướng dẫn migration/backfill: [Document deduplication](docs/document-deduplication.md).

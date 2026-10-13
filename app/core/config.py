@@ -12,6 +12,8 @@ _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(dotenv_path=_ENV_FILE, override=False)
 
 class Settings(BaseSettings):
+    RAG_REQUIRE_FILE_SHA256: bool = True
+
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE,
         env_file_encoding="utf-8",

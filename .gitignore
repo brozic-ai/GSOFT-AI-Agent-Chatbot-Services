@@ -224,6 +224,7 @@ __marimo__/
 # Temporary / Local files
 create_report_docx.py
 Bao_Cao_Tich_Hop_Phan_Quyen_RAG_GSOFT.docx
-tests/
+tests/*
+!tests/test_document_fingerprints.py
 ruff_cache/
 

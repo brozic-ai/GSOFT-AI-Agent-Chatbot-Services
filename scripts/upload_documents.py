@@ -1,479 +1,166 @@
-"""
-Script tự động nạp toàn bộ tài liệu vào hệ thống RAG & CSDL SQL Server.
-Tự động đăng ký Metadata + Tách chunk & Embedding với Rich UI.
+"""Import files using atomic tenant/SHA-256 registration, then admit one attempt.
+
+--force remains accepted for compatibility but never creates duplicate metadata.
+Retry existing failed documents from the management UI using their saved source.
 """
 
-import json
+import argparse
+import hashlib
 import os
 import sys
+import time
 from pathlib import Path
 
 import requests
 
-# Thư mục my_documents nằm tại gốc dự án dev_llm_service
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DOCUMENTS_DIR = PROJECT_ROOT / "my_documents"
-
-BASE_URL = "http://localhost:8000/api/v1/documents"
-CREATE_DOC_URL = f"{BASE_URL}"
-UPLOAD_DOC_URL = f"{BASE_URL}/upload"
-LIST_DOCS_URL = f"{BASE_URL}"
-
-DEFAULT_CATEGORY = "Quy trình nội bộ"
-DEFAULT_ACCESS_SCOPE = "Public"
-DEFAULT_ALLOWED_ROLES = ["Public", "Employee"]
-
-
-# ── Rich Console (lazy init, fallback nếu chưa cài) ──
-_console = None
-
-
-def _get_console():
-    global _console
-    if _console is None:
-        try:
-            from rich.console import Console
-
-            _console = Console()
-        except ImportError:
-            _console = False
-    return _console if _console else None
-
-
-def _human_size(size_bytes: int) -> str:
-    """Chuyển đổi bytes sang dạng dễ đọc (KB, MB, GB)."""
-    for unit in ("B", "KB", "MB", "GB"):
-        if abs(size_bytes) < 1024:
-            return f"{size_bytes:.1f} {unit}"
-        size_bytes /= 1024
-    return f"{size_bytes:.1f} TB"
-
-
-def get_existing_documents() -> dict:
-    """Truy vấn CSDL SQL Server qua API để lấy danh sách các tài liệu đã nạp & tách chunk thành công."""
-    console = _get_console()
-    if console:
-        console.print("  🔍 [dim]Đang kiểm tra tài liệu đã có trong CSDL...[/]", end="")
-    else:
-        print("🔍 Đang kiểm tra tài liệu đã có trong CSDL...", end="", flush=True)
-
-    try:
-        res = requests.get(LIST_DOCS_URL, timeout=(3, 30))
-        if res.status_code == 200:
-            docs = res.json()
-            existing = {}
-            for doc in docs:
-                f_name = doc.get("file_name")
-                chunk_cnt = doc.get("chunk_count", 0)
-                status = doc.get("ingest_status", "")
-                if f_name and (chunk_cnt > 0 or status in ("Completed", "Success")):
-                    existing[f_name] = doc
-            if console:
-                console.print(f" [green]✓ {len(existing)} tài liệu đã tách chunk[/]")
-            else:
-                print(f" ✅ Tìm thấy {len(existing)} tài liệu đã tách chunk.")
-            return existing
-        else:
-            msg = f" ⚠️ API trả về HTTP {res.status_code}"
-            if console:
-                console.print(f" [yellow]{msg}[/]")
-            else:
-                print(msg)
-    except requests.exceptions.ConnectionError:
-        msg = "\n   ⚠️ Không kết nối được server — kiểm tra server đã khởi động chưa."
-        if console:
-            console.print(f"[yellow]{msg}[/]")
-        else:
-            print(msg)
-    except requests.exceptions.ReadTimeout:
-        msg = "\n   ⚠️ Server không phản hồi sau 30s — tiếp tục mà không kiểm tra CSDL."
-        if console:
-            console.print(f"[yellow]{msg}[/]")
-        else:
-            print(msg)
-    except Exception as ex:  # noqa: BLE001
-        msg = f"\n   ⚠️ Lỗi kiểm tra CSDL: {ex}"
-        if console:
-            console.print(f"[yellow]{msg}[/]")
-        else:
-            print(msg)
-    return {}
-
-
-class ProgressFileReader:
-    """Wrapper file object đọc file theo chunk byte, cập nhật Rich progress bar hoặc callback."""
-
-    def __init__(self, file_path: str, callback=None):
-        self.file_path = file_path
-        self.f = open(file_path, "rb")  # noqa: SIM115
-        self.callback = callback
-        self.file_size = os.path.getsize(file_path)
-
-    def read(self, size: int = -1) -> bytes:
-        chunk = self.f.read(size)
-        if chunk and self.callback:
-            self.callback(len(chunk), self)
-        return chunk
-
-    def seek(self, offset: int, whence: int = 0) -> int:
-        return self.f.seek(offset, whence)
-
-    def tell(self) -> int:
-        return self.f.tell()
-
-    def __len__(self) -> int:
-        return self.file_size
-
-    def close(self):
-        self.f.close()
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def batch_upload_with_metadata():
-    console = _get_console()
+    from app.core.config import settings
 
-    if not DOCUMENTS_DIR.exists():
-        DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
-        if console:
-            from rich.panel import Panel
-
-            console.print(
-                Panel(
-                    f"📁 Đã tạo thư mục: [cyan]{DOCUMENTS_DIR}[/]\n"
-                    f"👉 Copy file tài liệu vào thư mục trên rồi chạy lại script!",
-                    border_style="yellow",
-                )
-            )
-        else:
-            print(f"📁 Đã tạo thư mục: {DOCUMENTS_DIR}")
-            print("👉 Vui lòng chép file tài liệu vào rồi chạy lại script!")
-        return
-
-    files = [
-        f
-        for f in os.listdir(DOCUMENTS_DIR)
-        if os.path.isfile(os.path.join(DOCUMENTS_DIR, f)) and not f.startswith(".")
-    ]
-
-    if not files:
-        if console:
-            console.print(
-                f"[yellow]⚠️ Thư mục '[cyan]{DOCUMENTS_DIR}[/]' đang trống![/]"
-            )
-        else:
-            print(f"⚠️ Thư mục '{DOCUMENTS_DIR}' đang trống!")
-        return
-
-    force_reupload = "--force" in sys.argv or "-f" in sys.argv
-    existing_docs = get_existing_documents() if not force_reupload else {}
-
-    total_files = len(files)
-    total_size = sum(os.path.getsize(os.path.join(DOCUMENTS_DIR, f)) for f in files)
-    new_files = [f for f in files if f not in existing_docs]
-    skip_files = [f for f in files if f in existing_docs]
-
-    # ── Header Panel ──
-    if console:
-        from rich.panel import Panel
-        from rich.text import Text
-
-        header = Text()
-        header.append("📦 Document Upload Pipeline\n", style="bold cyan")
-        header.append(f"   Folder: {DOCUMENTS_DIR}\n", style="dim")
-        header.append(
-            f"   Files : {total_files} ({_human_size(total_size)})", style="dim"
-        )
-        if skip_files:
-            header.append(f"  •  Skip: {len(skip_files)}", style="dim yellow")
-        if new_files:
-            header.append(f"  •  New: {len(new_files)}", style="dim green")
-        if force_reupload:
-            header.append("  •  --force", style="bold red")
-        console.print(Panel(header, border_style="cyan", padding=(0, 1)))
-        console.print()
-    else:
-        print(f"🚀 Tìm thấy {total_files} file tài liệu.")
-        if existing_docs:
-            print(f"🔍 CSDL đã có {len(existing_docs)} tài liệu. (--force để nạp lại)")
-        print("-" * 80)
-
-    success_count = 0
-    skipped_count = 0
-    error_count = 0
-    results = []  # (filename, status, detail)
-
-    if console:
-        _run_with_rich(console, files, existing_docs, results)
-    else:
-        _run_plain(files, existing_docs, results)
-
-    # Đếm kết quả
-    for _, status, _ in results:
-        if status == "success":
-            success_count += 1
-        elif status == "skipped":
-            skipped_count += 1
-        else:
-            error_count += 1
-
-    # ── Summary Panel ──
-    if console:
-        from rich.panel import Panel
-        from rich.text import Text
-
-        summary = Text()
-        summary.append("🎉 HOÀN THÀNH\n", style="bold green")
-        summary.append("   ✅ Mới nạp: ", style="white")
-        summary.append(f"{success_count}", style="bold green")
-        summary.append("   ⏭️ Bỏ qua: ", style="white")
-        summary.append(f"{skipped_count}", style="bold yellow")
-        if error_count > 0:
-            summary.append("   ❌ Lỗi: ", style="white")
-            summary.append(f"{error_count}", style="bold red")
-        summary.append("   📊 Tổng: ", style="white")
-        summary.append(f"{total_files}", style="bold cyan")
-
-        border = "green" if error_count == 0 else "yellow"
-        console.print()
-        console.print(Panel(summary, border_style=border, padding=(0, 1)))
-    else:
-        print(
-            f"\n🎉 HOÀN THÀNH! Mới nạp: {success_count} | Bỏ qua: {skipped_count} | Lỗi: {error_count} | Tổng: {total_files}"
-        )
-
-
-def _run_with_rich(console, files, existing_docs, results):
-    """Chạy upload pipeline với Rich progress bar."""
-    from rich.progress import (
-        BarColumn,
-        DownloadColumn,
-        Progress,
-        SpinnerColumn,
-        TaskProgressColumn,
-        TextColumn,
-        TimeElapsedColumn,
-        TransferSpeedColumn,
-    )
-
-    total_files = len(files)
-
-    with Progress(
-        SpinnerColumn(style="cyan"),
-        TextColumn("[bold]{task.description}"),
-        BarColumn(
-            bar_width=30,
-            style="bright_black",
-            complete_style="cyan",
-            finished_style="bold green",
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--folder", type=Path, default=PROJECT_ROOT / "my_documents")
+    parser.add_argument(
+        "--base-url",
+        default=os.getenv(
+            "RAG_DOCUMENT_API_URL", "http://localhost:8000/api/v1/documents"
         ),
-        TaskProgressColumn(),
-        DownloadColumn(),
-        TransferSpeedColumn(),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
-        overall_task = progress.add_task(
-            f"[cyan]📦 Uploading {total_files} documents...",
-            total=total_files,
-        )
-
-        for index, filename in enumerate(files, start=1):
-            file_path = os.path.join(DOCUMENTS_DIR, filename)
-            file_size = os.path.getsize(file_path)
-
-            # ── Skip: đã có trong DB ──
-            if filename in existing_docs:
-                doc_info = existing_docs[filename]
-                chunk_cnt = doc_info.get("chunk_count", 0)
-
-                file_task = progress.add_task(
-                    f"[dim]⏭️  {filename}",
-                    total=file_size,
-                )
-                progress.update(
-                    file_task,
-                    completed=file_size,
-                    description=f"[yellow]⏭️  {filename} [dim]({chunk_cnt} chunks → Skip)[/]",
-                )
-                progress.advance(overall_task)
-                results.append((filename, "skipped", f"{chunk_cnt} chunks"))
-                continue
-
-            # ── New file: upload ──
-            file_task = progress.add_task(
-                f"[cyan]📄 {filename}",
-                total=file_size,
-            )
-
-            raw_name, _ = os.path.splitext(filename)
-            doc_name = raw_name.replace("_", " ").replace("-", " ").title()
-
-            # 1. Metadata
-            progress.update(
-                file_task, description=f"[cyan]📝 {filename} [dim]Metadata...[/]"
-            )
-            create_payload = {
-                "document_name": doc_name,
-                "file_name": filename,
-                "file_path": file_path,
-                "file_size": file_size,
-                "category": DEFAULT_CATEGORY,
-                "description": f"Tài liệu {doc_name} được nạp tự động vào hệ thống RAG.",
-                "access_scope": DEFAULT_ACCESS_SCOPE,
-                "allowed_roles": DEFAULT_ALLOWED_ROLES,
-            }
-
-            backend_id = 0
-            try:
-                res_meta = requests.post(CREATE_DOC_URL, json=create_payload)
-                if res_meta.status_code in (200, 201):
-                    backend_id = res_meta.json().get("id", 0)
-                else:
-                    console.print(f"   [yellow]⚠️ Metadata lỗi: {res_meta.text}[/]")
-            except Exception as ex:
-                console.print(f"   [yellow]⚠️ Lỗi kết nối metadata: {ex}[/]")
-
-            # 2. Upload file + embedding
-            progress.update(
-                file_task,
-                description=f"[cyan]📤 {filename} [dim]Gửi byte file...[/]",
-            )
-            custom_metadata = {
-                "backend_id": str(backend_id),
-                "backend_document_id": backend_id,
-                "accessScope": DEFAULT_ACCESS_SCOPE,
-                "allowedRoles": DEFAULT_ALLOWED_ROLES,
-                "category": DEFAULT_CATEGORY,
-            }
-
-            def _on_read(
-                n_bytes, reader_obj, _task=file_task, _total=file_size, _fname=filename
-            ):
-                progress.advance(_task, n_bytes)
-                if reader_obj is not None and reader_obj.tell() >= _total:
-                    progress.update(
-                        _task,
-                        description=f"[bold yellow]⚙️ {_fname} [dim](Tách chunk & Embedding GPU...)[/]",
-                    )
-
-            reader = ProgressFileReader(file_path, callback=_on_read)
-            try:
-                try:
-                    upload_res = requests.post(
-                        UPLOAD_DOC_URL,
-                        files={"file": (filename, reader)},
-                        data={
-                            "metadata": json.dumps(custom_metadata, ensure_ascii=False)
-                        },
-                    )
-                finally:
-                    reader.close()
-
-                if upload_res.status_code in (200, 202):
-                    data = upload_res.json()
-                    chunk_count = data.get("chunkCount", 0)
-                    progress.update(
-                        file_task,
-                        completed=file_size,
-                        description=f"[bold green]✅ {filename} [dim]({chunk_count} chunks thành công)[/]",
-                    )
-                    results.append((filename, "success", f"{chunk_count} chunks"))
-                else:
-                    progress.update(
-                        file_task,
-                        completed=file_size,
-                        description=f"[red]❌ {filename} [dim]HTTP {upload_res.status_code}[/]",
-                    )
-                    console.print(
-                        f"   [red]❌ Upload lỗi ({upload_res.status_code}): {upload_res.text[:100]}[/]"
-                    )
-                    results.append(
-                        (filename, "error", f"HTTP {upload_res.status_code}")
-                    )
-
-            except Exception as ex:  # noqa: BLE001
-                progress.update(
-                    file_task,
-                    completed=file_size,
-                    description=f"[red]❌ {filename} [dim]Connection error[/]",
-                )
-                console.print(f"   [red]❌ Lỗi kết nối: {ex}[/]")
-                results.append((filename, "error", str(ex)[:80]))
-
-            progress.advance(overall_task)
-
-
-def _run_plain(files, existing_docs, results):
-    """Fallback: chạy upload pipeline không có Rich (plain text)."""
-    total_files = len(files)
-
-    for index, filename in enumerate(files, start=1):
-        file_path = os.path.join(DOCUMENTS_DIR, filename)
-        file_size = os.path.getsize(file_path)
-
-        if filename in existing_docs:
-            doc_info = existing_docs[filename]
-            chunk_cnt = doc_info.get("chunk_count", 0)
-            print(
-                f"[{index}/{total_files}] ⏭️ {filename}: Đã có ({chunk_cnt} chunks) → Skip"
-            )
-            results.append((filename, "skipped", f"{chunk_cnt} chunks"))
-            continue
-
-        raw_name, _ = os.path.splitext(filename)
-        doc_name = raw_name.replace("_", " ").replace("-", " ").title()
-
+    )
+    parser.add_argument("--tenant", type=int, default=None)
+    parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Compatibility flag; does not bypass fingerprint checks",
+    )
+    parser.add_argument("--wait-seconds", type=int, default=300)
+    args = parser.parse_args()
+    if args.tenant is not None and args.tenant <= 0:
+        parser.error("--tenant must be positive")
+    if not args.folder.is_dir():
+        print(f"Create the folder and add documents: {args.folder}")
+        return 1
+    if args.force:
         print(
-            f"[{index}/{total_files}] 📤 {filename} ({_human_size(file_size)})...",
-            end="",
-            flush=True,
+            "--force does not bypass duplicate protection. Retry Failed documents in the management UI."
         )
-
-        create_payload = {
-            "document_name": doc_name,
-            "file_name": filename,
-            "file_path": file_path,
-            "file_size": file_size,
-            "category": DEFAULT_CATEGORY,
-            "description": f"Tài liệu {doc_name} được nạp tự động vào hệ thống RAG.",
-            "access_scope": DEFAULT_ACCESS_SCOPE,
-            "allowed_roles": DEFAULT_ALLOWED_ROLES,
+    session = requests.Session()
+    session.headers.update(
+        {
+            "X-Tenant-Scope": "host"
+            if args.tenant is None
+            else f"tenant:{args.tenant}",
+            "X-User-Roles": "Admin",
         }
-
-        backend_id = 0
+    )
+    api_key = os.getenv("REQUIRED_API_KEY") or getattr(settings, "REQUIRED_API_KEY", "")
+    if api_key:
+        session.headers["X-Internal-Api-Key"] = api_key
+    base = args.base_url.rstrip("/")
+    completed = skipped = failed = accepted = 0
+    for file in sorted(args.folder.iterdir()):
+        if not file.is_file() or file.name.startswith("."):
+            continue
         try:
-            res_meta = requests.post(CREATE_DOC_URL, json=create_payload)
-            if res_meta.status_code in (200, 201):
-                backend_id = res_meta.json().get("id", 0)
-        except Exception as ex:  # noqa: BLE001
-            print(f" ⚠️ Metadata error: {ex}")
+            if (
+                file.suffix.lower()
+                not in {".pdf", ".docx", ".pptx", ".xlsx", ".csv", ".txt"}
+                or not 0 < file.stat().st_size <= 50 * 1024 * 1024
+            ):
+                raise ValueError("Unsupported extension or size (1 byte to 50 MB)")
+            with file.open("rb") as source:
+                digest = hashlib.file_digest(source, "sha256").hexdigest()
+            check = session.post(
+                base + "/duplicate-check",
+                json={
+                    "files": [
+                        {
+                            "fileId": file.name,
+                            "sha256": digest,
+                            "fileSize": file.stat().st_size,
+                        }
+                    ]
+                },
+                timeout=(3, 30),
+            )
+            check.raise_for_status()
+            result = check.json()["results"][0]
+            if result["status"] != "NEW":
+                print(f"SKIP {file.name}: {result['status']}")
+                skipped += 1
+                continue
+            create = session.post(
+                base,
+                json={
+                    "document_name": file.stem,
+                    "file_name": file.name,
+                    "file_path": str(file.resolve()),
+                    "file_size": file.stat().st_size,
+                    "file_sha256": digest,
+                    "category": "Quy trình nội bộ",
+                    "access_scope": "Public",
+                    "tenant_id": args.tenant,
+                    "allowed_roles": [],
+                    "uploaded_by": "ImportScript",
+                },
+                timeout=(3, 30),
+            )
+            if create.status_code == 409:
+                print(f"SKIP {file.name}: duplicate registered concurrently")
+                skipped += 1
+                continue
+            create.raise_for_status()  # Never ingest with backend_document_id=0 after registration failure.
+            registration = create.json()
+            doc_id, attempt = registration["id"], registration["attemptId"]
+            import json
 
-        custom_metadata = {
-            "backend_id": str(backend_id),
-            "backend_document_id": backend_id,
-            "accessScope": DEFAULT_ACCESS_SCOPE,
-            "allowedRoles": DEFAULT_ALLOWED_ROLES,
-            "category": DEFAULT_CATEGORY,
-        }
-
-        try:
-            with open(file_path, "rb") as f:
-                upload_res = requests.post(
-                    UPLOAD_DOC_URL,
-                    files={"file": (filename, f)},
-                    data={"metadata": json.dumps(custom_metadata, ensure_ascii=False)},
+            with file.open("rb") as source:
+                upload = session.post(
+                    base + "/upload",
+                    files={"file": (file.name, source)},
+                    data={
+                        "metadata": json.dumps(
+                            {"backend_document_id": doc_id, "attemptId": attempt}
+                        )
+                    },
+                    timeout=(3, 300),
                 )
-            if upload_res.status_code in (200, 202):
-                data = upload_res.json()
-                chunk_count = data.get("chunkCount", 0)
-                print(f" ✅ ({chunk_count} chunks)")
-                results.append((filename, "success", f"{chunk_count} chunks"))
+            upload.raise_for_status()
+            task_id = upload.json()["task_id"]
+            deadline = time.monotonic() + args.wait_seconds
+            state = "PENDING"
+            while time.monotonic() < deadline:
+                response = session.get(
+                    base + "/upload-status/" + task_id, timeout=(3, 30)
+                )
+                response.raise_for_status()
+                state = response.json()["status"]
+                if state in {"COMPLETED", "FAILED"}:
+                    break
+                time.sleep(3)
+            if state == "COMPLETED":
+                completed += 1
+            elif state == "FAILED":
+                failed += 1
             else:
-                print(f" ❌ HTTP {upload_res.status_code}")
-                results.append((filename, "error", f"HTTP {upload_res.status_code}"))
-        except Exception as ex:  # noqa: BLE001
-            print(f" ❌ {ex}")
-            results.append((filename, "error", str(ex)[:80]))
+                accepted += 1
+            print(f"{state} {file.name}: document={doc_id}, attempt={attempt}")
+        except requests.RequestException:
+            # Network uncertainty is not proof ingestion failed; operator checks the saved attempt.
+            print(
+                f"CHECK STATUS {file.name}: request failed; inspect document state before retrying."
+            )
+            failed += 1
+        except (ValueError, OSError, KeyError) as ex:
+            print(f"ERROR {file.name}: {ex}")
+            failed += 1
+    print(
+        f"Completed={completed} Accepted/Processing={accepted} Skipped={skipped} Errors={failed}"
+    )
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    batch_upload_with_metadata()
+    raise SystemExit(batch_upload_with_metadata())

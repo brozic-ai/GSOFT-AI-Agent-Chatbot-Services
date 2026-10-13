@@ -72,6 +72,13 @@ class IngestionPipeline:
             or metadata.get("id")
             or "0"
         )
+        attempt_id = metadata.get("attemptId") or metadata.get("attempt_id")
+        context = "tenant=%s document=%s attempt=%s trace=%s" % (
+            metadata.get("tenantScope", "host"),
+            backend_id,
+            attempt_id,
+            metadata.get("traceId", "unknown"),
+        )
         try:
             logger.info(
                 "[PIPELINE] Starting ingestion task=%s for file='%s' (backend_id=%s)...",
@@ -87,7 +94,7 @@ class IngestionPipeline:
             if backend_id.isdigit() and int(backend_id) > 0:
                 try:
                     self.repository.update_rag_document_status(
-                        int(backend_id), "Processing", 0
+                        int(backend_id), "Processing", 0, attempt_id=attempt_id
                     )
                 except Exception as status_ex:  # noqa: BLE001
                     logger.warning(
@@ -269,12 +276,14 @@ class IngestionPipeline:
                 documents=all_chunks,
                 metadatas=all_metadatas,
                 embeddings=embeddings,
+                backend_document_id=int(backend_id),
+                attempt_id=attempt_id,
             )
 
             # 6. Cập nhật trạng thái Ingest trên RagDocuments nếu có backend_id
             if backend_id.isdigit() and int(backend_id) > 0:
                 self.repository.update_rag_document_status(
-                    int(backend_id), "Completed", len(all_chunks)
+                    int(backend_id), "Completed", len(all_chunks), attempt_id=attempt_id
                 )
 
             # 7. Ghi đồng bộ log vào bảng IngestionFiles (tương thích DB cũ)
@@ -298,14 +307,15 @@ class IngestionPipeline:
                 len(all_chunks),
                 len(pages),
             )
+            logger.info("RAG event=ingestion_completed %s task=%s", context, task_id)
 
         except Exception as ex:
-            logger.exception("[PIPELINE FAIL] Error during ingestion task=%s", task_id)
+            logger.exception("RAG event=ingestion_failed %s task=%s", context, task_id)
             # Cập nhật RagDocuments status = Failed nếu có backend_id để tránh kẹt Processing
             try:
                 if backend_id.isdigit() and int(backend_id) > 0:
                     self.repository.update_rag_document_status(
-                        int(backend_id), "Failed", 0, str(ex)
+                        int(backend_id), "Failed", 0, str(ex), attempt_id=attempt_id
                     )
             except Exception:  # noqa: BLE001
                 logger.warning(

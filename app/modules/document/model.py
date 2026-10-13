@@ -51,6 +51,8 @@ class RagDocument(Base):
     chunk_count = Column("ChunkCount", Integer, nullable=False, default=0)
     uploaded_by = Column("UploadedBy", Unicode(100), nullable=True)
     tenant_id = Column("TenantId", Integer, nullable=True)
+    file_sha256 = Column("FileSha256", String(64), nullable=True)
+    current_ingestion_attempt_id = Column("CurrentIngestionAttemptId", String(36), nullable=True)
     creation_time = Column(
         "CreationTime", DateTime, nullable=False, default=datetime.utcnow
     )
@@ -83,6 +85,15 @@ class RagDocumentRole(Base):
 Index("IX_RagDocumentRoles_RagDocumentId", RagDocumentRole.rag_document_id)
 
 
+class RagDocumentFingerprint(Base):
+    """One canonical document per tenant and byte fingerprint; legacy copies survive."""
+
+    __tablename__ = "RagDocumentFingerprints"
+    tenant_scope = Column("TenantScope", String(40), primary_key=True)
+    file_sha256 = Column("FileSha256", String(64), primary_key=True)
+    document_id = Column("DocumentId", Integer, ForeignKey("RagDocuments.Id"), nullable=False)
+
+
 class IngestionTask(Base):
     """Bảng lưu trạng thái và tiến độ xử lý Ingestion ngầm (Async Ingestion Tasks)."""
 
@@ -91,6 +102,7 @@ class IngestionTask(Base):
     id = Column("Id", Integer, primary_key=True, autoincrement=True)
     task_id = Column("TaskId", String(36), unique=True, nullable=False, index=True)
     backend_document_id = Column("BackendDocumentId", Integer, nullable=True)
+    attempt_id = Column("AttemptId", String(36), nullable=True)
     file_name = Column("FileName", Unicode(500), nullable=False)
     status = Column(
         "Status", String(50), nullable=False, default="PENDING"
@@ -100,3 +112,9 @@ class IngestionTask(Base):
     error_message = Column("ErrorMessage", UnicodeText, nullable=True)
     created_at = Column("CreatedAt", DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column("UpdatedAt", DateTime, nullable=True)
+
+
+Index("UX_IngestionTasks_DocumentAttempt", IngestionTask.backend_document_id,
+      IngestionTask.attempt_id, unique=True,
+      mssql_where=IngestionTask.attempt_id.isnot(None),
+      sqlite_where=IngestionTask.attempt_id.isnot(None))

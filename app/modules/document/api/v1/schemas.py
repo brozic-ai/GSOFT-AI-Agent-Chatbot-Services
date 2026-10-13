@@ -23,6 +23,7 @@ class CreateDocumentMetadataRequest(BaseModel):
     expiration_date: str | None = None
     uploaded_by: str | None = None
     tenant_id: int | None = None
+    file_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     allowed_roles: list[str] = Field(
         default_factory=list,
         description="Danh sách Vai trò (Roles) được quyền truy cập",
@@ -46,6 +47,7 @@ class UpdateDocumentMetadataRequest(BaseModel):
 class UpdateDocumentStatusRequest(BaseModel):
     """Yêu cầu cập nhật trạng thái Ingest từ C# Gateway."""
 
+    attempt_id: str | None = None
     status: str
     chunk_count: int
     error: Optional[str] = None
@@ -124,6 +126,8 @@ class SearchResponse(BaseModel):
 
 class DocumentResponse(BaseModel):
     id: int
+    file_sha256: str | None = None
+    current_ingestion_attempt_id: str | None = None
     document_name: str | None = None
     file_name: str | None = None
     file_path: str | None = None
@@ -138,6 +142,21 @@ class DocumentResponse(BaseModel):
     ingest_status: str | None = "Completed"
     progress_percent: int = 0
     chunk_count: int | None = 0
+    ingest_error: str | None = None
     error_message: str | None = None
     creation_time: str | None = None
     allowed_roles: list[str] = Field(default_factory=list)
+
+
+class DuplicateFileRequest(BaseModel):
+    fileId: str = Field(min_length=1, max_length=200)
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    fileSize: int = Field(gt=0, le=50 * 1024 * 1024)
+
+
+class DuplicateCheckRequest(BaseModel):
+    files: list[DuplicateFileRequest] = Field(min_length=1, max_length=100)
+
+
+class FingerprintRequest(BaseModel):
+    sha256: str = Field(pattern=r"^[a-f0-9]{64}$")

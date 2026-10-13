@@ -38,6 +38,7 @@ class DocumentService:
             uploaded_by=request_data.get("uploaded_by"),
             tenant_id=request_data.get("tenant_id"),
             allowed_roles=request_data.get("allowed_roles", []),
+            file_sha256=request_data.get("file_sha256"),
         )
 
     def get_documents_list(self) -> list[dict[str, Any]]:
@@ -53,10 +54,10 @@ class DocumentService:
         return self.repository.get_rag_document_roles(doc_id)
 
     def update_document_status(
-        self, doc_id: int, status: str, chunk_count: int, error: str | None = None
+        self, doc_id: int, status: str, chunk_count: int, error: str | None = None, attempt_id: str | None = None
     ) -> None:
         """Cập nhật trạng thái Ingest từ Backend Gateway."""
-        self.repository.update_rag_document_status(doc_id, status, chunk_count, error)
+        self.repository.update_rag_document_status(doc_id, status, chunk_count, error, attempt_id)
 
     def update_document_metadata(
         self,

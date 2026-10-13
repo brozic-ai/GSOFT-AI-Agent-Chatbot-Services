@@ -101,9 +101,17 @@ def init_db() -> None:
             conn.execute(text("SELECT 1"))
         logger.info("[OK] Database connection established successfully.")
         # Import models để SQLAlchemy Base nhận diện tất cả ORM models
-        import app.modules.document.model  # noqa: F401
+        # Apply ALTERs before ORM queries; create_all does not upgrade existing tables.
+        from pathlib import Path
+
         import app.modules.chat.model  # noqa: F401
+        import app.modules.document.model  # noqa: F401
         import app.modules.faq_knowledge.model  # noqa: F401
+        migration = Path(__file__).resolve().parents[2] / "infra/docker/document-fingerprints.sql"
+        with engine.begin() as connection:
+            for batch in migration.read_text().split("\nGO\n"):
+                if batch.strip():
+                    connection.exec_driver_sql(batch)
         Base.metadata.create_all(bind=engine)
         _ensure_chat_conversation_columns()
         _ensure_chat_message_columns()

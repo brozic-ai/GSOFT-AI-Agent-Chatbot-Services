@@ -9,20 +9,32 @@ Cơ chế RBAC Filtering trong SQL Vector Search:
 
 import json
 import logging
-import re
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import SessionLocal, engine
-from app.modules.document.model import IngestionTask, RagDocument, RagDocumentRole
+from app.modules.document.fingerprints import (
+    DocumentConflict,
+    FingerprintOperations,
+    duplicate_code,
+    tenant_scope,
+)
+from app.modules.document.model import (
+    IngestionTask,
+    RagDocument,
+    RagDocumentFingerprint,
+    RagDocumentRole,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class DocumentRepository:
+class DocumentRepository(FingerprintOperations):
     """Repository quản lý siêu dữ liệu tài liệu RAG và truy vấn Vector SQL Server sử dụng ORM SessionLocal."""
 
     # --- RAG Documents Metadata ORM CRUD ---
@@ -43,6 +55,7 @@ class DocumentRepository:
         uploaded_by: str | None = None,
         tenant_id: int | None = None,
         allowed_roles: list[str] | None = None,
+        file_sha256: str | None = None,
     ) -> int:
         """Tạo bản ghi tài liệu mới kèm khai báo Vai trò (Roles) truy cập bằng ORM."""
         allowed_roles = allowed_roles or []
@@ -70,6 +83,8 @@ class DocumentRepository:
                 else None,
                 uploaded_by=uploaded_by,
                 tenant_id=tenant_id,
+                file_sha256=file_sha256,
+                current_ingestion_attempt_id=str(uuid.uuid4()),
                 ingest_status="Pending",
                 creation_time=datetime.now(UTC),
             )
@@ -85,6 +100,8 @@ class DocumentRepository:
                             )
                         )
 
+            if file_sha256:
+                db.add(RagDocumentFingerprint(tenant_scope=tenant_scope(tenant_id), file_sha256=file_sha256, document_id=doc.id))
             db.commit()
             logger.info(
                 "[OK] Created RagDocument ID=%d (ORM), Scope=%s, Roles=%s",
@@ -93,6 +110,13 @@ class DocumentRepository:
                 allowed_roles,
             )
             return doc.id
+        except IntegrityError:
+            db.rollback()
+            existing_id = self.find_fingerprint(tenant_scope(tenant_id), file_sha256) if file_sha256 else None
+            if existing_id:
+                existing = self.get_rag_document(existing_id)
+                raise DocumentConflict(duplicate_code(existing["ingest_status"]), existing_id) from None
+            raise
         except Exception:
             db.rollback()
             logger.exception("[FAIL] Error creating RagDocument via ORM")
@@ -122,6 +146,7 @@ class DocumentRepository:
                 results.append(
                     {
                         "id": doc.id,
+                        "tenant_id": doc.tenant_id,
                         "document_name": doc.document_name,
                         "file_name": doc.file_name,
                         "file_path": doc.file_path,
@@ -159,8 +184,14 @@ class DocumentRepository:
             if not doc:
                 return None
             roles_list = [r.role_name for r in doc.roles]
+            task = db.query(IngestionTask).filter(IngestionTask.backend_document_id == doc_id,
+                IngestionTask.attempt_id == doc.current_ingestion_attempt_id).order_by(IngestionTask.id.desc()).first()
             return {
                 "id": doc.id,
+                "tenant_id": doc.tenant_id,
+                "uploaded_by": doc.uploaded_by,
+                "file_sha256": doc.file_sha256,
+                "current_ingestion_attempt_id": doc.current_ingestion_attempt_id,
                 "document_name": doc.document_name,
                 "file_name": doc.file_name,
                 "file_path": doc.file_path,
@@ -177,6 +208,8 @@ class DocumentRepository:
                 if doc.expiration_date
                 else None,
                 "ingest_status": doc.ingest_status,
+                "ingest_error": doc.ingest_error,
+                "progress_percent": task.progress_percent if task else (100 if doc.ingest_status == "Completed" else 0),
                 "chunk_count": doc.chunk_count,
                 "creation_time": str(doc.creation_time) if doc.creation_time else None,
                 "allowed_roles": roles_list,
@@ -198,18 +231,25 @@ class DocumentRepository:
             db.close()
 
     def update_rag_document_status(
-        self, doc_id: int, status: str, chunk_count: int, error: str | None = None
+        self, doc_id: int, status: str, chunk_count: int, error: str | None = None, attempt_id: str | None = None
     ) -> None:
         """Cập nhật trạng thái Ingestion của tài liệu bằng ORM."""
         db: Session = SessionLocal()
         try:
-            doc = db.query(RagDocument).filter(RagDocument.id == doc_id).first()
-            if doc:
-                doc.ingest_status = status
-                doc.chunk_count = chunk_count
-                doc.ingest_error = error
-                doc.last_modification_time = datetime.now(UTC)
-                db.commit()
+            query = db.query(RagDocument).filter(RagDocument.id == doc_id)
+            if attempt_id:
+                query = query.filter(RagDocument.current_ingestion_attempt_id == attempt_id,
+                                     RagDocument.ingest_status.in_(["Pending", "Processing"]))
+            else:
+                query = query.filter(RagDocument.current_ingestion_attempt_id.is_(None))
+            changed = query.update({RagDocument.ingest_status: status, RagDocument.chunk_count: chunk_count,
+                RagDocument.ingest_error: error, RagDocument.last_modification_time: datetime.now(UTC)}, synchronize_session=False)
+            if not changed:
+                raise DocumentConflict("STALE_ATTEMPT", doc_id)
+            db.commit()
+        except DocumentConflict:
+            db.rollback()
+            raise
         except Exception:
             db.rollback()
             logger.exception(
@@ -380,13 +420,30 @@ class DocumentRepository:
     def delete_rag_document(self, backend_id: int) -> str | None:
         """Xóa tài liệu và các vai trò theo backend_id bằng ORM, trả về FilePath để xóa file vật lý."""
         file_path = None
-        file_name = None
         db: Session = SessionLocal()
         try:
-            doc = db.query(RagDocument).filter(RagDocument.id == backend_id).first()
+            doc = self._locked(db.query(RagDocument)).filter(RagDocument.id == backend_id).first()
             if doc:
                 file_path = doc.file_path
-                file_name = doc.file_name
+                if doc.ingest_status in ("Pending", "Processing"):
+                    raise DocumentConflict("IN_PROGRESS", backend_id)
+                # Legacy script imports may share a physical source. Retain it
+                # while another metadata record still references the same path.
+                if db.query(RagDocument.id).filter(RagDocument.file_path == doc.file_path,
+                                                  RagDocument.id != doc.id).first():
+                    file_path = None
+                fingerprint = db.get(RagDocumentFingerprint, (tenant_scope(doc.tenant_id), doc.file_sha256)) if doc.file_sha256 else None
+                if fingerprint and fingerprint.document_id == doc.id:
+                    from sqlalchemy import case
+                    rank = case((RagDocument.ingest_status == "Completed", 0),
+                                (RagDocument.ingest_status.in_(["Pending", "Processing"]), 1), else_=2)
+                    replacement = db.query(RagDocument).filter(RagDocument.tenant_id == doc.tenant_id,
+                        RagDocument.file_sha256 == doc.file_sha256, RagDocument.id != doc.id).order_by(rank, RagDocument.id).first()
+                    if replacement:
+                        fingerprint.document_id = replacement.id
+                    else:
+                        db.delete(fingerprint)
+                    db.flush()
                 db.delete(doc)  # Cascade tự xóa RagDocumentRoles
                 db.commit()
         except Exception:
@@ -400,7 +457,7 @@ class DocumentRepository:
             db.close()
 
         # Xóa các Chunks trong bảng Documents
-        self.delete_documents_by_backend_id(backend_id, file_name=file_name)
+        self.delete_documents_by_backend_id(backend_id)
         return file_path
 
     def delete_documents_by_backend_id(
@@ -445,6 +502,8 @@ class DocumentRepository:
         documents: list[str],
         metadatas: list[dict[str, Any]],
         embeddings: list[list[float]],
+        backend_document_id: int | None = None,
+        attempt_id: str | None = None,
     ) -> None:
         """
         Lưu/cập nhật danh sách vector chunks vào CSDL SQL Server.
@@ -463,6 +522,12 @@ class DocumentRepository:
         raw_conn = engine.raw_connection()
         try:
             with raw_conn.cursor() as cursor:
+                if backend_document_id and attempt_id:
+                    cursor.execute("SELECT CurrentIngestionAttemptId, IngestStatus FROM RagDocuments WITH (UPDLOCK, HOLDLOCK) WHERE Id = ?", (backend_document_id,))
+                    row = cursor.fetchone()
+                    if not row or row[0] != attempt_id or row[1] != "Processing":
+                        raise DocumentConflict("STALE_ATTEMPT")
+                    cursor.execute("DELETE FROM Documents WHERE JSON_VALUE(metadata, '$.backend_document_id') = ? OR JSON_VALUE(metadata, '$.backendId') = ? OR JSON_VALUE(metadata, '$.backend_id') = ?", (str(backend_document_id),) * 3)
                 for i in range(len(ids)):
                     embed_json = json.dumps(embeddings[i])
                     meta_json = json.dumps(metadatas[i], ensure_ascii=False)
@@ -470,6 +535,9 @@ class DocumentRepository:
 
             raw_conn.commit()
             logger.info("[OK] Upserted %d vector chunks", len(ids))
+        except Exception:
+            raw_conn.rollback()
+            raise
         finally:
             raw_conn.close()
 
