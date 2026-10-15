@@ -15,6 +15,7 @@ class ProcurementState(TypedDict, total=False):
 
     # Mã định danh phiên làm việc / hội thoại
     session_id: str
+    model_level: str
 
     # Loại định tuyến từ Router Node ("tool_call", "need_info", "direct_answer")
     route_type: Optional[str]

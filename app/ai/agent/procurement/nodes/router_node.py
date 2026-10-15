@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from app.ai.agent.procurement.prompts.registry import get_procurement_messages, get_system_prompt
 from app.ai.agent.procurement.state import ProcurementState
 from app.core.user_context import get_resolved_user_name
-from app.llmops.factory import get_chat_model
+from app.llmops.factory import get_model_for_level
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +227,7 @@ async def router_node(state: ProcurementState) -> Dict[str, Any]:
             )
 
     # 5. Thực thi Router LLM (deterministic với temperature=0.0)
-    llm = get_chat_model(temperature=0.0)
+    llm = get_model_for_level(level=state.get("model_level"), temperature=0.0)
     response = await llm.ainvoke(router_messages)
     raw_content = str(response.content).strip() if response.content else ""
 

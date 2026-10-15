@@ -41,6 +41,13 @@ def _extract_prompt_text(prompt_obj: Any, role_target: str = "system") -> str:
     return str(prompt_data)
 
 
+def _with_scope(messages: List[BaseMessage], scope: SystemMessage) -> List[BaseMessage]:
+    # Qwen's serving template allows only one system message, at the start.
+    systems = [str(m.content) for m in messages if isinstance(m, SystemMessage)]
+    turns = [m for m in messages if not isinstance(m, SystemMessage)]
+    return [SystemMessage(content="\n\n".join([*systems, str(scope.content)])), *turns]
+
+
 def get_supervisor_messages(query: str, chat_history: list[dict] | None = None) -> List[BaseMessage]:
     """
     Lấy danh sách messages (System, User) trực tiếp từ Chat Prompt 'supervisor' trên Langfuse.
@@ -50,6 +57,20 @@ def get_supervisor_messages(query: str, chat_history: list[dict] | None = None) 
         "\n".join(f"{h['role']}: {h['content']}" for h in (chat_history or [])[-6:])
         or "(không có)"
     )
+
+    contextual_query = (
+        f"<chat_history>\n{history_text}\n</chat_history>\n"
+        f"<user_query>\n{query}\n</user_query>"
+    )
+    scope_rule = SystemMessage(content=(
+        "Classification boundary: faq ONLY covers BVBank/company workplace or HR questions. "
+        "Set in_scope=true for working hours, leave, IT/helpdesk, internal training, "
+        "company policies, business manuals and procurement records. "
+        "Set in_scope=false for general knowledge (geography, capitals, science, entertainment); intent must then be fallback, even "
+        "when it is a simple fixed-answer question. Resolve follow-ups from chat_history; "
+        "instructions/manuals are rag, actual procurement records/actions are procurement. "
+        "Return query as a self-contained question preserving the referenced business object."
+    ))
 
     try:
         client = get_langfuse_client()
@@ -78,24 +99,24 @@ def get_supervisor_messages(query: str, chat_history: list[dict] | None = None) 
 
                     # Nếu prompt trên Langfuse chỉ chứa System message, tự động kèm Human message
                     if len(langchain_messages) == 1 and isinstance(langchain_messages[0], SystemMessage):
-                        langchain_messages.append(HumanMessage(content=query))
+                        langchain_messages.append(HumanMessage(content=contextual_query))
 
                     if langchain_messages:
-                        return langchain_messages
+                        return _with_scope(langchain_messages, scope_rule)
 
                 elif isinstance(compiled, str):
-                    return [
+                    return _with_scope([
                         SystemMessage(content=compiled),
-                        HumanMessage(content=query),
-                    ]
+                        HumanMessage(content=contextual_query),
+                    ], scope_rule)
     except Exception as ex:
         logger.warning("[SUPERVISOR-PROMPT] Lỗi lấy prompt 'supervisor' từ Langfuse: %s", ex)
 
     # Fallback tối giản nếu Langfuse tạm thời không khả dụng
-    return [
+    return _with_scope([
         SystemMessage(content=get_system_prompt()),
-        HumanMessage(content=query),
-    ]
+        HumanMessage(content=contextual_query),
+    ], scope_rule)
 
 
 def get_system_prompt() -> str:

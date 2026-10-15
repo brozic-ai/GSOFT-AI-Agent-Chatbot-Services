@@ -4,7 +4,8 @@ Pydantic Schemas cho phân hệ Chatbot RAG (SSE Chat Stream & Conversation Hist
 
 
 from typing import Optional, List, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+from app.core.model_levels import ModelLevel, normalize_model_level
 
 
 class ChatImageInput(BaseModel):
@@ -23,8 +24,18 @@ class ChatRequest(BaseModel):
     is_retry: Optional[bool] = Field(default=False, description="Cờ đánh dấu request tạo lại câu trả lời (Retry in-place)")
     retry_message_id: Optional[int] = Field(default=None, description="ID tin nhắn AI trong DB cần cập nhật lại nội dung")
     is_edit: Optional[bool] = Field(default=False, description="Cờ đánh dấu request chỉnh sửa tin nhắn câu hỏi")
-    edit_message_id: Optional[int] = Field(default=None, description="ID tin nhắn User trong DB cần cập nhật")
-    model_level: Optional[str] = Field(default="medium", description="Cấp độ mạnh của model: low, medium, high, max")
+    edit_message_id: Optional[int] = Field(default=None, gt=0)
+    model_level: ModelLevel = Field(
+        default="medium",
+        description="Cấp độ mạnh của model: low (Qwen-2B), medium (Qwen-4B), high (Qwen-4B Deep Context)",
+    )
+
+    @field_validator("model_level", mode="before")
+    @classmethod
+    def validate_model_level(cls, value):
+        if value is not None and not isinstance(value, str):
+            raise ValueError("model_level must be a string")
+        return normalize_model_level(value)
 
     model_config = {
         "populate_by_name": True

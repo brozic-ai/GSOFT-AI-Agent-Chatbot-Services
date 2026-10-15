@@ -226,5 +226,6 @@ create_report_docx.py
 Bao_Cao_Tich_Hop_Phan_Quyen_RAG_GSOFT.docx
 tests/*
 !tests/test_document_fingerprints.py
+!tests/test_llm_router.py
 ruff_cache/
 

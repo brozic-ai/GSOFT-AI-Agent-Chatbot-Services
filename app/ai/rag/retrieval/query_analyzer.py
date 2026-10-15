@@ -222,13 +222,13 @@ def get_query_analyzer() -> QueryAnalyzer:
 def determine_dynamic_top_k(query: str, requested_top_k: int | None = None) -> tuple[int, QueryAnalysisResult]:
     """
     Hàm tiện ích tính toán Dynamic Top-K cho query.
-    Nếu requested_top_k được truyền và khác giá trị mặc định 5, ưu tiên requested_top_k nhưng vẫn clamp [MIN, MAX].
+    Nếu requested_top_k được truyền, ưu tiên caller nhưng vẫn clamp [MIN, MAX].
     """
     analyzer = get_query_analyzer()
     analysis = analyzer.analyze(query)
 
-    # Nếu caller truyền requested_top_k rõ ràng (khác None và khác default 5), tôn trọng caller
-    if requested_top_k is not None and requested_top_k != getattr(settings, "RAG_DEFAULT_TOP_K", 5):
+    # An explicit level budget takes precedence, including the default value 5.
+    if requested_top_k is not None:
         clamped_k = max(analyzer.min_top_k, min(analyzer.max_top_k, requested_top_k))
         return clamped_k, analysis
 

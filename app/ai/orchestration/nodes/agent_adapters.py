@@ -7,17 +7,24 @@ import re
 from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage
+from app.core.model_levels import normalize_model_level
 
 from app.ai.agent.fallback.nodes.fallback_node import fallback_node
 from app.ai.agent.faq.graph.graph import faq_graph
-from app.ai.agent.agentic_rag.prompts.registry import get_user_prompt as get_rag_user_prompt
+from app.ai.agent.agentic_rag.prompts.registry import (
+    get_user_prompt as get_rag_user_prompt,
+)
 from app.ai.agent.procurement.graph.graph import procurement_graph
-from app.ai.agent.procurement.prompts.registry import get_user_prompt as get_procurement_user_prompt
+from app.ai.agent.procurement.prompts.registry import (
+    get_user_prompt as get_procurement_user_prompt,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def resolve_procurement_anaphora(query: str, chat_history: Optional[List[Dict[str, Any]]]) -> str:
+def resolve_procurement_anaphora(
+    query: str, chat_history: Optional[List[Dict[str, Any]]]
+) -> str:
     """
     Giải quyết tham chiếu chiếu ngữ (Anaphora Resolution) và phân trang cho câu hỏi tiếp nối:
     - 'Cho tôi xem chi tiết tờ trình đầu tiên' -> 'Cho tôi xem chi tiết tờ trình PUR/2026/000097'
@@ -44,7 +51,11 @@ def resolve_procurement_anaphora(query: str, chat_history: Optional[List[Dict[st
             m = re.search(r"(PUR/\d{4}/\d{6}|TRRD\d{8,})", content, re.IGNORECASE)
             if m:
                 selected_code = m.group(1).upper()
-                logger.info("[ANAPHORA] Đã giải quyết anaphora '%s' thành mã gần nhất '%s'", query, selected_code)
+                logger.info(
+                    "[ANAPHORA] Đã giải quyết anaphora '%s' thành mã gần nhất '%s'",
+                    query,
+                    selected_code,
+                )
                 return f"Cho tôi xem chi tiết tờ trình {selected_code} trên hệ thống gAMSPro."
 
     # 3. Xử lý tham chiếu thứ tự tờ trình
@@ -64,7 +75,9 @@ def resolve_procurement_anaphora(query: str, chat_history: Optional[List[Dict[st
 
     # Trích xuất danh sách mã Tờ trình theo thứ tự xuất hiện (ví dụ PUR/2026/000097)
     pur_matches = []
-    for m in re.finditer(r"(PUR/\d{4}/\d{6}|TRRD\d{8,})", last_ai_content, re.IGNORECASE):
+    for m in re.finditer(
+        r"(PUR/\d{4}/\d{6}|TRRD\d{8,})", last_ai_content, re.IGNORECASE
+    ):
         code = m.group(1).upper()
         if code not in pur_matches:
             pur_matches.append(code)
@@ -74,16 +87,47 @@ def resolve_procurement_anaphora(query: str, chat_history: Optional[List[Dict[st
 
     # Bản đồ chỉ số thứ tự tiếng Việt
     ordinal_map = {
-        "đầu tiên": 0, "thứ nhất": 0, "số 1": 0, "dòng 1": 0, "mục 1": 0, "cái đầu": 0,
-        "thứ 2": 1, "thứ hai": 1, "số 2": 1, "dòng 2": 1, "mục 2": 1,
-        "thứ 3": 2, "thứ ba": 2, "số 3": 2, "dòng 3": 2, "mục 3": 2,
-        "thứ 4": 3, "thứ tư": 3, "số 4": 3, "dòng 4": 3, "mục 4": 3,
-        "thứ 5": 4, "thứ năm": 4, "số 5": 4, "dòng 5": 4, "mục 5": 4,
-        "thứ 6": 5, "thứ sáu": 5, "số 6": 5,
-        "thứ 7": 6, "thứ bảy": 6, "số 7": 6,
-        "thứ 8": 7, "thứ tám": 7, "số 8": 7,
-        "thứ 9": 8, "thứ chín": 8, "số 9": 8,
-        "thứ 10": 9, "thứ mười": 9, "số 10": 9,
+        "đầu tiên": 0,
+        "thứ nhất": 0,
+        "số 1": 0,
+        "dòng 1": 0,
+        "mục 1": 0,
+        "cái đầu": 0,
+        "thứ 2": 1,
+        "thứ hai": 1,
+        "số 2": 1,
+        "dòng 2": 1,
+        "mục 2": 1,
+        "thứ 3": 2,
+        "thứ ba": 2,
+        "số 3": 2,
+        "dòng 3": 2,
+        "mục 3": 2,
+        "thứ 4": 3,
+        "thứ tư": 3,
+        "số 4": 3,
+        "dòng 4": 3,
+        "mục 4": 3,
+        "thứ 5": 4,
+        "thứ năm": 4,
+        "số 5": 4,
+        "dòng 5": 4,
+        "mục 5": 4,
+        "thứ 6": 5,
+        "thứ sáu": 5,
+        "số 6": 5,
+        "thứ 7": 6,
+        "thứ bảy": 6,
+        "số 7": 6,
+        "thứ 8": 7,
+        "thứ tám": 7,
+        "số 8": 7,
+        "thứ 9": 8,
+        "thứ chín": 8,
+        "số 9": 8,
+        "thứ 10": 9,
+        "thứ mười": 9,
+        "số 10": 9,
     }
 
     target_idx = None
@@ -94,7 +138,9 @@ def resolve_procurement_anaphora(query: str, chat_history: Optional[List[Dict[st
 
     if target_idx is not None and target_idx < len(pur_matches):
         selected_code = pur_matches[target_idx]
-        logger.info("[ANAPHORA] Đã giải quyết anaphora '%s' thành mã '%s'", query, selected_code)
+        logger.info(
+            "[ANAPHORA] Đã giải quyết anaphora '%s' thành mã '%s'", query, selected_code
+        )
         return f"Cho tôi xem chi tiết tờ trình {selected_code} trên hệ thống gAMSPro."
 
     return query
@@ -102,21 +148,41 @@ def resolve_procurement_anaphora(query: str, chat_history: Optional[List[Dict[st
 
 async def call_procurement_agent(state: Any) -> Dict[str, Any]:
     """Adapter kích hoạt Procurement Agent (gAMSPro Multi-turn Slot Filling)."""
-    user_query = state.get("user_query", "") if isinstance(state, dict) else getattr(state, "user_query", "")
-    chat_history = state.get("chat_history", []) if isinstance(state, dict) else getattr(state, "chat_history", [])
+    user_query = (
+        state.get("user_query", "")
+        if isinstance(state, dict)
+        else getattr(state, "user_query", "")
+    )
+    chat_history = (
+        state.get("chat_history", [])
+        if isinstance(state, dict)
+        else getattr(state, "chat_history", [])
+    )
 
     # 1. Giải quyết tham chiếu anaphora / phân trang trước khi đưa vào Procurement Graph
-    resolved_query = resolve_procurement_anaphora(query=user_query, chat_history=chat_history)
-    logger.info("[ORCHESTRATOR -> PROCUREMENT] Điều phối: '%s' (resolved: '%s')", str(user_query)[:60], str(resolved_query)[:60])
+    resolved_query = resolve_procurement_anaphora(
+        query=user_query, chat_history=chat_history
+    )
+    logger.info(
+        "[ORCHESTRATOR -> PROCUREMENT] Điều phối: '%s' (resolved: '%s')",
+        str(user_query)[:60],
+        str(resolved_query)[:60],
+    )
 
     clean_q = (user_query or "").strip().lower().strip("*_\"'")
 
     try:
         # Chuẩn bị tin nhắn đầu vào cho Procurement Graph từ Langfuse Prompt
-        raw_msgs = state.get("messages", []) if isinstance(state, dict) else getattr(state, "messages", [])
+        raw_msgs = (
+            state.get("messages", [])
+            if isinstance(state, dict)
+            else getattr(state, "messages", [])
+        )
         messages = list(raw_msgs or [])
         if not messages:
-            formatted_prompt = get_procurement_user_prompt(query=resolved_query, chat_history=chat_history)
+            formatted_prompt = get_procurement_user_prompt(
+                query=resolved_query, chat_history=chat_history
+            )
             messages = [HumanMessage(content=formatted_prompt)]
         else:
             # Cập nhật tin nhắn Human cuối cùng với resolved_query nếu có sự thay đổi
@@ -124,9 +190,9 @@ async def call_procurement_agent(state: Any) -> Dict[str, Any]:
                 messages[-1] = HumanMessage(content=resolved_query)
 
         # Chạy Procurement Sub-graph
-        procurement_result = await procurement_graph.ainvoke({"messages": messages})
+        procurement_result = await procurement_graph.ainvoke({"messages": messages, "model_level": normalize_model_level(state.get("model_level"))})
         res_messages = procurement_result.get("messages", [])
-        
+
         # 1. Cô lập chỉ các tin nhắn thuộc lượt hội thoại hiện tại (Current-turn Isolation)
         # Tuyệt đối không duyệt lùi qua HumanMessage cuối cùng để tránh lấy nhầm AIMessage của các lượt cũ trong quá khứ!
         last_human_idx = -1
@@ -136,9 +202,7 @@ async def call_procurement_agent(state: Any) -> Dict[str, Any]:
                 break
 
         current_turn_messages = (
-            res_messages[last_human_idx + 1:]
-            if last_human_idx != -1
-            else res_messages
+            res_messages[last_human_idx + 1 :] if last_human_idx != -1 else res_messages
         )
 
         last_ai_msg = ""
@@ -150,9 +214,14 @@ async def call_procurement_agent(state: Any) -> Dict[str, Any]:
         # 2. Fallback: Nếu LLM ở lượt này chỉ gọi tool mà không sinh text tổng hợp (hoặc bị chạm loop guard),
         # lấy trực tiếp nội dung chi tiết từ ToolMessage gần nhất của lượt hiện tại
         from langchain_core.messages import ToolMessage
+
         if not last_ai_msg:
             for msg in reversed(current_turn_messages):
-                if isinstance(msg, ToolMessage) and msg.content and str(msg.content).strip():
+                if (
+                    isinstance(msg, ToolMessage)
+                    and msg.content
+                    and str(msg.content).strip()
+                ):
                     last_ai_msg = str(msg.content).strip()
                     break
 
@@ -168,9 +237,15 @@ async def call_procurement_agent(state: Any) -> Dict[str, Any]:
             "GỬI PHÊ DUYỆT TỜ TRÌNH THÀNH CÔNG",
         )
         for msg in reversed(current_turn_messages):
-            if isinstance(msg, ToolMessage) and any(kw in str(msg.content) for kw in business_keywords):
-                matched_kw = next(kw for kw in business_keywords if kw in str(msg.content))
-                if not last_ai_msg or (len(last_ai_msg) < 50 and matched_kw not in last_ai_msg):
+            if isinstance(msg, ToolMessage) and any(
+                kw in str(msg.content) for kw in business_keywords
+            ):
+                matched_kw = next(
+                    kw for kw in business_keywords if kw in str(msg.content)
+                )
+                if not last_ai_msg or (
+                    len(last_ai_msg) < 50 and matched_kw not in last_ai_msg
+                ):
                     last_ai_msg = str(msg.content).strip()
                 break
 
@@ -185,10 +260,17 @@ async def call_procurement_agent(state: Any) -> Dict[str, Any]:
 
         # 5. Lọc bỏ các thẻ XML kỹ thuật như <error>, </error>, <warning>, v.v.
         if last_ai_msg:
-            last_ai_msg = re.sub(r"</?(?:error|warning|result|output|response|final_answer|call)[^>]*>", "", last_ai_msg, flags=re.IGNORECASE).strip()
+            last_ai_msg = re.sub(
+                r"</?(?:error|warning|result|output|response|final_answer|call)[^>]*>",
+                "",
+                last_ai_msg,
+                flags=re.IGNORECASE,
+            ).strip()
 
         if not last_ai_msg:
-            last_ai_msg = "Tôi đã xử lý yêu cầu nghiệp vụ mua sắm của bạn trên hệ thống gAMSPro."
+            last_ai_msg = (
+                "Tôi đã xử lý yêu cầu nghiệp vụ mua sắm của bạn trên hệ thống gAMSPro."
+            )
 
         return {
             "agent_output": last_ai_msg,
@@ -196,7 +278,11 @@ async def call_procurement_agent(state: Any) -> Dict[str, Any]:
         }
 
     except Exception as ex:
-        logger.error("[ORCHESTRATOR -> PROCUREMENT ERROR] Lỗi khi gọi Procurement Graph: %s", ex, exc_info=True)
+        logger.error(
+            "[ORCHESTRATOR -> PROCUREMENT ERROR] Lỗi khi gọi Procurement Graph: %s",
+            ex,
+            exc_info=True,
+        )
         err_msg = (
             "⚠️ Hệ thống gAMSPro hiện đang gặp sự cố kết nối hoặc phản hồi chậm. "
             "Bạn vui lòng thử lại sau ít phút hoặc thao tác trực tiếp trên portal gAMSPro."
@@ -234,7 +320,9 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         )
         messages = list(raw_msgs or [])
         if not messages:
-            formatted_prompt = get_rag_user_prompt(query=user_query, chat_history=chat_history)
+            formatted_prompt = get_rag_user_prompt(
+                query=user_query, chat_history=chat_history
+            )
             messages = [HumanMessage(content=formatted_prompt)]
 
         user_info = (
@@ -255,16 +343,24 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             set_rbac_context,
         )
 
-        set_rbac_context(
-            user_roles=user_roles, user_department=user_department
-        )
+        set_rbac_context(user_roles=user_roles, user_department=user_department)
 
+        model_level = (
+            state.get("model_level", "medium")
+            if isinstance(state, dict)
+            else getattr(state, "model_level", "medium")
+        ) or "medium"
+
+        route = state.get("route")
+        rewritten_query = route.get("query") if isinstance(route, dict) else getattr(route, "query", None)
         rag_input = {
             "messages": messages,
+            "retrieval_query": rewritten_query.strip() if isinstance(rewritten_query, str) and rewritten_query.strip() else user_query,
             "user_query": user_query,
             "session_id": str(session_id),
             "user_roles": user_roles,
             "user_department": user_department,
+            "model_level": normalize_model_level(model_level),
             "documents": [],
             "citations": [],
             "is_relevant": False,
@@ -287,31 +383,52 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(res_messages[i], HumanMessage):
                 last_human_idx = i
                 break
-        current_turn_messages = res_messages[last_human_idx + 1:] if last_human_idx != -1 else res_messages
+        current_turn_messages = (
+            res_messages[last_human_idx + 1 :] if last_human_idx != -1 else res_messages
+        )
 
         if not final_answer:
             for msg in reversed(current_turn_messages):
-                if isinstance(msg, AIMessage) and msg.content and str(msg.content).strip():
+                if (
+                    isinstance(msg, AIMessage)
+                    and msg.content
+                    and str(msg.content).strip()
+                ):
                     final_answer = str(msg.content).strip()
                     break
 
         if final_answer:
-            from app.ai.agent.agentic_rag.nodes.generator_node import clean_rag_generation_output
-            final_answer = clean_rag_generation_output(final_answer, user_query=user_query)
+            from app.ai.agent.agentic_rag.nodes.generator_node import (
+                clean_rag_generation_output,
+            )
+
+            final_answer = clean_rag_generation_output(
+                final_answer, user_query=user_query
+            )
 
         # Theo sơ đồ kiến trúc: Khi RAG không tìm thấy tài liệu -> Tự động thử tra cứu FAQ
-        no_doc_signals = ["không tìm thấy", "chưa tìm thấy", "không có thông tin", "chưa có tài liệu"]
-        is_rag_miss = (
-            (not docs and not citations)
-            or (final_answer and any(kw in final_answer.lower() for kw in no_doc_signals))
+        no_doc_signals = [
+            "không tìm thấy",
+            "chưa tìm thấy",
+            "không có thông tin",
+            "chưa có tài liệu",
+        ]
+        is_rag_miss = (not docs and not citations) or (
+            final_answer and any(kw in final_answer.lower() for kw in no_doc_signals)
         )
 
         if is_rag_miss:
-            logger.info("[ORCHESTRATOR -> RAG] Không tìm thấy tài liệu quy chế -> Kích hoạt fallback thử tra cứu kho FAQ...")
+            logger.info(
+                "[ORCHESTRATOR -> RAG] Không tìm thấy tài liệu quy chế -> Kích hoạt fallback thử tra cứu kho FAQ..."
+            )
             try:
-                from app.ai.agent.faq.services.faq_retriever import retrieve_and_rerank_faqs
+                from app.ai.agent.faq.services.faq_retriever import (
+                    retrieve_and_rerank_faqs,
+                )
 
-                faq_retrieval = await retrieve_and_rerank_faqs(query=user_query, top_k=2)
+                faq_retrieval = await retrieve_and_rerank_faqs(
+                    query=user_query, top_k=2
+                )
                 if faq_retrieval.get("found") and faq_retrieval.get("faqs"):
                     top_faq = faq_retrieval["faqs"][0]
                     faq_msg = (
@@ -320,7 +437,9 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                         f"**{top_faq['question']}**\n\n"
                         f"{top_faq['answer']}"
                     )
-                    logger.info("[ORCHESTRATOR -> RAG -> FAQ HIT] Đã tìm thấy FAQ bổ trợ cho câu hỏi của người dùng.")
+                    logger.info(
+                        "[ORCHESTRATOR -> RAG -> FAQ HIT] Đã tìm thấy FAQ bổ trợ cho câu hỏi của người dùng."
+                    )
                     return {
                         "agent_output": faq_msg,
                         "final_answer": faq_msg,
@@ -329,7 +448,10 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                         "messages": [AIMessage(content=faq_msg)],
                     }
             except Exception as faq_fallback_err:
-                logger.warning("[ORCHESTRATOR -> RAG -> FAQ ERROR] Lỗi khi tra cứu fallback FAQ: %s", faq_fallback_err)
+                logger.warning(
+                    "[ORCHESTRATOR -> RAG -> FAQ ERROR] Lỗi khi tra cứu fallback FAQ: %s",
+                    faq_fallback_err,
+                )
 
         if not final_answer:
             final_answer = "Dạ, tôi không tìm thấy tài liệu phù hợp trong phạm vi quyền hạn được cấp của Anh/Chị trên eOffice."
@@ -338,6 +460,7 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             "agent_output": final_answer,
             "final_answer": final_answer,
             "rag_context": docs,
+            "routing_metadata": rag_result.get("routing_metadata", {}),
             "citations": citations,
             "messages": res_messages,
         }
@@ -360,7 +483,6 @@ async def call_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
-
 async def call_faq_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """Adapter kích hoạt FAQ Agent (Sub-graph ReAct: Tra cứu cơ sở tri thức câu hỏi thường gặp)."""
     user_query = (
@@ -368,7 +490,9 @@ async def call_faq_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(state, dict)
         else getattr(state, "user_query", "")
     )
-    logger.info("[ORCHESTRATOR -> FAQ] Điều phối sang FAQ Agent: '%s'", str(user_query)[:80])
+    logger.info(
+        "[ORCHESTRATOR -> FAQ] Điều phối sang FAQ Agent: '%s'", str(user_query)[:80]
+    )
 
     try:
         raw_msgs = (
@@ -382,6 +506,7 @@ async def call_faq_agent(state: Dict[str, Any]) -> Dict[str, Any]:
 
         faq_input = {
             "messages": messages_list,
+            "model_level": normalize_model_level(state.get("model_level")),
             "user_query": user_query,
             "session_id": str(state.get("session_id", "orchestrator-faq-session")),
         }
@@ -395,19 +520,30 @@ async def call_faq_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             if isinstance(res_messages[i], HumanMessage):
                 last_human_idx = i
                 break
-        current_turn_messages = res_messages[last_human_idx + 1:] if last_human_idx != -1 else res_messages
+        current_turn_messages = (
+            res_messages[last_human_idx + 1 :] if last_human_idx != -1 else res_messages
+        )
 
         last_ai_msg = final_answer
         if not last_ai_msg:
             for msg in reversed(current_turn_messages):
-                if isinstance(msg, AIMessage) and msg.content and str(msg.content).strip():
+                if (
+                    isinstance(msg, AIMessage)
+                    and msg.content
+                    and str(msg.content).strip()
+                ):
                     last_ai_msg = str(msg.content).strip()
                     break
 
         if not last_ai_msg:
             from langchain_core.messages import ToolMessage
+
             for msg in reversed(current_turn_messages):
-                if isinstance(msg, ToolMessage) and msg.content and str(msg.content).strip():
+                if (
+                    isinstance(msg, ToolMessage)
+                    and msg.content
+                    and str(msg.content).strip()
+                ):
                     last_ai_msg = str(msg.content).strip()
                     break
 

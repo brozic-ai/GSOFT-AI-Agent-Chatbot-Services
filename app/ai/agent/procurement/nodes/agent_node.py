@@ -4,7 +4,7 @@ from langchain_core.messages import BaseMessage, SystemMessage
 from app.ai.agent.procurement.prompts.registry import get_system_prompt
 from app.ai.agent.procurement.state import ProcurementState
 from app.ai.agent.procurement.tools import PROCUREMENT_TOOLS
-from app.llmops.factory import get_chat_model
+from app.llmops.factory import get_model_for_level
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 async def procurement_node(state: ProcurementState) -> dict[str, list[BaseMessage]]:
     """
     Node Procurement thực thi suy luận LLM cho Procurement Assistant (gAMSPro).
-    - Khởi tạo LLM qua get_chat_model() liên kết với PROCUREMENT_TOOLS.
+    - Khởi tạo LLM qua get_model_for_level(level=state.get("model_level")) liên kết với PROCUREMENT_TOOLS.
     - Đưa System Prompt vào đầu danh sách message nếu chưa có.
     - Thực thi suy luận LLM và sinh tool calls hoặc final answer.
     """
@@ -24,7 +24,7 @@ async def procurement_node(state: ProcurementState) -> dict[str, list[BaseMessag
         messages = [SystemMessage(content=system_prompt)] + messages
 
     # 2. Khởi tạo LLM và bind các công cụ tra cứu gAMSPro
-    llm = get_chat_model().bind_tools(PROCUREMENT_TOOLS)
+    llm = get_model_for_level(level=state.get("model_level")).bind_tools(PROCUREMENT_TOOLS)
 
     # 3. Thực thi suy luận LLM
     response = await llm.ainvoke(messages)

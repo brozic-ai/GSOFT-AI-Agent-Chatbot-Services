@@ -138,11 +138,9 @@ class VectorRetriever:
 
         # 6. Rerank kết quả và chỉ giữ lại Top-K tinh hoa nhất gửi tới LLM
         if raw_docs:
-            rerank_k = getattr(settings, "RERANKER_TOP_K", 4)
-            if is_exhaustive:
-                rerank_k = max(rerank_k, min(effective_top_k, rerank_k * 2))
-            else:
-                rerank_k = min(effective_top_k, rerank_k)
+            # Keep an explicit caller/level budget through reranking. Query-only
+            # callers still use the analyzer's dynamic budget.
+            rerank_k = effective_top_k
 
             if hasattr(self.reranker, "rerank_with_scores"):
                 scored_results = self.reranker.rerank_with_scores(

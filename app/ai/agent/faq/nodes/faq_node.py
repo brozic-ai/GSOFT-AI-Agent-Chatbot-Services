@@ -7,13 +7,16 @@ Loại bỏ vòng lặp ReAct dư thừa giúp giảm 2x latency và ngăn ngừ
 import logging
 from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 
+from app.ai.agent.fallback.nodes.fallback_node import (
+    fallback_node as central_fallback_node,
+)
 from app.ai.agent.faq.prompts.registry import get_system_prompt
 from app.ai.agent.faq.services.faq_retriever import retrieve_and_rerank_faqs
 from app.ai.agent.faq.state import FAQState
 from app.core.config import settings
-from app.llmops.factory import get_chat_model
+from app.llmops.factory import get_model_for_level
 
 logger = logging.getLogger(__name__)
 
@@ -92,22 +95,20 @@ async def generate_faq_node(state: FAQState) -> dict[str, Any]:
         HumanMessage(content=user_prompt),
     ]
 
-    # 4. Gọi LLM
-    llm = get_chat_model()
+    # 4. Respect the user-selected level for generated FAQ answers.
+    llm = get_model_for_level(level=state.get("model_level"))
     response = await llm.ainvoke(messages)
     answer_text = str(response.content)
 
     logger.info(
-        "[FAQ NODE] [OK] Đã sinh câu trả lời hoàn tất (độ dài: %d ký tự).", len(answer_text)
+        "[FAQ NODE] [OK] Đã sinh câu trả lời hoàn tất (độ dài: %d ký tự).",
+        len(answer_text),
     )
 
     return {
         "messages": [response],
         "final_answer": answer_text,
     }
-
-
-from app.ai.agent.fallback.nodes.fallback_node import fallback_node as central_fallback_node
 
 
 async def fallback_faq_node(state: FAQState) -> dict[str, Any]:
@@ -118,15 +119,14 @@ async def fallback_faq_node(state: FAQState) -> dict[str, Any]:
     return await central_fallback_node(state)
 
 
-
 # Alias tương thích ngược
 faq_agent_node = generate_faq_node
 faq_node = generate_faq_node
 
 __all__ = [
-    "retrieve_faq_node",
-    "generate_faq_node",
     "fallback_faq_node",
     "faq_agent_node",
     "faq_node",
+    "generate_faq_node",
+    "retrieve_faq_node",
 ]

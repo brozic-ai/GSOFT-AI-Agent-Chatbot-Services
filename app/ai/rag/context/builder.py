@@ -12,13 +12,12 @@ Chịu trách nhiệm:
 
 import logging
 import re
+import urllib.parse
 from typing import Any
 
 from app.ai.rag.text.cleaner import TextArtifactCleaner
 from app.ai.rag.text.normalizer import normalize_for_match
 from app.core.config import settings
-
-import urllib.parse
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +31,7 @@ def _clean_source_name(raw_source: Any) -> str:
         # 解码 URL percent encoding và dấu '+' thành khoảng trắng
         decoded = urllib.parse.unquote_plus(source_str)
         return decoded
-    except Exception:
+    except Exception:  # noqa: BLE001
         return source_str
 
 
@@ -130,6 +129,7 @@ class RagContextBuilder:
         cls,
         documents: list[str],
         metadatas: list[dict[str, Any]],
+        max_context_chars: int | None = None,
     ) -> tuple[str, list[dict[str, Any]], list[dict[str, Any]]]:
         """
         Xây dựng chuỗi ngữ cảnh RAG hoàn chỉnh đã qua làm sạch và khử trùng lặp.
@@ -137,7 +137,7 @@ class RagContextBuilder:
         Returns:
             (context_text, used_metadatas, used_citations)
         """
-        if not documents:
+        if not documents or max_context_chars == 0:
             return "", [], []
 
         line_occurrences: dict[str, int] = {}
@@ -221,7 +221,7 @@ class RagContextBuilder:
                 )
                 continue
 
-            # 5. Length constraint check đối với tổng context (tối đa 18,000 ký tự)
+            # 5. Length constraint check đối với tổng context (tối đa theo max_context_chars động)
             temp_chunk_counter = chunk_counter + 1
             citation_label = _build_citation_label(meta)
             formatted_chunk = (
@@ -231,14 +231,18 @@ class RagContextBuilder:
             temp_blocks = used_blocks + [formatted_chunk]
             temp_context = "\n\n---\n\n".join(temp_blocks)
 
-            max_context_chars = getattr(settings, "RAG_CONTEXT_MAX_CHARS", 18000)
-            if len(temp_context) > max_context_chars:
-                logger.info(
-                    "[BUILDER] Discarded chunk because total context length (%d chars) would exceed %d chars limit.",
-                    len(temp_context),
-                    max_context_chars,
-                )
-                continue
+            limit_chars = max_context_chars if max_context_chars is not None else settings.RAG_CONTEXT_MAX_CHARS
+            if len(temp_context) > limit_chars:
+                # Preserve a ranked prefix with its source label instead of
+                # discarding an entire long document. Mark partial content.
+                prefix = f"[ĐOẠN {temp_chunk_counter} - {citation_label}]\n"
+                separator = 7 if used_blocks else 0  # \n\n---\n\n
+                remaining = limit_chars - len("\n\n---\n\n".join(used_blocks)) - separator - len(prefix)
+                marker = "\n[Nội dung còn lại đã được lược bớt.]"
+                if remaining < len(marker) + 64:
+                    continue
+                cleaned = cleaned[:remaining - len(marker)].rstrip() + marker
+                formatted_chunk = prefix + cleaned
 
             # Chấp nhận chunk
             chunk_counter = temp_chunk_counter

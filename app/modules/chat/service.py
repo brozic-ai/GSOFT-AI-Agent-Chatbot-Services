@@ -16,6 +16,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 from app.ai.rag.context.builder import RagContextBuilder, determine_max_tokens
 from app.ai.rag.retrieval.retriever import VectorRetriever
 from app.modules.chat.repository import ChatRepository
+from app.core.model_levels import normalize_model_level
 
 logger = logging.getLogger(__name__)
 
@@ -263,7 +264,7 @@ class ChatService:
                     "top_k": top_k,
                     "is_retry": is_retry,
                     "retry_message_id": retry_message_id,
-                    "model_level": model_level or "medium",
+                    "model_level": normalize_model_level(model_level),
                 },
                 trace_name=f"{'[RETRY] ' if is_retry else ''}Orchestrator-Chat: {base_query[:35]}",
                 trace_id=trace_id,
@@ -274,7 +275,7 @@ class ChatService:
                 if conversation_id
                 else f"chat-{uuid.uuid4().hex[:8]}",
                 "user_query": base_query,
-                "model_level": model_level or "medium",
+                "model_level": normalize_model_level(model_level),
                 "user_info": {
                     "roles": user_roles,
                     "department": user_department,
@@ -382,6 +383,7 @@ class ChatService:
                 self.chat_repo.touch_conversation(conversation_id)
 
             ended_payload = {
+                "routing_metadata": orch_result.get("routing_metadata", {}),
                 "message_id": saved_msg_id,
                 "user_message_id": user_msg_id,
                 "trace_id": trace_id,

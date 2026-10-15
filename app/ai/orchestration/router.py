@@ -3,6 +3,7 @@ Router & Conditional Edges trong Orchestrator Graph.
 """
 
 import logging
+import math
 from typing import Any, Dict
 
 from app.ai.agent.supervisor.schemas import IntentType
@@ -57,18 +58,24 @@ def route_after_classification(state: Any) -> str:
     else:
         intent_str = str(raw_intent).lower()
 
-    confidence = getattr(route, "confidence", 1.0)
+    confidence = route.get("confidence", 0.0) if isinstance(route, dict) else getattr(route, "confidence", 0.0)
+    try:
+        confidence = float(confidence)
+    except (TypeError, ValueError):
+        return "fallback_agent"
+    if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
+        return "fallback_agent"
 
     # Nếu độ tin cậy quá thấp (< 0.5) -> Fallback
     if confidence < 0.5:
         logger.warning("[ROUTER] Độ tin cậy thấp (%s) -> Chuyển sang fallback_agent.", confidence)
         return "fallback_agent"
 
-    if "procurement" in intent_str:
+    if intent_str == "procurement":
         return "procurement_agent"
-    elif "rag" in intent_str:
+    elif intent_str == "rag":
         return "rag_agent"
-    elif "faq" in intent_str:
+    elif intent_str == "faq":
         return "faq_agent"
     else:
         return "fallback_agent"

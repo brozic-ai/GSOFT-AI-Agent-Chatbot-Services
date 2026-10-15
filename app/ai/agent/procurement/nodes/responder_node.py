@@ -4,7 +4,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 
 from app.ai.agent.procurement.prompts.registry import get_generator_messages, get_generator_prompt
 from app.ai.agent.procurement.state import ProcurementState
-from app.llmops.factory import get_chat_model
+from app.llmops.factory import get_model_for_level
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ async def responder_node(state: ProcurementState) -> Dict[str, Any]:
 
     # 5. Thực thi LLM sinh câu trả lời Markdown cuối cùng
     try:
-        llm = get_chat_model()
+        llm = get_model_for_level(level=state.get("model_level"))
         response = await llm.ainvoke(prompt_messages)
         ai_content = str(response.content).strip() if response.content else ""
 

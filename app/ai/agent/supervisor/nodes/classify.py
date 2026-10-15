@@ -1,10 +1,11 @@
 import json
 import logging
 import re
+
 from app.ai.agent.supervisor.prompts.registry import get_supervisor_messages
-from app.ai.agent.supervisor.schemas import RouterOutput
+from app.ai.agent.supervisor.schemas import IntentType, RouterOutput
 from app.ai.agent.supervisor.state import SupervisorState
-from app.llmops.factory import get_chat_model
+from app.llmops.factory import get_router_model
 
 logger = logging.getLogger(__name__)
 
@@ -22,89 +23,90 @@ async def classify_intent_node(state: SupervisorState) -> dict:
         state.get("chat_history", []) if isinstance(state, dict) else state.chat_history
     )
 
-    # 0. Fast-path heuristic cho pagination / follow-up / anaphora trong procurement (Zero-Latency, 100% Accuracy)
+    # Only inherit an intent for an actual follow-up. A manual mentioning
+    # gAMSPro/PO is not evidence of a live procurement operation.
     clean_q = (user_query or "").strip().lower().strip("*_\"'")
-    is_pagination = bool(
+    followup = bool(
         re.search(
-            r"^(xem\s+)?(tiếp|trang\s+\d+|trang\s+sau|kế\s+tiếp|thêm)|liệt\s+kê\s+(tất\s+cả|hết)",
+            r"^(?:xem\s+)?(?:tiếp\b|trang\s+\d+|trang\s+sau|kế\s+tiếp|thêm\b)"
+            r"|^(?:còn\s+nữa|bước\s+tiếp|có\s+hướng\s+dẫn|liệt\s+kê\s+(?:tiếp|tất\s+cả))"
+            r"|^(?:ok|đồng\s+ý|có|được|ừ|yes)[.!?\s]*$",
             clean_q,
         )
     )
-    is_ordinal_to_trinh = bool(
+    last_assistant = next(
+        (
+            str(h.get("content", ""))
+            for h in reversed(chat_history or [])
+            if h.get("role") in ("assistant", "ai")
+        ),
+        "",
+    )
+    last_user = next(
+        (
+            str(h.get("content", ""))
+            for h in reversed(chat_history or [])
+            if h.get("role") in ("user", "human")
+        ),
+        "",
+    )
+    instruction_pattern = r"\b(?:hướng dẫn|quy trình|các bước|bước tiếp|giải thích|tài liệu|cách|làm sao)\b"
+    asks_instructions = bool(re.search(instruction_pattern, clean_q))
+    history_instructions = bool(
+        re.search(instruction_pattern, (last_user or last_assistant).lower())
+    )
+    history_records = bool(
         re.search(
-            r"(chi\s+tiết\s+)?(tờ\s+trình|hồ\s+sơ|đơn|mục|cái)\s+(đầu\s+tiên|thứ\s+\d+|số\s+\d+)",
-            clean_q,
+            r"\b(?:PUR/\d{4}/\d+|TRRD\d+|PO[/\-]\w+|danh sách tờ trình|ngân sách còn lại)\b",
+            last_assistant,
+            re.IGNORECASE,
         )
     )
-    is_pur_detail = bool(re.search(r"(xem\s+chi\s+tiết|thông\s+tin)\s+pur/", clean_q))
-    is_followup_confirmation = bool(
-        re.search(
-            r"^(có\b|đồng\s*ý|được|ok\b|ừ\b|yes\b|tiến\s*hành|thực\s*hiện|kiểm\s*tra|tra\s*cứu|xem\s*giúp)",
-            clean_q,
+    # A new action is not a request to continue a manual, even if prefixed
+    # with "tiếp tục". Let the model resolve it against the full history.
+    if not asks_instructions and re.search(
+        r"\b(?:tạo|gửi|phê duyệt|duyệt|hủy|xóa|cập nhật|kiểm tra)\b", clean_q
+    ):
+        followup = False
+    intent = None
+    if followup and last_assistant:
+        if asks_instructions or history_instructions:
+            intent = "rag"
+        elif history_records:
+            intent = "procurement"
+    if intent:
+        context = last_user or last_assistant[:2000]
+        route_result = RouterOutput(
+            reasoning="Câu hỏi tiếp nối kế thừa đúng ngữ cảnh hướng dẫn hoặc hồ sơ thực tế.",
+            intent=intent,
+            query=f"{user_query}\nNgữ cảnh câu hỏi trước: {context}",
+            confidence=0.95,
         )
-        or any(
-            phrase in clean_q
-            for phrase in [
-                "kiểm tra giúp",
-                "kiểm tra giùm",
-                "kiểm tra hộ",
-                "tra cứu giúp",
-                "kiểm tra ngân sách",
-                "kiểm tra kế hoạch",
-                "xem ngân sách",
-                "xem kế hoạch",
-            ]
-        )
-    )
+        return {"route": route_result, "intent": intent}
 
-    if (is_pagination or is_ordinal_to_trinh or is_pur_detail or is_followup_confirmation) and chat_history:
-        last_assistant_msg = ""
-        for h in reversed(chat_history):
-            if h.get("role") in ("assistant", "ai"):
-                last_assistant_msg = h.get("content", "")
-                break
-
-        procurement_keywords = [
-            "tờ trình",
-            "pur/",
-            "gamspro",
-            "kế hoạch",
-            "ngân sách",
-            "đơn hàng",
-            "đơn đặt hàng",
-            "po",
-        ]
-        if any(kw in last_assistant_msg.lower() for kw in procurement_keywords):
-            logger.info(
-                "[SUPERVISOR-CLASSIFY] Fast-path định tuyến 'procurement' cho câu hỏi tiếp nối / xác nhận: '%s'",
-                clean_q,
-            )
-            route_result = RouterOutput(
-                reasoning=(
-                    "Người dùng đang xác nhận thực hiện thao tác tiếp nối hoặc điều hướng hồ sơ gAMSPro từ ngữ cảnh trước."
-                ),
-                intent="procurement",
-                query=user_query,
-                confidence=1.0,
-            )
-            return {"route": route_result, "intent": "procurement"}
-
-    # 1. Khởi tạo LLM từ factory kèm Pydantic Output Schema
-    llm = get_chat_model()
-    structured_llm = llm.with_structured_output(RouterOutput)
+    # 1. Khởi tạo Router LLM chuyên trách từ factory kèm Pydantic Output Schema
+    llm = get_router_model(temperature=0.0, max_tokens=512)
 
     # 2. Lấy Chat Messages trực tiếp từ Langfuse/Local Chat Prompt (System + User)
     messages = get_supervisor_messages(query=user_query, chat_history=chat_history)
 
     # 3. Gọi LLM suy luận phân loại Intent
     try:
-        route_result: RouterOutput = await structured_llm.ainvoke(messages)
-    except Exception as ex:
-        logger.warning("[SUPERVISOR-CLASSIFY] with_structured_output failed (%s). Falling back to direct JSON parsing.", ex)
+        structured_llm = llm.with_structured_output(RouterOutput)
+        route_result = RouterOutput.model_validate(
+            await structured_llm.ainvoke(messages)
+        )
+    except Exception as ex:  # noqa: BLE001
+        logger.warning(
+            "[SUPERVISOR-CLASSIFY] with_structured_output failed (%s). Falling back to direct JSON parsing.",
+            ex,
+        )
         raw_res = await llm.ainvoke(messages)
         raw_text = raw_res.content if hasattr(raw_res, "content") else str(raw_res)
         # Loại bỏ markdown code blocks (```json ... ```) nếu có
-        clean_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(raw_text).strip(), flags=re.MULTILINE).strip()
+        clean_text = re.sub(
+            r"^```(?:json)?\s*|\s*```$", "", str(raw_text).strip(), flags=re.MULTILINE
+        ).strip()
         try:
             data = json.loads(clean_text)
             route_result = RouterOutput(**data)
@@ -115,6 +117,24 @@ async def classify_intent_node(state: SupervisorState) -> dict:
                 route_result = RouterOutput(**data)
             else:
                 raise
+
+    # Scope is a separate model judgement. For FAQ, explicit workplace terms
+    # take precedence over a mistaken scope flag from a small classifier.
+    company_faq = bool(
+        re.search(
+            r"\b(?:bvbank|bản việt|công ty|ngân hàng|nội bộ|nhân viên|nhân sự|"
+            r"nghỉ phép|nghỉ lễ|giờ làm|chấm công|trang phục|đào tạo|lương|"
+            r"phúc lợi|bảo hiểm|helpdesk|hr|it|nội quy)\b",
+            user_query,
+            re.IGNORECASE,
+        )
+    )
+    if (
+        route_result.intent == IntentType.FAQ
+        and not route_result.in_scope
+        and not company_faq
+    ):
+        route_result = route_result.model_copy(update={"intent": IntentType.FALLBACK})
 
     # 4. Trả về cập nhật thuộc tính route và intent trong State
     intent_val = (

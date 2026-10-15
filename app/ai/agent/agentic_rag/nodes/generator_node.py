@@ -2,11 +2,14 @@ import logging
 import re
 from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage
 
 from app.ai.agent.agentic_rag.prompts.registry import get_generator_prompt
 from app.ai.agent.agentic_rag.state import AgenticRagState
-from app.llmops.factory import get_chat_model
+from app.core.config import settings
+from app.core.model_levels import normalize_model_level
+from app.llmops.factory import get_context_params_for_level, get_model_for_level
+from app.llmops.token_budget import PromptBudgetError, prepare_rag_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -56,24 +59,27 @@ def clean_rag_generation_output(text: str, user_query: str = "") -> str:
         for idx, line in enumerate(lines):
             line_str = line.strip()
             if not line_str:
-                if has_started_items:
+                if has_started_items and idx + 1 < len(lines):
                     # Kiểm tra dòng tiếp theo sau dòng trống
-                    if idx + 1 < len(lines):
-                        next_line = lines[idx + 1].strip()
-                        if next_line and not re.match(
-                            r"^[-*•–\d\[\(]|^(?:Trang|Slide|Mục|Tài liệu)", next_line, re.IGNORECASE
-                        ):
-                            logger.info(
-                                "[GENERATOR-CLEANER] Phát hiện đoạn văn bản mới sau dòng trống tham khảo: '%s...'. Dừng trích dẫn.",
-                                next_line[:40],
-                            )
-                            break
+                    next_line = lines[idx + 1].strip()
+                    if next_line and not re.match(
+                        r"^[-*•–\d\[\(]|^(?:Trang|Slide|Mục|Tài liệu)",
+                        next_line,
+                        re.IGNORECASE,
+                    ):
+                        logger.info(
+                            "[GENERATOR-CLEANER] Phát hiện đoạn văn bản mới sau dòng trống tham khảo: '%s...'. Dừng trích dẫn.",
+                            next_line[:40],
+                        )
+                        break
                 valid_ref_lines.append(line)
                 continue
 
             # Dòng tiêu đề "Tài liệu tham khảo:"
             if idx == 0 or re.match(
-                r"^(?:📌\s*)?\*?\*?Tài\s+liệu\s+tham\s+khảo:?\*?\*?$", line_str, re.IGNORECASE
+                r"^(?:📌\s*)?\*?\*?Tài\s+liệu\s+tham\s+khảo:?\*?\*?$",
+                line_str,
+                re.IGNORECASE,
             ):
                 valid_ref_lines.append(line)
                 continue
@@ -104,7 +110,9 @@ def clean_rag_generation_output(text: str, user_query: str = "") -> str:
         cleaned = cleaned[:ref_start] + "\n".join(valid_ref_lines).rstrip()
 
     # 4. Kiểm tra nếu tiêu đề câu hỏi / câu mở đầu dòng 1 lặp lại lần 2 ở giữa hoặc cuối câu trả lời
-    first_heading = cleaned.splitlines()[0].strip().strip(":*# ") if cleaned.splitlines() else ""
+    first_heading = (
+        cleaned.splitlines()[0].strip().strip(":*# ") if cleaned.splitlines() else ""
+    )
     candidates = []
     if len(first_heading) >= 15:
         candidates.append(first_heading)
@@ -113,7 +121,13 @@ def clean_rag_generation_output(text: str, user_query: str = "") -> str:
 
     for cand in candidates:
         cand_esc = re.escape(cand)
-        matches = list(re.finditer(rf"(?<=\))\s*{cand_esc}:?|(?:\n|^)\s*{cand_esc}:?", cleaned, re.IGNORECASE))
+        matches = list(
+            re.finditer(
+                rf"(?<=\))\s*{cand_esc}:?|(?:\n|^)\s*{cand_esc}:?",
+                cleaned,
+                re.IGNORECASE,
+            )
+        )
         if len(matches) > 1:
             second_match = matches[1]
             if second_match.start() > 80:
@@ -122,7 +136,7 @@ def clean_rag_generation_output(text: str, user_query: str = "") -> str:
                     second_match.start(),
                     cand[:40],
                 )
-                cleaned = cleaned[:second_match.start()].rstrip()
+                cleaned = cleaned[: second_match.start()].rstrip()
                 break
 
     # 5. Khử lặp 2 nửa chuỗi nguyên văn (LLM lặp lại toàn bộ câu trả lời)
@@ -131,7 +145,9 @@ def clean_rag_generation_output(text: str, user_query: str = "") -> str:
         p1 = cleaned[:half].strip()
         p2 = cleaned[half:].strip()
         if p1 == p2:
-            logger.info("[GENERATOR-CLEANER] Phát hiện lặp 2 nửa chuỗi nguyên văn. Cắt bỏ nửa sau.")
+            logger.info(
+                "[GENERATOR-CLEANER] Phát hiện lặp 2 nửa chuỗi nguyên văn. Cắt bỏ nửa sau."
+            )
             cleaned = p1
 
     return cleaned
@@ -162,7 +178,11 @@ async def generator_node(state: AgenticRagState) -> dict[str, Any]:
 
     if not user_query and messages:
         for m in reversed(messages):
-            if hasattr(m, "content") and m.content and getattr(m, "type", "") in ("human", "user"):
+            if (
+                hasattr(m, "content")
+                and m.content
+                and getattr(m, "type", "") in ("human", "user")
+            ):
                 user_query = str(m.content)
                 break
 
@@ -175,40 +195,51 @@ async def generator_node(state: AgenticRagState) -> dict[str, Any]:
             "citations": [],
         }
 
-    # 2. Sử dụng RagContextBuilder để chuẩn hóa, khử trùng lặp và đóng gói [ĐOẠN n]
+    # 2. Định tuyến Model & Ngữ cảnh linh hoạt (Dynamic Context per Model Level)
+    model_level = (
+        state.get("model_level", "medium")
+        if isinstance(state, dict)
+        else getattr(state, "model_level", "medium")
+    ) or "medium"
+
+    model_level = normalize_model_level(model_level)
+    effective_level = model_level
     from app.ai.rag.context.builder import RagContextBuilder, determine_max_tokens
 
-    context_str, used_metas, used_citations = RagContextBuilder.build(
-        documents=documents,
-        metadatas=citations,
-    )
-
-    if not context_str.strip():
-        answer = "Dạ, tôi không tìm thấy tài liệu phù hợp trong phạm vi quyền hạn được cấp của Anh/Chị trên eOffice."
-        return {
-            "final_answer": answer,
-            "messages": [AIMessage(content=answer)],
-            "citations": [],
-        }
-
-    # 3. Tính toán max_tokens động theo số bước nghiệp vụ trong context
-    dynamic_max_tokens = determine_max_tokens(context_str)
-    llm = get_chat_model(max_tokens=dynamic_max_tokens)
-
-    # Bắt buộc lấy prompt từ Langfuse — raise RuntimeError nếu không có
-    try:
-        generator_prompt = get_generator_prompt()
-    except RuntimeError as prompt_err:
-        logger.error("[GENERATOR-NODE] %s", prompt_err)
-        err_answer = (
-            "⚠️ Hệ thống hiện không thể kết nối tới kho quản lý Prompt (Langfuse). "
-            "Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên hệ thống."
+    # Probe the cleaned context BEFORE truncating it to low's budget.
+    if settings.ENABLE_ROUTER_SMART_ESCALATION and model_level == "low":
+        probe, _, _ = RagContextBuilder.build(
+            documents, citations,
+            max_context_chars=get_context_params_for_level("medium")["max_chars"],
         )
-        return {
-            "final_answer": err_answer,
-            "messages": [AIMessage(content=err_answer)],
-            "citations": [],
-        }
+        if len(documents) > 6 or len(probe) > get_context_params_for_level("low")["max_chars"]:
+            effective_level = "medium"
+            logger.info("[GENERATOR-ROUTER] Escalating low -> medium before context truncation")
+
+    context_params = get_context_params_for_level(effective_level)
+    output_cap = getattr(settings, f"MODEL_LEVEL_{effective_level.upper()}_MAX_OUTPUT_TOKENS")
+    # Give all levels a useful answer budget, including non-procedural analysis.
+    context_preview, _, _ = RagContextBuilder.build(documents, citations, context_params["max_chars"])
+    if not context_preview.strip():
+        answer = "Dạ, tôi không tìm thấy tài liệu phù hợp trong phạm vi quyền hạn được cấp của Anh/Chị trên eOffice."
+        return {"final_answer": answer, "messages": [AIMessage(content=answer)], "citations": []}
+    dynamic_max_tokens = (
+        min(output_cap, max(determine_max_tokens(context_preview), output_cap // 2))
+        if settings.RAG_DYNAMIC_MAX_TOKENS_ENABLED else output_cap
+    )
+    generator_prompt = get_generator_prompt()
+    try:
+        prompt_messages, used_citations, routing_metadata = await prepare_rag_prompt(
+            level=effective_level, system_prompt=generator_prompt, query=user_query,
+            history=messages, documents=documents, citations=citations,
+            max_chars=context_params["max_chars"], max_tokens=dynamic_max_tokens,
+        )
+    except PromptBudgetError:
+        logger.warning("[GENERATOR-ROUTER] Fixed prompt/query cannot fit serving context")
+        answer = "Câu hỏi hoặc ngữ cảnh hội thoại quá dài. Anh/Chị vui lòng chia nhỏ yêu cầu để tôi có thể trả lời chính xác theo tài liệu."
+        return {"final_answer": answer, "messages": [AIMessage(content=answer)], "citations": []}
+    routing_metadata["requested_model_level"] = model_level
+    llm = get_model_for_level(level=effective_level, max_tokens=dynamic_max_tokens)
 
     # 4. Thiết lập Stop Sequences ngăn chặn LLM chạy tràn hoặc sinh lặp lại prompt
     stop_sequences = [
@@ -222,21 +253,9 @@ async def generator_node(state: AgenticRagState) -> dict[str, Any]:
         "<|endoftext|>",
     ]
 
-    response = await llm.ainvoke(
-        [
-            SystemMessage(content=generator_prompt),
-            HumanMessage(
-                content=f"Câu hỏi của cán bộ nhân viên: {user_query}\n\nNGỮ CẢNH TÀI LIỆU QUY CHẾ / HDSD:\n{context_str}"
-            ),
-        ],
-        stop=stop_sequences,
-    )
+    response = await llm.ainvoke(prompt_messages, stop=stop_sequences)
 
-    answer = (
-        response.content
-        if hasattr(response, "content")
-        else str(response)
-    )
+    answer = response.content if hasattr(response, "content") else str(response)
 
     # Đảm bảo trả về string sạch
     if isinstance(answer, list):
@@ -250,5 +269,6 @@ async def generator_node(state: AgenticRagState) -> dict[str, Any]:
     return {
         "final_answer": answer,
         "messages": [AIMessage(content=answer)],
-        "citations": used_citations if used_citations else citations,
+        "citations": used_citations,
+        "routing_metadata": routing_metadata,
     }

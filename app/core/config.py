@@ -3,13 +3,14 @@ from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Only load this service's .env. Explicit process variables take precedence so
 # a local test cannot inherit credentials from a parent project's .env.
 _ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 load_dotenv(dotenv_path=_ENV_FILE, override=False)
+
 
 class Settings(BaseSettings):
     RAG_REQUIRE_FILE_SHA256: bool = True
@@ -59,6 +60,37 @@ class Settings(BaseSettings):
     FALLBACK_AI_PROVIDER: str | None = None
     TEST_PROVIDER: str = "vllm"
 
+    # --- Dynamic Model Routing Matrix (Llama Router & On-Premise 3 Levels) ---
+    ROUTER_PROVIDER: str = "vllm"
+    ROUTER_MODEL: str = "Qwen3.5-2B_Q4_k_m"
+
+    # Level 1: Low (Phản hồi nhanh, context ngắn)
+    MODEL_LEVEL_LOW_PROVIDER: str = "vllm"
+    MODEL_LEVEL_LOW_MODEL: str = "Qwen3.5-2B_Q4_k_m"
+    MODEL_LEVEL_LOW_TOP_K: int = 3
+    MODEL_LEVEL_LOW_MAX_CHARS: int = 6000
+
+    # Level 2: Medium (Tiêu chuẩn cân bằng - Mặc định)
+    MODEL_LEVEL_MEDIUM_PROVIDER: str = "vllm"
+    MODEL_LEVEL_MEDIUM_MODEL: str = "Qwen3.5-4B-M-TS-Q4_K_M"
+    MODEL_LEVEL_MEDIUM_TOP_K: int = 5
+    MODEL_LEVEL_MEDIUM_MAX_CHARS: int = 16000
+
+    # Level 3: High (Chuyên sâu, context mở rộng cho nghiệp vụ phức tạp)
+    MODEL_LEVEL_HIGH_PROVIDER: str = "vllm"
+    MODEL_LEVEL_HIGH_MODEL: str = "Qwen3.5-4B-M-TS-Q4_K_M"
+    MODEL_LEVEL_HIGH_TOP_K: int = 10
+    MODEL_LEVEL_HIGH_MAX_CHARS: int = 24000
+
+    ENABLE_ROUTER_SMART_ESCALATION: bool = True
+    MODEL_LEVEL_LOW_MAX_OUTPUT_TOKENS: int = Field(default=900, gt=0)
+    MODEL_LEVEL_MEDIUM_MAX_OUTPUT_TOKENS: int = Field(default=1600, gt=0)
+    MODEL_LEVEL_HIGH_MAX_OUTPUT_TOKENS: int = Field(default=2400, gt=0)
+    # Serving context window, NOT the model's training context length.
+    LLM_CONTEXT_WINDOW: int = Field(default=8192, ge=512)
+    LLM_CONTEXT_SAFETY_TOKENS: int = Field(default=128, ge=0)
+    LLM_TOKENIZER_TIMEOUT: float = Field(default=3.0, gt=0)
+
     # --- Local / vLLM API Config ---
     LLM_MODEL: str = "qwen2.5:3b"
     LLM_BASE_URL: str = "http://localhost:11434/v1"
@@ -103,7 +135,9 @@ class Settings(BaseSettings):
     FAQ_FAST_MATCH_ENABLED: bool = True
     FAQ_FAST_MATCH_THRESHOLD: float = 0.80
     CHAT_HISTORY_LIMIT: int = 10
-    CHAT_RETENTION_DAYS: int = 30  # Tự xóa hội thoại không hoạt động quá N ngày (0 = tắt)
+    CHAT_RETENTION_DAYS: int = (
+        30  # Tự xóa hội thoại không hoạt động quá N ngày (0 = tắt)
+    )
 
     # --- RAG Dynamic Top-K Config (Min = 3, Max = 15) ---
     RAG_DYNAMIC_TOP_K_ENABLED: bool = True
@@ -165,7 +199,11 @@ os.environ.pop("LANGSMITH_ENDPOINT", None)
 
 # Đồng bộ biến môi trường cho Langfuse SDK
 if settings.LANGFUSE_ENABLED:
-    lf_host = settings.LANGFUSE_BASE_URL or settings.LANGFUSE_HOST or os.getenv("LANGFUSE_HOST", "http://localhost:3000")
+    lf_host = (
+        settings.LANGFUSE_BASE_URL
+        or settings.LANGFUSE_HOST
+        or os.getenv("LANGFUSE_HOST", "http://localhost:3000")
+    )
     lf_public_key = settings.LANGFUSE_PUBLIC_KEY or os.getenv("LANGFUSE_PUBLIC_KEY", "")
     lf_secret_key = settings.LANGFUSE_SECRET_KEY or os.getenv("LANGFUSE_SECRET_KEY", "")
 
@@ -175,5 +213,3 @@ if settings.LANGFUSE_ENABLED:
         os.environ["LANGFUSE_PUBLIC_KEY"] = lf_public_key
     if lf_secret_key:
         os.environ["LANGFUSE_SECRET_KEY"] = lf_secret_key
-
-

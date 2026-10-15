@@ -21,6 +21,7 @@ class FAQState(TypedDict, total=False):
 
     # Mã phiên làm việc
     session_id: str
+    model_level: str
 
     # Danh sách FAQ tìm được từ Hybrid Search (do tool trả về, dùng trong logging/debug)
     retrieved_faqs: list[dict]
